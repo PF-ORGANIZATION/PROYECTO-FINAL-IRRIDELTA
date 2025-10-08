@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-gray-50 text-gray-900;
+}
+
+.logo-irridelta{
+  width: 80%; max-width: 16em; height: auto;
+}
+
+.brand-logo-card {
+  filter: grayscale(100%);
+  transition: filter 0.5s ease;
+}
+.brand-logo-card:hover {
+  filter: grayscale(0%);
+}
