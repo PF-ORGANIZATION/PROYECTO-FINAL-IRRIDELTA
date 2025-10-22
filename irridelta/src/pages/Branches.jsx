@@ -17,7 +17,7 @@ function Branches() {
       whatsapp: "https://wa.me/5491162856483",
       address: "Av. San Martin 2213, Belén de Escobar",
       schedule: "Lunes a Viernes: 8:00 a 17:30",
-      schedule2:"" // Dejar vacío para que no muestre nada
+      schedule2:"Sábados: 8:00 a 13:00"
     }
   ];
 

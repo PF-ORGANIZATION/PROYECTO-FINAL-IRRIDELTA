@@ -1,7 +1,6 @@
 import React from 'react';
-// Asegúrate de importar los íconos de redes sociales de lucide-react
 import { Mail, Zap, Compass, CheckCircle, Facebook, Instagram } from 'lucide-react';
-// Importaciones de react-icons que ya tenías
+import { Helmet } from 'react-helmet-async';
 import { FaUserGraduate } from 'react-icons/fa6';
 import { PiGraduationCapLight } from 'react-icons/pi';
 import { BsBoxes } from 'react-icons/bs';
@@ -49,8 +48,31 @@ const FeatureCard = ({ icon: Icon, title, description, color }) => (
 
 function Home() {
     return (
+
         <div className="w-full bg-white">
             
+            <Helmet>
+                {/* Etiqueta <title> (La más importante para SEO) */}
+                <title>IRRIDELTA | Soluciones integrales de Riegos y Piscinas en Argentina</title>
+
+                {/* Etiqueta <meta name="description"> */}
+                <meta 
+                    name="description" 
+                    content="IRRIDELTA, expertos con 30+ años en sistemas de riego y piscinas. Marcas líderes, stock integral y soporte técnico asegurado."
+                />
+
+                {/* Etiquetas Open Graph (OG) para redes sociales */}
+                <meta property="og:title" content="IRRIDELTA | Riego y Piscinas" />
+                <meta property="og:description" content="Sistemas de riego eficientes, insumos de primeras marcas y asesoramiento especializado en Argentina." />
+                <meta property="og:url" content="http://www.irridelta.com.ar/" />
+                {/* Debes reemplazar esta URL por la URL absoluta de la imagen de previsualización (tu logo o un banner atractivo) */}
+                <meta property="og:image" content="http://localhost:5173/logo-irridelta-nav.png" />
+                <meta property="og:type" content="website" />
+
+                {/* Etiqueta Canónica (Recomendada) */}
+                <link rel="canonical" href="http://www.irridelta.com.ar/" />
+            </Helmet>
+
             {/* 1. Banner Principal (Hero Section) */}
             <section className="relative h-[60vh] md:h-[80vh] bg-cover bg-center" 
                 style={{ backgroundImage: "url('/ampliada 1.jpg')" }}> 

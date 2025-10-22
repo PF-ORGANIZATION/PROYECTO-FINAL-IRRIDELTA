@@ -15,6 +15,21 @@ function Products({ whatsappLink }) {
 
   // Carga productos y categorías desde Supabase
   useEffect(() => {
+    async function keepAlive() {
+    try {
+      const key = import.meta.env.VITE_SUPABASE_URL
+      await fetch(key + "/rest/v1/productos", {
+        headers: {
+          apikey: import.meta.env.VITE_SUPABASE_KEY
+        }
+      });
+    } catch (err) {
+      console.warn("Ping Supabase falló (no importa):", err.message);
+    }
+  }
+
+  keepAlive();
+
     async function fetchData() {
       setLoading(true);
       setError(null);
