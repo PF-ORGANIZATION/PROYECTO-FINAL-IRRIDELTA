@@ -1,90 +1,186 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { supabase } from './supabaseClient';
+import React, { useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { supabase } from "./supabaseClient";
+import { useSessionStore } from "./store/sessionStore";
 
-// Importamos el Proveedor del Contexto de Productos
-import { ProductProvider } from "./context/ProductContext"; 
+import { ProductProvider } from "./context/ProductContext";
 
-// Componentes y Páginas de la aplicación
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import About from "./pages/About";
-import Products from "./pages/Products"; // Página pública de productos
+import Products from "./pages/Products";
 import Branches from "./pages/Branches";
 import Contact from "./pages/Contact";
-import Login from './pages/Login'; 
-import AdminProducts from './pages/AdminProducts'; // ABM de productos y categorías
+import Login from "./pages/Login";
+import AdminProducts from "./pages/AdminProducts";
+import Capacitaciones from "./pages/Capacitaciones";
+import Certificaciones from "./pages/Certificaciones";
+import CertificationExam from "./pages/CertificationExam";
+import AdminCapacitaciones from "./pages/AdminCapacitaciones";
+import AdminCertificaciones from "./pages/AdminCertificaciones";
+import { getDefaultPathByRole, USER_ROLES } from "./utils/authRoles";
 
-// URL base de WhatsApp (reemplaza 'TUNUMERO' por el número real)
-const WHATSAPP_NUMBER = '5491162856483'; 
+const WHATSAPP_NUMBER = "5491162856483";
 
-// --- PROTECCIÓN DE RUTA (HOC) ---
-function ProtectedRoute({ element: Element, isLoggedIn, ...rest }) {
-    return isLoggedIn ? <Element {...rest} /> : <Navigate to="/login" replace />;
+function ProtectedRoute({ element: Element, allowedRoles = [], ...rest }) {
+  const user = useSessionStore((state) => state.user);
+  const role = useSessionStore((state) => state.role);
+  const isLoading = useSessionStore((state) => state.isLoading);
+
+  if (isLoading) {
+    return <div className="p-8 text-center">Cargando sesion...</div>;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles.length > 0 && !allowedRoles.includes(role)) {
+    return <Navigate to={getDefaultPathByRole(role)} replace />;
+  }
+
+  return <Element {...rest} />;
 }
 
-// --- COMPONENTE PRINCIPAL ---
 function App() {
-    // 1. SOLO mantenemos estados de INTERFAZ y AUTENTICACIÓN
-    const [isLoggedIn, setIsLoggedIn] = useState(false); 
-    
-    // 2. ELIMINAMOS: initialProducts, initialCategories, y los estados products/categories.
-    // 3. ELIMINAMOS: saveProduct, deleteProduct, saveCategory, deleteCategory.
+  const setSession = useSessionStore((state) => state.setSession);
+  const clearSession = useSessionStore((state) => state.clearSession);
 
-    // Genera el enlace de WhatsApp (se puede pasar como prop a las rutas que lo necesiten)
-    const whatsappLink = (productName) => 
-        `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hola, estoy interesado en el producto: ${productName}. Por favor, dame más información.`)}`;
+  useEffect(() => {
+    let isMounted = true;
 
+    const syncSession = async () => {
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
 
-    return (
-        // 4. Envolvemos toda la aplicación en el ProductProvider
-        <ProductProvider> 
-            <Router>
-                <div className="min-h-screen flex flex-col font-inter">
-                    <Navbar isLoggedIn={isLoggedIn} />
+      if (error) {
+        console.error("No se pudo obtener la sesion actual", error);
+        if (isMounted) {
+          clearSession();
+        }
+        return;
+      }
 
-                    <main className="flex-grow">
-                        <Routes>
-                            <Route path="/" element={<Home />} />
-                            
-                            {/* 5. La página de productos ahora obtiene datos del Contexto (ya no necesita props de datos) */}
-                            <Route 
-                                path="/productos" 
-                                element={<Products whatsappLink={whatsappLink} />} 
-                            />
-                            
-                            <Route path="/nosotros" element={<About />} />
-                            <Route path="/sucursales" element={<Branches />} />
-                            <Route path="/contacto" element={<Contact />} />
-                            
-                            <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} />} />
+      if (isMounted) {
+        if (session) {
+          setSession(session);
+        } else {
+          clearSession();
+        }
+      }
+    };
 
-                            {/* RUTA PROTEGIDA para la administración */}
-                            <Route 
-                                path="/admin/productos" 
-                                element={
-                                    <ProtectedRoute 
-                                        element={AdminProducts} 
-                                        isLoggedIn={isLoggedIn} 
-                                        // 6. ELIMINAMOS todas las props de datos y CRUD. 
-                                        // AdminProducts ahora usará useProducts() para obtener y modificar datos.
-                                    />
-                                } 
-                            />
-                            
-                            {/* Redireccionamiento o página 404 simple */}
-                            <Route path="*" element={<div className="p-8 text-center">404 - Página no encontrada</div>} />
-                        </Routes>
-                    </main>
+    syncSession();
 
-                    <Footer />
-                </div>
-            </Router>
-        </ProductProvider>
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (isMounted) {
+        if (session) {
+          setSession(session);
+        } else {
+          clearSession();
+        }
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [clearSession, setSession]);
+
+  const whatsappLink = (productName) =>
+    `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
+      `Hola, estoy interesado en el producto: ${productName}. Por favor, dame mas informacion.`
+    )}`;
+
+  return (
+    <ProductProvider>
+      <Router>
+        <div className="flex min-h-screen flex-col font-inter">
+          <Navbar />
+
+          <main className="flex-grow">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route
+                path="/productos"
+                element={<Products whatsappLink={whatsappLink} />}
+              />
+              <Route path="/nosotros" element={<About />} />
+              <Route path="/sucursales" element={<Branches />} />
+              <Route path="/contacto" element={<Contact />} />
+              <Route path="/login" element={<Login />} />
+              <Route
+                path="/capacitaciones"
+                element={
+                  <ProtectedRoute
+                    element={Capacitaciones}
+                    allowedRoles={[USER_ROLES.CLIENTE]}
+                  />
+                }
+              />
+              <Route
+                path="/certificaciones"
+                element={
+                  <ProtectedRoute
+                    element={Certificaciones}
+                    allowedRoles={[USER_ROLES.CLIENTE]}
+                  />
+                }
+              />
+              <Route
+                path="/certificaciones/:certificationId"
+                element={
+                  <ProtectedRoute
+                    element={CertificationExam}
+                    allowedRoles={[USER_ROLES.CLIENTE]}
+                  />
+                }
+              />
+              <Route
+                path="/admin/productos"
+                element={
+                  <ProtectedRoute
+                    element={AdminProducts}
+                    allowedRoles={[USER_ROLES.ADMIN]}
+                  />
+                }
+              />
+              <Route
+                path="/admin/capacitaciones"
+                element={
+                  <ProtectedRoute
+                    element={AdminCapacitaciones}
+                    allowedRoles={[USER_ROLES.ADMIN]}
+                  />
+                }
+              />
+              <Route
+                path="/admin/certificaciones"
+                element={
+                  <ProtectedRoute
+                    element={AdminCertificaciones}
+                    allowedRoles={[USER_ROLES.ADMIN]}
+                  />
+                }
+              />
+              <Route
+                path="*"
+                element={<div className="p-8 text-center">404 - Pagina no encontrada</div>}
+              />
+            </Routes>
+          </main>
+
+          <Footer />
+        </div>
+      </Router>
+    </ProductProvider>
+  );
 }
 
 export default App;
-
-

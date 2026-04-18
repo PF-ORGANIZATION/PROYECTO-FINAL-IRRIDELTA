@@ -8,10 +8,19 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+package-lock.json
 dist
 dist-ssr
 *.local
 .env
+.env.admin.local
+ANALISIS_TECNICO.md
+supabase/setup.sql
+scripts/make-admin.mjs
+make-admin.mjs
+make-admin.js
+
+
 
 # Editor directories and files
 .vscode/*

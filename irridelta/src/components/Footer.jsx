@@ -1,87 +1,117 @@
-// Footer.jsx
-import React from 'react';
-// IMPORTANTE: Asegúrate de importar Link si estás usando react-router-dom
-import { Link } from 'react-router-dom';
-
-// Las importaciones de tus logos SVG
-import InstagramLogo from "../../public/instagram-logo-blanco.svg";
-import FacebookLogo from "../../public/facebook-logo-blanco.svg";
-import SettingsLogo from "../../public/settings-logo.svg";
-import IrrideltaLogo from "../../public/logo-irridelta-nav.png";
-
+import React from "react";
+import { Link } from "react-router-dom";
+import { useSessionStore } from "../store/sessionStore";
+import { USER_ROLES } from "../utils/authRoles";
 
 function Footer() {
-    const facebookUrl = "https://www.facebook.com/p/Irridelta-100064054083065/?locale=es_LA";
-    const instagramUrl = "https://instagram.com/irridelta";
-    // ✅ Define la ruta del panel de administración
-    const adminPath = "/admin/productos";
+  const user = useSessionStore((state) => state.user);
+  const role = useSessionStore((state) => state.role);
+  const isLoading = useSessionStore((state) => state.isLoading);
 
-    // NOTA: Los componentes FacebookIcon e InstagramIcon se han eliminado ya que usas <img src={...} />
+  const facebookUrl =
+    "https://www.facebook.com/p/Irridelta-100064054083065/?locale=es_LA";
+  const instagramUrl = "https://instagram.com/irridelta";
 
-    return (
-        // CLAVE: w-full para el fondo completo
-        <footer className="w-full bg-gray-800 py-6 relative"> {/* Añadido 'relative' para posicionar el ícono de settings */}
-            {/* Contenido centrado y espaciado */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-400">
+  const footerLinks = [
+    { name: "Inicio", path: "/" },
+    { name: "Nosotros", path: "/nosotros" },
+    { name: "Productos", path: "/productos" },
+    { name: "Sucursales", path: "/sucursales" },
+    { name: "Contacto", path: "/contacto" },
+  ];
 
-                {/* ✅ Contenedor del Logo Principal (Nuevo) */}
-                <div className="mb-6 flex justify-center">
-                    <img
-                        src={IrrideltaLogo}
-                        alt="Logo Irridelta"
-                        className="h-20 w-auto" // Ajusta el tamaño según sea necesario (e.g., h-10 para una altura de 40px)
-                    />
-                </div>
-                {/* ----------------------------------------------------- */}
+  if (!isLoading && !user) {
+    footerLinks.push({ name: "Iniciar Sesion", path: "/login" });
+  }
 
-                {/* Contenedor de Íconos de Redes Sociales */}
-                <div className="flex justify-center space-x-6 mb-4">
+  if (user && role === USER_ROLES.CLIENTE) {
+    footerLinks.push({ name: "Capacitaciones", path: "/capacitaciones" });
+    footerLinks.push({ name: "Certificaciones", path: "/certificaciones" });
+  }
 
-                    {/* Enlace de Facebook (usando tu imagen importada) */}
-                    <a
-                        href={facebookUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Ir a Facebook de Irridelta"
-                        // Aplicamos el hover para que la interacción sea clara, ya que el logo es una imagen.
-                        className="text-gray-400 hover:opacity-75 transition duration-200"
-                    >
-                        {/* La clase mr-2 en la imagen no es necesaria aquí, ya que el espaciado lo da 'space-x-6' */}
-                        <img src={FacebookLogo} alt="Facebook" className="w-6 h-6" />
-                    </a>
+  if (user && role === USER_ROLES.ADMIN) {
+    footerLinks.push({ name: "Admin Productos", path: "/admin/productos" });
+    footerLinks.push({
+      name: "Admin Capacitaciones",
+      path: "/admin/capacitaciones",
+    });
+    footerLinks.push({
+      name: "Admin Certificaciones",
+      path: "/admin/certificaciones",
+    });
+  }
 
-                    {/* Enlace de Instagram (usando tu imagen importada) */}
-                    <a
-                        href={instagramUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Ir a Instagram de Irridelta"
-                        className="text-gray-400 hover:opacity-75 transition duration-200"
-                    >
-                        <img src={InstagramLogo} alt="Instagram" className="w-8 h-8" />
-                    </a>
+  return (
+    <footer className="relative w-full bg-gray-800 py-8">
+      <div className="mx-auto max-w-7xl px-4 text-center text-gray-400 sm:px-6 lg:px-8">
+        <div className="mb-6 flex justify-center">
+          <img
+            src="/logo-irridelta-nav.png"
+            alt="Logo Irridelta"
+            className="h-20 w-auto"
+          />
+        </div>
 
-                </div>
-
-                {/* Texto de Copyright (actualizado el año) */}
-                <p className="text-sm">
-                    © {new Date().getFullYear()} Irridelta - Todos los derechos reservados
-                </p>
-
-            </div>
-
+        <div className="mb-6 flex flex-wrap justify-center gap-4 text-sm font-medium">
+          {footerLinks.map((item) => (
             <Link
-                to={adminPath}
-                className="absolute bottom-1 right-2 p-2
-                                    text-gray-600 hover:text-gray-400 transition duration-200
-                                    rounded-full" // Estilos discretos
-                aria-label="Acceso al panel de administración"
+              key={item.name}
+              to={item.path}
+              className="transition duration-200 hover:text-white"
             >
-                {/* ⚙️ El logo de Settings */}
-                <img src={SettingsLogo} alt="Settings" className=" w-5 h-5" />
+              {item.name}
             </Link>
-        </footer>
-    );
+          ))}
+        </div>
+
+        {!isLoading && !user && (
+          <div className="mb-6 flex justify-center">
+            <Link
+              to="/login"
+              className="rounded-lg bg-green-500 px-6 py-3 text-sm font-semibold text-white shadow-md transition duration-200 hover:bg-green-600"
+            >
+              Iniciar Sesion
+            </Link>
+          </div>
+        )}
+
+        <div className="mb-4 flex justify-center space-x-6">
+          <a
+            href={facebookUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Ir al Facebook de Irridelta"
+            className="transition duration-200 hover:opacity-75"
+          >
+            <img
+              src="/facebook-logo-blanco.svg"
+              alt="Facebook"
+              className="h-6 w-6"
+            />
+          </a>
+
+          <a
+            href={instagramUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Ir al Instagram de Irridelta"
+            className="transition duration-200 hover:opacity-75"
+          >
+            <img
+              src="/instagram-logo-blanco.svg"
+              alt="Instagram"
+              className="h-8 w-8"
+            />
+          </a>
+        </div>
+
+        <p className="text-sm">
+          &copy; {new Date().getFullYear()} Irridelta - Todos los derechos
+          reservados
+        </p>
+      </div>
+    </footer>
+  );
 }
 
 export default Footer;

@@ -1,80 +1,159 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { HiMenu, HiX } from 'react-icons/hi'; 
+import React, { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { HiMenu, HiX } from "react-icons/hi";
+import { useAuth } from "../hooks/useAuth";
+import { useSessionStore } from "../store/sessionStore";
+import { USER_ROLES } from "../utils/authRoles";
 
 function Navbar() {
+  const { logOut } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const location = useLocation(); 
+  const location = useLocation();
+  const navigate = useNavigate();
+  const user = useSessionStore((state) => state.user);
+  const role = useSessionStore((state) => state.role);
+  const isLoading = useSessionStore((state) => state.isLoading);
 
-  // Definiciones de estilos para consistencia
-  const navBg = 'bg-gray-800'; 
-  const primaryColor = 'text-green-400'; 
-  const baseLinkClasses = 'px-3 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out';
-  const defaultLinkClasses = 'text-gray-300 hover:bg-gray-700 hover:text-green-400'; 
-  const activeLinkClasses = 'bg-gray-900 text-green-400'; 
+  const navBg = "bg-gray-800";
+  const baseLinkClasses =
+    "rounded-md px-3 py-2 text-sm font-medium transition duration-150 ease-in-out";
+  const defaultLinkClasses = "text-gray-300 hover:bg-gray-700 hover:text-green-400";
+  const activeLinkClasses = "bg-gray-900 text-green-400";
+  const ctaPath = "/login";
+  const ctaLabel = "Iniciar Sesion";
+  const isCtaActive = location.pathname === ctaPath;
 
   const navItems = [
     { name: "Inicio", path: "/" },
     { name: "Nosotros", path: "/nosotros" },
     { name: "Productos", path: "/productos" },
     { name: "Sucursales", path: "/sucursales" },
-    { name: "Contacto", path: "/contacto" }
+    { name: "Contacto", path: "/contacto" },
   ];
+
+  if (user && role === USER_ROLES.CLIENTE) {
+    navItems.push({ name: "Capacitaciones", path: "/capacitaciones" });
+    navItems.push({ name: "Certificaciones", path: "/certificaciones" });
+  }
+
+  if (user && role === USER_ROLES.ADMIN) {
+    navItems.push({ name: "Admin Productos", path: "/admin/productos" });
+    navItems.push({
+      name: "Admin Capacitaciones",
+      path: "/admin/capacitaciones",
+    });
+    navItems.push({
+      name: "Admin Certificaciones",
+      path: "/admin/certificaciones",
+    });
+  }
 
   const getLinkClasses = (path) => {
     const isActive = location.pathname === path;
     return `${baseLinkClasses} ${isActive ? activeLinkClasses : defaultLinkClasses}`;
   };
 
+  const handleSignOut = async () => {
+    await logOut();
+    setIsOpen(false);
+    navigate("/login", { replace: true });
+  };
+
+  const ctaClasses = `rounded-lg px-5 py-2 text-sm font-semibold shadow-md transition duration-200 ${
+    isCtaActive
+      ? "bg-green-700 text-white"
+      : "bg-green-500 text-white hover:bg-green-600"
+  }`;
+
+  const signOutClasses =
+    "rounded-lg bg-red-500 px-5 py-2 text-sm font-semibold text-white shadow-md transition duration-200 hover:bg-red-600";
+
   return (
-    // CLAVE: w-full para que el fondo ocupe 100%
-    <nav className={`w-full ${navBg} shadow-lg sticky top-0 z-50`}>
-      {/* Contenedor interno: max-w-7xl CENTRA el contenido de la barra */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          
-          {/* Logo/Título */}
+    <nav className={`sticky top-0 z-50 w-full ${navBg} shadow-lg`}>
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between gap-4">
           <div className="flex-shrink-0">
-            <Link to={"/"}>
-            <img className='logo-irridelta' src="../logo-irridelta-nav.png" alt="Logo Irridelta" />
+            <Link to="/">
+              <img
+                className="logo-irridelta"
+                src="../logo-irridelta-nav.png"
+                alt="Logo Irridelta"
+              />
             </Link>
           </div>
-          
-          {/* Menú de navegación (Desktop) */}
-          <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-4">
-              {navItems.map((item) => (
-                <Link key={item.name} to={item.path} className={getLinkClasses(item.path)}>
-                  {item.name}
-                </Link>
-              ))}
-            </div>
+
+          <div className="hidden items-center gap-4 md:flex">
+            <div className="flex items-baseline space-x-4">
+            {navItems.map((item) => (
+              <Link key={item.name} to={item.path} className={getLinkClasses(item.path)}>
+                {item.name}
+              </Link>
+            ))}
           </div>
 
-          {/* Botón de Menú Hamburguesa (Mobile) */}
+            {!isLoading && !user && (
+              <Link to={ctaPath} className={ctaClasses}>
+                {ctaLabel}
+              </Link>
+            )}
+
+            {!isLoading && user && (
+              <button onClick={handleSignOut} className={signOutClasses}>
+                Cerrar sesion
+              </button>
+            )}
+          </div>
+
           <div className="md:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white"
+              className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800"
               aria-controls="mobile-menu"
-              aria-expanded="false"
+              aria-expanded={isOpen}
             >
-              <span className="sr-only">Abrir menú principal</span>
-              {isOpen ? ( <HiX className="block h-6 w-6" aria-hidden="true" /> ) : ( <HiMenu className="block h-6 w-6" aria-hidden="true" /> )}
+              <span className="sr-only">Abrir menu principal</span>
+              {isOpen ? (
+                <HiX className="block h-6 w-6" aria-hidden="true" />
+              ) : (
+                <HiMenu className="block h-6 w-6" aria-hidden="true" />
+              )}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Menú Móvil */}
       {isOpen && (
         <div className="md:hidden" id="mobile-menu">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+          <div className="space-y-1 px-2 pb-4 pt-2 sm:px-3">
             {navItems.map((item) => (
-              <Link key={item.name} to={item.path} className={`block text-base ${getLinkClasses(item.path)}`} onClick={() => setIsOpen(false)}>
+              <Link
+                key={item.name}
+                to={item.path}
+                className={`block text-base ${getLinkClasses(item.path)}`}
+                onClick={() => setIsOpen(false)}
+              >
                 {item.name}
               </Link>
             ))}
+
+            {!isLoading && !user && (
+              <Link
+                to={ctaPath}
+                className="mt-3 block rounded-lg bg-green-500 px-4 py-3 text-center text-sm font-semibold text-white shadow-md transition duration-200 hover:bg-green-600"
+                onClick={() => setIsOpen(false)}
+              >
+                {ctaLabel}
+              </Link>
+            )}
+
+            {!isLoading && user && (
+              <button
+                onClick={handleSignOut}
+                className="mt-3 block w-full rounded-lg bg-red-500 px-4 py-3 text-center text-sm font-semibold text-white shadow-md transition duration-200 hover:bg-red-600"
+              >
+                Cerrar sesion
+              </button>
+            )}
           </div>
         </div>
       )}

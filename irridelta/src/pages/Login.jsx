@@ -1,64 +1,114 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
+import { useSessionStore } from "../store/sessionStore";
+import { getDefaultPathByRole, getUserRole } from "../utils/authRoles";
 
-function Login({ setIsLoggedIn }) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+function Login() {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const { logIn, signUp } = useAuth();
+  const user = useSessionStore((state) => state.user);
+  const role = useSessionStore((state) => state.role);
+  const isLoading = useSessionStore((state) => state.isLoading);
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    setError('');
+  useEffect(() => {
+    if (!isLoading && user) {
+      navigate(getDefaultPathByRole(role), { replace: true });
+    }
+  }, [isLoading, navigate, role, user]);
 
-    // VALIDACIÓN MÍNIMA
-    if (username === import.meta.env.VITE_LOGIN_USERNAME && password === import.meta.env.VITE_LOGIN_PASSWORD) {
-      setIsLoggedIn(true); // Cambia el estado en App.jsx
-      navigate('/admin/productos'); // Redirige a la página protegida
-    } else {
-      setError('Credenciales incorrectas.');
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      const authData = isSignUp
+        ? await signUp(email, password)
+        : await logIn(email, password);
+
+      if (!authData.session) {
+        setError(
+          "Registro exitoso. Revisa tu correo para confirmar la cuenta antes de iniciar sesion."
+        );
+        return;
+      }
+
+      const authenticatedUser = authData.user ?? authData.session?.user ?? null;
+      const authenticatedRole = getUserRole(authenticatedUser);
+
+      navigate(getDefaultPathByRole(authenticatedRole), { replace: true });
+    } catch (authError) {
+      setError(authError.message || "No se pudo completar la autenticacion.");
     }
   };
 
+  const toggleMode = () => {
+    setError("");
+    setIsSignUp(!isSignUp);
+  };
+
   return (
-    <div className="w-full bg-gray-50 py-16 flex justify-center min-h-screen">
-      <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-2xl">
-        <h2 className="text-3xl font-bold text-center text-gray-800 mb-8">
-          Acceso de Administrador
+    <div className="flex min-h-screen w-full justify-center bg-gray-50 py-16">
+      <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-2xl">
+        <h2 className="mb-8 text-center text-3xl font-bold text-gray-800">
+          Bienvenido
         </h2>
         <form onSubmit={handleLogin} className="space-y-6">
-          
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+            <div
+              className="rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700"
+              role="alert"
+            >
               {error}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Usuario</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Usuario
+            </label>
             <input
-              type="text"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-green-500 focus:border-green-500"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              type="email"
+              placeholder="email"
+              className="mt-1 block w-full rounded-md border border-gray-300 p-3 shadow-sm focus:border-green-500 focus:ring-green-500"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Contraseña</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Contrasena
+            </label>
             <input
               type="password"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-green-500 focus:border-green-500"
+              placeholder="********"
+              className="mt-1 block w-full rounded-md border border-gray-300 p-3 shadow-sm focus:border-green-500 focus:ring-green-500"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
           </div>
+
           <button
             type="submit"
-            className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition duration-200"
+            className="w-full rounded-lg bg-green-600 py-3 font-semibold text-white transition duration-200 hover:bg-green-700"
           >
-            Ingresar
+            {isSignUp ? "Registrarse" : "Iniciar sesion"}
+          </button>
+
+          <button
+            type="button"
+            className="w-full text-sm text-green-700 underline"
+            onClick={toggleMode}
+          >
+            {isSignUp
+              ? "Ya tenes cuenta? Inicia sesion"
+              : "No tenes cuenta? Registrate"}
           </button>
         </form>
       </div>

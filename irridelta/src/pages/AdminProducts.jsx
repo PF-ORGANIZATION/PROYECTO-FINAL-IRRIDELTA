@@ -1,136 +1,183 @@
-import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom"; // 👈 Importamos useNavigate
+import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useProducts } from "../context/ProductContext";
-
-// ⚠️ Asumo que puedes importar supabase aquí para cerrar la sesión
-// Si usas otro sistema, reemplaza 'supabase' por tu método de auth.
-// import { supabase } from '../supabaseClient'; 
+import { useAuth } from "../hooks/useAuth";
 
 function AdminProducts() {
-  const { products, categories, saveProduct, deleteProduct, saveCategory, deleteCategory } = useProducts();
-  
-  // 👈 Usamos useNavigate para la redirección
-  const navigate = useNavigate(); 
+  const {
+    products,
+    categories,
+    saveProduct,
+    deleteProduct,
+    saveCategory,
+    deleteCategory,
+  } = useProducts();
+  const { logOut } = useAuth();
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("productos");
   const [search, setSearch] = useState("");
+  const [signOutError, setSignOutError] = useState("");
 
   const [editingProduct, setEditingProduct] = useState(null);
   const [editingCategory, setEditingCategory] = useState(null);
 
-  const [formProduct, setFormProduct] = useState({ id: null, nombre: "", descripcion: "", imagen_url: "", id_categoria: "" });
-  const [formCategory, setFormCategory] = useState({ id: null, nombre: "" });
+  const [formProduct, setFormProduct] = useState({
+    id: null,
+    nombre: "",
+    descripcion: "",
+    imagen_url: "",
+    id_categoria: "",
+  });
+  const [formCategory, setFormCategory] = useState({
+    id: null,
+    nombre: "",
+  });
 
-  // --- LÓGICA CERRAR SESIÓN ---
   const handleSignOut = async () => {
-    // ⚠️ Esta es la lógica de cierre de sesión. AJUSTA esto a tu implementación real.
-    // Ejemplo de Supabase:
-    // const { error } = await supabase.auth.signOut();
-    
-    // if (!error) {
-    //   navigate("/"); // Redirige a la página de inicio
-    // } else {
-    //   alert("Error al cerrar sesión.");
-    //   console.error(error);
-    // }
-    
-    // EJEMPLO SÓLO DE REDIRECCIÓN (para que funcione en el sandbox)
-    // Simula el cierre de sesión y redirige
-    console.log("Sesión cerrada. Redirigiendo a /");
-    navigate("/"); 
+    setSignOutError("");
+
+    try {
+      await logOut();
+      navigate("/login", { replace: true });
+    } catch (error) {
+      console.error("No se pudo cerrar la sesion", error);
+      setSignOutError("No se pudo cerrar la sesion. Intenta de nuevo.");
+    }
   };
-  
-  // Filtrado rápido por búsqueda (sin cambios)
+
   const filteredProducts = useMemo(
-    () => products.filter(p => p.nombre.toLowerCase().includes(search.toLowerCase())),
+    () =>
+      products.filter((product) =>
+        product.nombre.toLowerCase().includes(search.toLowerCase())
+      ),
     [products, search]
   );
 
   const filteredCategories = useMemo(
-    () => categories.filter(c => c.nombre.toLowerCase().includes(search.toLowerCase())),
+    () =>
+      categories.filter((category) =>
+        category.nombre.toLowerCase().includes(search.toLowerCase())
+      ),
     [categories, search]
   );
 
-  // --- HANDLERS PRODUCTOS (sin cambios) ---
+  const resetProductForm = () => {
+    setEditingProduct(null);
+    setFormProduct({
+      id: null,
+      nombre: "",
+      descripcion: "",
+      imagen_url: "",
+      id_categoria: "",
+    });
+  };
+
+  const resetCategoryForm = () => {
+    setEditingCategory(null);
+    setFormCategory({
+      id: null,
+      nombre: "",
+    });
+  };
+
   const handleSaveProduct = async (e) => {
     e.preventDefault();
-    if (!formProduct.id_categoria) return alert("Selecciona una categoría");
+
+    if (!formProduct.id_categoria) {
+      alert("Selecciona una categoria");
+      return;
+    }
+
     const success = await saveProduct(formProduct);
+
     if (success) {
-      setEditingProduct(null);
-      setFormProduct({ id: null, nombre: "", descripcion: "", imagen_url: "", id_categoria: "" });
+      resetProductForm();
     }
   };
 
-  const handleEditProduct = (p) => {
-    setEditingProduct(p.id);
-    setFormProduct({ ...p });
+  const handleEditProduct = (product) => {
+    setEditingProduct(product.id);
+    setFormProduct({ ...product });
   };
 
-  // --- HANDLERS CATEGORÍAS (sin cambios) ---
   const handleSaveCategory = async (e) => {
     e.preventDefault();
+
     const success = await saveCategory(formCategory);
+
     if (success) {
-      setEditingCategory(null);
-      setFormCategory({ id: null, nombre: "" });
+      resetCategoryForm();
     }
   };
 
-  const handleEditCategory = (c) => {
-    setEditingCategory(c.id);
-    setFormCategory({ ...c });
+  const handleEditCategory = (category) => {
+    setEditingCategory(category.id);
+    setFormCategory({ ...category });
   };
 
   return (
-    <div className="px-6 md:px-12 lg:px-24 py-6 bg-gray-100 min-h-screen">
-      
-      {/* 🎯 HEADER CON CERRAR SESIÓN */}
-      <header className="flex justify-between items-center mb-6 border-b pb-4">
-        <h1 className="text-3xl font-bold">Panel de Administración</h1>
+    <div className="min-h-screen bg-gray-100 px-6 py-6 md:px-12 lg:px-24">
+      <header className="mb-6 flex items-center justify-between border-b pb-4">
+        <h1 className="text-3xl font-bold">Panel de Administracion</h1>
         <button
           onClick={handleSignOut}
-          className="bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-lg shadow transition duration-200"
+          className="rounded-lg bg-red-500 px-4 py-2 font-semibold text-white shadow transition duration-200 hover:bg-red-600"
         >
-          Cerrar Sesión
+          Cerrar sesion
         </button>
       </header>
-      {/* ---------------------------------- */}
 
-      {/* --- TABS --- */}
-      <div className="flex gap-4 mb-6">
+      {signOutError && (
+        <div className="mb-4 rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700">
+          {signOutError}
+        </div>
+      )}
+
+      <div className="mb-6 flex gap-4">
         <button
-          onClick={() => { setActiveTab("productos"); setSearch(""); }}
-          className={`px-4 py-2 rounded ${activeTab === "productos" ? "bg-blue-500 text-white shadow-md" : "bg-white shadow"}`}
+          onClick={() => {
+            setActiveTab("productos");
+            setSearch("");
+          }}
+          className={`rounded px-4 py-2 ${
+            activeTab === "productos"
+              ? "bg-blue-500 text-white shadow-md"
+              : "bg-white shadow"
+          }`}
         >
           Productos
         </button>
         <button
-          onClick={() => { setActiveTab("categorias"); setSearch(""); }}
-          className={`px-4 py-2 rounded ${activeTab === "categorias" ? "bg-blue-500 text-white shadow-md" : "bg-white shadow"}`}
+          onClick={() => {
+            setActiveTab("categorias");
+            setSearch("");
+          }}
+          className={`rounded px-4 py-2 ${
+            activeTab === "categorias"
+              ? "bg-blue-500 text-white shadow-md"
+              : "bg-white shadow"
+          }`}
         >
-          Categorías
+          Categorias
         </button>
       </div>
 
-      {/* --- BUSCADOR y Resto del contenido (sin cambios) --- */}
       <input
         type="text"
-        placeholder={`Buscar ${activeTab === "productos" ? "productos" : "categorías"}...`}
+        placeholder={`Buscar ${
+          activeTab === "productos" ? "productos" : "categorias"
+        }...`}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="border p-3 w-full rounded mb-6 shadow-sm"
+        className="mb-6 w-full rounded border p-3 shadow-sm"
       />
 
-      {/* ... (Contenido de Tabs Productos y Categorías) ... */}
-      
-      {/* --- TAB PRODUCTOS --- */}
       {activeTab === "productos" && (
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* FORM PRODUCTOS */}
-          <div className="bg-white shadow-md p-6 rounded-lg">
-            <h2 className="text-xl font-semibold mb-4">
-              {editingProduct ? "Editar Producto" : "Nuevo Producto"}
+        <div className="grid gap-8 md:grid-cols-2">
+          <div className="rounded-lg bg-white p-6 shadow-md">
+            <h2 className="mb-4 text-xl font-semibold">
+              {editingProduct ? "Editar producto" : "Nuevo producto"}
             </h2>
             <form onSubmit={handleSaveProduct} className="space-y-4">
               <input
@@ -138,42 +185,68 @@ function AdminProducts() {
                 placeholder="Nombre"
                 required
                 value={formProduct.nombre}
-                onChange={(e) => setFormProduct({ ...formProduct, nombre: e.target.value })}
-                className="border p-3 w-full rounded"
+                onChange={(e) =>
+                  setFormProduct({ ...formProduct, nombre: e.target.value })
+                }
+                className="w-full rounded border p-3"
               />
               <textarea
-                placeholder="Descripción"
+                placeholder="Descripcion"
                 required
                 value={formProduct.descripcion}
-                onChange={(e) => setFormProduct({ ...formProduct, descripcion: e.target.value })}
-                className="border p-3 w-full rounded"
+                onChange={(e) =>
+                  setFormProduct({
+                    ...formProduct,
+                    descripcion: e.target.value,
+                  })
+                }
+                className="w-full rounded border p-3"
               />
               <input
                 type="text"
                 placeholder="URL de imagen"
                 required
                 value={formProduct.imagen_url}
-                onChange={(e) => setFormProduct({ ...formProduct, imagen_url: e.target.value })}
-                className="border p-3 w-full rounded"
+                onChange={(e) =>
+                  setFormProduct({
+                    ...formProduct,
+                    imagen_url: e.target.value,
+                  })
+                }
+                className="w-full rounded border p-3"
               />
               <select
                 value={formProduct.id_categoria || ""}
                 required
-                onChange={(e) => setFormProduct({ ...formProduct, id_categoria: e.target.value ? parseInt(e.target.value) : null })}
-                className="border p-3 w-full rounded"
+                onChange={(e) =>
+                  setFormProduct({
+                    ...formProduct,
+                    id_categoria: e.target.value
+                      ? parseInt(e.target.value, 10)
+                      : null,
+                  })
+                }
+                className="w-full rounded border p-3"
               >
-                <option value="">-- Seleccionar categoría --</option>
-                {categories.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                <option value="">-- Seleccionar categoria --</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.nombre}
+                  </option>
+                ))}
               </select>
               <div className="flex gap-3">
-                <button type="submit" className="bg-blue-500 text-white px-5 py-2 rounded-lg shadow">
+                <button
+                  type="submit"
+                  className="rounded-lg bg-blue-500 px-5 py-2 text-white shadow"
+                >
                   {editingProduct ? "Actualizar" : "Guardar"}
                 </button>
                 {editingProduct && (
                   <button
                     type="button"
-                    onClick={() => { setEditingProduct(null); setFormProduct({ id: null, nombre: "", descripcion: "", imagen_url: "", id_categoria: "" }); }}
-                    className="bg-gray-500 text-white px-5 py-2 rounded-lg shadow"
+                    onClick={resetProductForm}
+                    className="rounded-lg bg-gray-500 px-5 py-2 text-white shadow"
                   >
                     Cancelar
                   </button>
@@ -182,21 +255,38 @@ function AdminProducts() {
             </form>
           </div>
 
-          {/* LISTA PRODUCTOS */}
-          <div className="bg-white shadow-md rounded-lg p-6 max-h-[600px] overflow-y-auto">
+          <div className="max-h-[600px] overflow-y-auto rounded-lg bg-white p-6 shadow-md">
             <ul className="space-y-3">
-              {filteredProducts.map((p) => (
-                <li key={p.id} className="flex justify-between items-start bg-gray-50 p-4 rounded-lg shadow-sm">
+              {filteredProducts.map((product) => (
+                <li
+                  key={product.id}
+                  className="flex items-start justify-between rounded-lg bg-gray-50 p-4 shadow-sm"
+                >
                   <div className="flex-1">
-                    <p className="font-bold text-lg">{p.nombre}</p>
-                    <p className="text-sm text-gray-700">{p.descripcion}</p>
+                    <p className="text-lg font-bold">{product.nombre}</p>
+                    <p className="text-sm text-gray-700">
+                      {product.descripcion}
+                    </p>
                     <p className="text-xs text-gray-500">
-                      Categoría: {categories.find((c) => c.id === p.id_categoria)?.nombre || "N/A"}
+                      Categoria:{" "}
+                      {categories.find(
+                        (category) => category.id === product.id_categoria
+                      )?.nombre || "N/A"}
                     </p>
                   </div>
-                  <div className="flex flex-col gap-2 ml-4">
-                    <button onClick={() => handleEditProduct(p)} className="bg-yellow-500 text-white px-4 py-1 rounded-lg">Editar</button>
-                    <button onClick={() => deleteProduct(p.id)} className="bg-red-500 text-white px-4 py-1 rounded-lg">Eliminar</button>
+                  <div className="ml-4 flex flex-col gap-2">
+                    <button
+                      onClick={() => handleEditProduct(product)}
+                      className="rounded-lg bg-yellow-500 px-4 py-1 text-white"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => deleteProduct(product.id)}
+                      className="rounded-lg bg-red-500 px-4 py-1 text-white"
+                    >
+                      Eliminar
+                    </button>
                   </div>
                 </li>
               ))}
@@ -205,31 +295,34 @@ function AdminProducts() {
         </div>
       )}
 
-      {/* --- TAB CATEGORÍAS --- */}
       {activeTab === "categorias" && (
-        <div className="grid md:grid-cols-2 gap-8 mt-6">
-          {/* FORM CATEGORÍAS */}
-          <div className="bg-white shadow-md p-6 rounded-lg">
-            <h2 className="text-xl font-semibold mb-4">
-              {editingCategory ? "Editar Categoría" : "Nueva Categoría"}
+        <div className="mt-6 grid gap-8 md:grid-cols-2">
+          <div className="rounded-lg bg-white p-6 shadow-md">
+            <h2 className="mb-4 text-xl font-semibold">
+              {editingCategory ? "Editar categoria" : "Nueva categoria"}
             </h2>
             <form onSubmit={handleSaveCategory} className="space-y-4">
               <input
                 type="text"
-                placeholder="Nombre de categoría"
+                placeholder="Nombre de categoria"
                 value={formCategory.nombre}
-                onChange={(e) => setFormCategory({ ...formCategory, nombre: e.target.value })}
-                className="border p-3 w-full rounded"
+                onChange={(e) =>
+                  setFormCategory({ ...formCategory, nombre: e.target.value })
+                }
+                className="w-full rounded border p-3"
               />
               <div className="flex gap-3">
-                <button type="submit" className="bg-blue-500 text-white px-5 py-2 rounded-lg shadow">
+                <button
+                  type="submit"
+                  className="rounded-lg bg-blue-500 px-5 py-2 text-white shadow"
+                >
                   {editingCategory ? "Actualizar" : "Guardar"}
                 </button>
                 {editingCategory && (
                   <button
                     type="button"
-                    onClick={() => { setEditingCategory(null); setFormCategory({ id: null, nombre: "" }); }}
-                    className="bg-gray-500 text-white px-5 py-2 rounded-lg shadow"
+                    onClick={resetCategoryForm}
+                    className="rounded-lg bg-gray-500 px-5 py-2 text-white shadow"
                   >
                     Cancelar
                   </button>
@@ -238,15 +331,27 @@ function AdminProducts() {
             </form>
           </div>
 
-          {/* LISTA CATEGORÍAS */}
-          <div className="bg-white shadow-md rounded-lg p-6 max-h-[600px] overflow-y-auto">
+          <div className="max-h-[600px] overflow-y-auto rounded-lg bg-white p-6 shadow-md">
             <ul className="space-y-3">
-              {filteredCategories.map((c) => (
-                <li key={c.id} className="flex justify-between items-center bg-gray-50 p-4 rounded-lg shadow-sm">
-                  <span>{c.nombre}</span>
-                  <div className="flex flex-col gap-2 ml-4">
-                    <button onClick={() => handleEditCategory(c)} className="bg-yellow-500 text-white px-4 py-1 rounded-lg">Editar</button>
-                    <button onClick={() => deleteCategory(c.id)} className="bg-red-500 text-white px-4 py-1 rounded-lg">Eliminar</button>
+              {filteredCategories.map((category) => (
+                <li
+                  key={category.id}
+                  className="flex items-center justify-between rounded-lg bg-gray-50 p-4 shadow-sm"
+                >
+                  <span>{category.nombre}</span>
+                  <div className="ml-4 flex flex-col gap-2">
+                    <button
+                      onClick={() => handleEditCategory(category)}
+                      className="rounded-lg bg-yellow-500 px-4 py-1 text-white"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => deleteCategory(category.id)}
+                      className="rounded-lg bg-red-500 px-4 py-1 text-white"
+                    >
+                      Eliminar
+                    </button>
                   </div>
                 </li>
               ))}
@@ -259,4 +364,3 @@ function AdminProducts() {
 }
 
 export default AdminProducts;
-
