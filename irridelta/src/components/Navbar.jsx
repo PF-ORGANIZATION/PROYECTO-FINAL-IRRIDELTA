@@ -48,6 +48,10 @@ function Navbar() {
     });
   }
 
+  if (user) {
+    navItems.push({ name: "Asistente AI", path: "/chatbot" });
+  }
+
   const getLinkClasses = (path) => {
     const isActive = location.pathname === path;
     return `${baseLinkClasses} ${isActive ? activeLinkClasses : defaultLinkClasses}`;
