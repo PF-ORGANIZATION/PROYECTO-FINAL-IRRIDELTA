@@ -41,6 +41,10 @@ function Footer() {
     });
   }
 
+  if (user) {
+    footerLinks.push({ name: "Asistente AI", path: "/chatbot" });
+  }
+
   return (
     <footer className="relative w-full bg-gray-800 py-8">
       <div className="mx-auto max-w-7xl px-4 text-center text-gray-400 sm:px-6 lg:px-8">
