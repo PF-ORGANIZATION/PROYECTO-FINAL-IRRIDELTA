@@ -1,6 +1,25 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useSessionStore } from "../store/sessionStore";
-// import { supabase } from "../supabaseClient";
+import { supabase } from "../supabaseClient";
+import { pipeline, env } from "@xenova/transformers";
+
+// Configuramos el entorno de Transformers.js para evitar errores en Vite
+env.allowLocalModels = false;
+env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
+
+// Singleton para cargar el modelo de IA una sola vez en el navegador
+class PipelineSingleton {
+  static task = "feature-extraction";
+  static model = "Supabase/gte-small";
+  static instance = null;
+
+  static async getInstance() {
+    if (this.instance === null) {
+      this.instance = pipeline(this.task, this.model);
+    }
+    return this.instance;
+  }
+}
 
 function Chatbot() {
   const user = useSessionStore((state) => state.user);
@@ -33,19 +52,91 @@ function Chatbot() {
     setInput("");
     setIsLoading(true);
 
-    // TODO: Integrar la llamada a supabase (Ej. Edge Functions con pgvector)
-    // que buscará en la base de datos de contexto interno sin acceder a internet.
-    setTimeout(() => {
+    try {
+      // 1. Vectorizar la pregunta del usuario
+      const extractor = await PipelineSingleton.getInstance();
+      const output = await extractor(userMsg, { pooling: "mean", normalize: true });
+      const queryEmbedding = Array.from(output.data);
+
+      // 2. Buscar contexto en Supabase
+      // match_threshold: 0.3 es un buen punto de partida (30% de similitud mínima)
+      const { data: documentos, error } = await supabase.rpc('buscar_contexto_kb', {
+        query_embedding: queryEmbedding,
+        match_threshold: 0.3, 
+        match_count: 4 // Traemos los 4 mejores fragmentos
+      });
+
+      if (error) {
+        console.error("Error buscando en Supabase:", error);
+        throw error;
+      }
+
+      // 3. Preparar el contexto si se encontraron resultados
+      let contexto = "";
+      if (documentos && documentos.length > 0) {
+        contexto = documentos.map(doc => doc.contenido).join("\n\n---\n\n");
+      }
+
+      // 4. Armar el System Prompt
+      const systemPrompt = `Eres el asistente virtual técnico de la empresa Irridelta.
+Tu tarea es responder la pregunta del usuario utilizando ÚNICAMENTE la información provista en el bloque de CONTEXTO.
+Si la respuesta no está clara en el contexto, pide disculpas y responde: "No dispongo de esa información en mis manuales actuales".
+NUNCA inventes información, precios, ni asumas datos técnicos que no estén en el texto.
+Responde de manera profesional, clara y concisa.
+
+CONTEXTO:
+${contexto}`;
+
+      // 5. Llamada a la API de Groq
+      const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "llama-3.1-8b-instant",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userMsg }
+          ],
+          temperature: 0.1, // Muy bajo para evitar "alucinaciones"
+          max_tokens: 1024
+        })
+      });
+
+      if (!groqResponse.ok) {
+        const errData = await groqResponse.json();
+        console.error("Error de Groq:", errData);
+        throw new Error("Fallo en la comunicación con la IA generativa.");
+      }
+      
+      const groqData = await groqResponse.json();
+      const botReply = groqData.choices[0].message.content;
+
+      // 6. Mostrar la respuesta en la interfaz
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now() + 1,
           sender: "bot",
-          text: `He recibido tu mensaje: "${userMsg}". Pronto podré consultar en Supabase para darte una respuesta precisa sobre nuestros productos y servicios.`,
+          text: botReply,
         },
       ]);
+
+    } catch (error) {
+      console.error("Excepción general en el chatbot:", error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          sender: "bot",
+          text: "Hubo un problema al procesar tu consulta. Revisa la consola para más detalles.",
+        },
+      ]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -62,7 +153,7 @@ function Chatbot() {
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-[80%] rounded-2xl px-5 py-3 shadow-sm ${
+                className={`max-w-[80%] rounded-2xl px-5 py-3 shadow-sm whitespace-pre-wrap ${
                   msg.sender === "user" ? "bg-green-500 text-white rounded-br-none" : "bg-white text-gray-800 border border-gray-100 rounded-bl-none"
                 }`}
               >
@@ -72,8 +163,12 @@ function Chatbot() {
           ))}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-white border border-gray-100 text-gray-400 rounded-2xl rounded-bl-none px-5 py-3 shadow-sm text-sm">
-                Escribiendo...
+              <div className="bg-white border border-gray-100 text-gray-400 rounded-2xl rounded-bl-none px-5 py-3 shadow-sm text-sm flex items-center gap-2">
+                <svg className="animate-spin h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Analizando manuales...
               </div>
             </div>
           )}

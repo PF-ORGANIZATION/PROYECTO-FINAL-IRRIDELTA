@@ -2,9 +2,20 @@ import React, { useState } from "react";
 import { supabase } from "../supabaseClient";
 import { pipeline, env } from "@xenova/transformers";
 import * as pdfjsLib from "pdfjs-dist";
+// El "?url" al final es clave para que Vite lo trate como un archivo estático
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'; 
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+
+// 1. Deshabilitamos la búsqueda local del modelo para que vaya directo al Hub
+env.allowLocalModels = false;
+
+// 2. Le indicamos explícitamente de dónde bajar los binarios WASM de ONNX
+// Esto evita el error del módulo dinámico .jsep.mjs
+env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
 
 // Configuramos el worker de PDF.js apuntando a un CDN para evitar problemas de empaquetado con Vite
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+//pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 // Deshabilitamos la búsqueda de modelos en el sistema de archivos local para forzar el uso de HuggingFace Hub
 env.allowLocalModels = false;
@@ -86,34 +97,46 @@ function AdminKB() {
         return;
       }
 
+      // 1. SANITIZACIÓN CRÍTICA: Remover caracteres nulos que rompen PostgreSQL
+      fullText = fullText.replace(/\0/g, "");
+
       setStatus("Dividiendo el texto en fragmentos (chunks)...");
       const chunks = chunkText(fullText);
       const total = chunks.length;
 
-      setStatus("Cargando modelo de IA (gte-small)... Puede demorar unos instantes la primera vez.");
+      setStatus("Cargando modelo de IA (gte-small)...");
       const extractor = await PipelineSingleton.getInstance();
 
       const fileName = file ? file.name : "carga_manual";
+      
+      // Array para almacenar todos los registros antes de subir
+      const rowsToInsert = [];
 
       for (let i = 0; i < total; i++) {
-        setStatus(`Procesando y subiendo fragmento ${i + 1} de ${total}...`);
+        setStatus(`Procesando vector ${i + 1} de ${total}...`);
         const chunk = chunks[i];
 
-        // 1. Generar Embedding
+        // Generar Embedding localmente
         const output = await extractor(chunk, { pooling: "mean", normalize: true });
         const embedding = Array.from(output.data);
 
-        // 2. Insertar en Supabase
-        const { error } = await supabase.from("documentos_kb").insert({
+        // Agregamos al lote en lugar de subirlo inmediatamente
+        rowsToInsert.push({
           contenido: chunk,
           metadata: { source: fileName, chunk_index: i },
           embedding: embedding,
         });
 
-        if (error) throw error;
-
+        // Actualizamos la barra de progreso
         setProgress(Math.round(((i + 1) / total) * 100));
       }
+
+      setStatus("Subiendo todos los fragmentos a Supabase...");
+
+      // 2. INSERCIÓN MASIVA (Batch Insert): Un solo viaje a la base de datos
+      const { error } = await supabase.from("documentos_kb").insert(rowsToInsert);
+
+      if (error) throw error;
 
       setStatus("¡Base de conocimientos actualizada con éxito!");
       setManualText("");
