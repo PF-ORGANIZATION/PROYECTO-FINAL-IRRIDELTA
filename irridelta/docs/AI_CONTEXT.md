@@ -1,0 +1,87 @@
+# AI Context
+
+This document gives AI assistants and new contributors a safe, high-level map of the project.
+
+Do not include secrets here. Never paste values from `.env`, Supabase keys, service-role keys, real credentials, or private user data into documentation, prompts, commits, or issues.
+
+## Project Summary
+
+IRRIDELTA is a React + Vite single-page app for a business website with:
+
+- Public pages for home, products, about, branches, and contact.
+- Supabase-backed product and category management.
+- Supabase Auth-based login.
+- Role-based routes for clients and admins.
+- Learning content for clients: capacitaciones and certificaciones.
+- Admin panels for products, capacitaciones, and certificaciones.
+
+## Stack
+
+- React 18
+- Vite
+- Tailwind CSS
+- React Router
+- Zustand for session state
+- Supabase JS client
+- ESLint
+
+## Important Paths
+
+- `src/App.jsx`: main routing and protected route logic.
+- `src/supabaseClient.js`: Supabase browser client using Vite env variables.
+- `src/store/sessionStore.js`: current user/session/role state.
+- `src/utils/authRoles.js`: app role detection from Supabase Auth metadata.
+- `src/context/ProductContext.jsx`: product/category CRUD logic.
+- `src/services/learningContentService.js`: learning content, modules, resources, files, and certification persistence.
+- `src/components/AdminLearningManager.jsx`: admin UI for capacitaciones.
+- `src/components/LearningCatalog.jsx`: client-facing capacitaciones catalog.
+- `src/pages/AdminCertificaciones.jsx`: admin UI for final certifications.
+- `src/pages/CertificationExam.jsx`: client certification exam flow.
+
+## Auth And Roles
+
+The app treats authenticated users as `cliente` by default.
+
+Admins are detected through Supabase Auth user metadata:
+
+```txt
+app_metadata.role = "admin"
+```
+
+The frontend role check only controls navigation and UI access. Supabase Row Level Security policies must still enforce real database permissions.
+
+## Learning Domain
+
+Current learning model:
+
+- A `capacitacion` is the parent training item.
+- A capacitacion has one or more `capacitacion_modulos`.
+- Each module can contain multiple `modulo_recursos`.
+- Resources can be files or YouTube links.
+- A `certificacion` is one final evaluation associated with a capacitacion.
+
+Business rules:
+
+- A capacitacion must have at least one module.
+- Modules are created manually.
+- Files and YouTube links can be mixed in the same module.
+- Allowed MVP file extensions: `pdf`, `docx`, `pptx`, `xlsx`, `jpg`, `png`, `mp4`.
+- No resource reuse is implemented.
+- No upload progress is implemented.
+- Certificate PDF generation is not implemented.
+
+## Current Implementation Notes
+
+The capacitaciones admin flow currently saves the parent training item and then replaces the module/resource rows for that training item. This is simple and acceptable for MVP scale.
+
+If this grows, consider moving multi-step database writes into a Supabase RPC/Postgres function so the database changes can be transactional. Storage uploads still need careful cleanup/rollback behavior because object storage and database writes are not one atomic operation.
+
+## Safety Rules For Future AI Work
+
+- Do not read, print, summarize, or commit `.env` values.
+- Do not expose Supabase anon keys, service-role keys, auth tokens, emails, or real credentials.
+- Do not commit `.env`, `.env.admin.local`, or generated secrets.
+- Keep RLS and Storage policies versioned when possible so the database setup is reproducible.
+- Prefer small, focused changes and verify with targeted lint/build commands.
+- Do not change certification logic unless the task explicitly asks for it.
+- When editing learning content, preserve the relationship between capacitaciones, modules, resources, and final certifications.
