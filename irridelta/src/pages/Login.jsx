@@ -69,7 +69,7 @@ function Login() {
   };
 
   return (
-    <div className="flex min-h-screen w-full justify-center bg-gray-50 py-16">
+    <div className="flex min-h-screen w-full items-center justify-center bg-gray-50 px-4 py-16">
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-2xl">
         <h2 className="mb-2 text-center text-3xl font-bold text-gray-800">
           Iniciar sesión
