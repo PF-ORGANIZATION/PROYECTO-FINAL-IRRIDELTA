@@ -1,7 +1,7 @@
 import { supabase } from "../supabaseClient";
 
-export const LEARNING_TABLE = "formacion_contenidos";
-export const LEARNING_BUCKET = "formacion-archivos";
+export const CAPACITACIONES_TABLE = "capacitaciones";
+export const CERTIFICACIONES_TABLE = "certificaciones";
 
 export const LEARNING_TYPES = {
   CAPACITACION: "capacitacion",
@@ -16,15 +16,6 @@ export const CERTIFICATION_QUESTION_TYPES = {
 function normalizeText(value) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
-}
-
-function sanitizeFileName(fileName) {
-  return fileName
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._-]/g, "-")
-    .replace(/-+/g, "-")
-    .toLowerCase();
 }
 
 function normalizeCertificationQuestion(question, index) {
@@ -47,102 +38,75 @@ function normalizeCertificationQuestion(question, index) {
   };
 }
 
+function mapCapacitacionItem(item) {
+  return {
+    ...item,
+    tipo: LEARNING_TYPES.CAPACITACION,
+  };
+}
+
+function mapCertificationItem(item) {
+  return {
+    ...item,
+    tipo: LEARNING_TYPES.CERTIFICACION,
+  };
+}
+
 export async function fetchLearningItems(type) {
-  let query = supabase
-    .from(LEARNING_TABLE)
-    .select("*")
-    .order("created_at", { ascending: false });
+  if (type === LEARNING_TYPES.CAPACITACION) {
+    const { data, error } = await supabase
+      .from(CAPACITACIONES_TABLE)
+      .select("*")
+      .order("created_at", { ascending: false });
 
-  if (type) {
-    query = query.eq("tipo", type);
+    if (error) {
+      throw error;
+    }
+
+    return (data ?? []).map(mapCapacitacionItem);
   }
 
-  const { data, error } = await query;
+  if (type === LEARNING_TYPES.CERTIFICACION) {
+    const { data, error } = await supabase
+      .from(CERTIFICACIONES_TABLE)
+      .select("*")
+      .order("created_at", { ascending: false });
 
-  if (error) {
-    throw error;
+    if (error) {
+      throw error;
+    }
+
+    return (data ?? []).map(mapCertificationItem);
   }
 
-  return data;
+  throw new Error("Tipo de contenido no soportado");
 }
 
 export async function fetchCertificationById(id) {
   const { data, error } = await supabase
-    .from(LEARNING_TABLE)
+    .from(CERTIFICACIONES_TABLE)
     .select("*")
     .eq("id", id)
-    .eq("tipo", LEARNING_TYPES.CERTIFICACION)
     .single();
 
   if (error) {
     throw error;
   }
 
-  return data;
+  return mapCertificationItem(data);
 }
 
-async function uploadLearningFile(file, type) {
-  const safeName = sanitizeFileName(file.name);
-  const filePath = `${type}/${Date.now()}-${safeName}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from(LEARNING_BUCKET)
-    .upload(filePath, file, {
-      cacheControl: "3600",
-      upsert: false,
-    });
-
-  if (uploadError) {
-    throw uploadError;
-  }
-
-  const { data } = supabase.storage.from(LEARNING_BUCKET).getPublicUrl(filePath);
-
-  return {
-    filePath,
-    fileUrl: data.publicUrl,
-    fileName: file.name,
-  };
-}
-
-async function removeLearningFile(filePath) {
-  if (!filePath) {
-    return;
-  }
-
-  const { error } = await supabase.storage
-    .from(LEARNING_BUCKET)
-    .remove([filePath]);
-
-  if (error) {
-    console.warn("No se pudo eliminar el archivo anterior", error);
-  }
-}
-
-export async function saveLearningItem(item, selectedFile) {
-  let uploadedFile = null;
-
-  if (selectedFile) {
-    uploadedFile = await uploadLearningFile(selectedFile, item.tipo);
-  }
-
+export async function saveLearningItem(item) {
+  const now = new Date().toISOString();
   const payload = {
-    tipo: item.tipo,
     titulo: item.titulo.trim(),
     descripcion: normalizeText(item.descripcion),
-    youtube_url: normalizeText(item.youtube_url),
-    archivo_url: uploadedFile?.fileUrl ?? item.archivo_url ?? null,
-    archivo_path: uploadedFile?.filePath ?? item.archivo_path ?? null,
-    archivo_nombre: uploadedFile?.fileName ?? item.archivo_nombre ?? null,
-    preguntas: null,
-    cantidad_preguntas_examen: null,
-    porcentaje_aprobacion: null,
-    duracion_maxima_minutos: null,
+    updated_at: now,
   };
 
   if (item.id) {
     const { data, error } = await supabase
-      .from(LEARNING_TABLE)
+      .from(CAPACITACIONES_TABLE)
       .update(payload)
       .eq("id", item.id)
       .select()
@@ -152,16 +116,12 @@ export async function saveLearningItem(item, selectedFile) {
       throw error;
     }
 
-    if (uploadedFile && item.archivo_path && item.archivo_path !== uploadedFile.filePath) {
-      await removeLearningFile(item.archivo_path);
-    }
-
-    return data;
+    return mapCapacitacionItem(data);
   }
 
   const { data, error } = await supabase
-    .from(LEARNING_TABLE)
-    .insert([payload])
+    .from(CAPACITACIONES_TABLE)
+    .insert([{ ...payload, created_at: item.created_at ?? now }])
     .select()
     .single();
 
@@ -169,27 +129,23 @@ export async function saveLearningItem(item, selectedFile) {
     throw error;
   }
 
-  return data;
+  return mapCapacitacionItem(data);
 }
 
 export async function saveCertification(certification) {
   const payload = {
-    tipo: LEARNING_TYPES.CERTIFICACION,
+    capacitacion_id: certification.capacitacion_id ?? null,
     titulo: certification.titulo.trim(),
     descripcion: normalizeText(certification.descripcion),
-    youtube_url: null,
-    archivo_url: null,
-    archivo_path: null,
-    archivo_nombre: null,
     preguntas: certification.preguntas.map(normalizeCertificationQuestion),
-    cantidad_preguntas_examen: Number(certification.cantidad_preguntas_examen),
     porcentaje_aprobacion: Number(certification.porcentaje_aprobacion),
     duracion_maxima_minutos: Number(certification.duracion_maxima_minutos),
+    created_at: certification.created_at ?? undefined,
   };
 
   if (certification.id) {
     const { data, error } = await supabase
-      .from(LEARNING_TABLE)
+      .from(CERTIFICACIONES_TABLE)
       .update(payload)
       .eq("id", certification.id)
       .select()
@@ -199,11 +155,11 @@ export async function saveCertification(certification) {
       throw error;
     }
 
-    return data;
+    return mapCertificationItem(data);
   }
 
   const { data, error } = await supabase
-    .from(LEARNING_TABLE)
+    .from(CERTIFICACIONES_TABLE)
     .insert([payload])
     .select()
     .single();
@@ -212,18 +168,18 @@ export async function saveCertification(certification) {
     throw error;
   }
 
-  return data;
+  return mapCertificationItem(data);
 }
 
 export async function deleteLearningItem(item) {
-  const { error } = await supabase
-    .from(LEARNING_TABLE)
-    .delete()
-    .eq("id", item.id);
+  const table =
+    item.tipo === LEARNING_TYPES.CERTIFICACION
+      ? CERTIFICACIONES_TABLE
+      : CAPACITACIONES_TABLE;
+
+  const { error } = await supabase.from(table).delete().eq("id", item.id);
 
   if (error) {
     throw error;
   }
-
-  await removeLearningFile(item.archivo_path);
 }

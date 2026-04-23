@@ -23,7 +23,7 @@ function LearningCatalog({ type, title, emptyMessage }) {
         if (!ignore) {
           console.error("No se pudo cargar el contenido formativo", loadError);
           setError(
-            "No se pudo cargar el contenido. Revisa que la tabla y el bucket esten creados en Supabase."
+            "No se pudo cargar el contenido. Revisa que las tablas esten creadas en Supabase."
           );
         }
       } finally {
@@ -74,11 +74,8 @@ function LearningCatalog({ type, title, emptyMessage }) {
                 key={item.id}
                 className="rounded-2xl bg-white p-6 shadow-md transition duration-200 hover:shadow-lg"
               >
-                <div className="mb-3 flex items-start justify-between gap-4">
+                <div className="mb-3">
                   <h2 className="text-2xl font-bold text-gray-900">{item.titulo}</h2>
-                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-600">
-                    {item.tipo}
-                  </span>
                 </div>
 
                 {item.descripcion && (
@@ -86,30 +83,6 @@ function LearningCatalog({ type, title, emptyMessage }) {
                     {item.descripcion}
                   </p>
                 )}
-
-                <div className="flex flex-wrap gap-3">
-                  {item.youtube_url && (
-                    <a
-                      href={item.youtube_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-red-600"
-                    >
-                      Ver en YouTube
-                    </a>
-                  )}
-
-                  {item.archivo_url && (
-                    <a
-                      href={item.archivo_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-blue-600"
-                    >
-                      Abrir archivo
-                    </a>
-                  )}
-                </div>
 
                 <p className="mt-5 text-xs text-gray-400">
                   {item.created_at
