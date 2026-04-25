@@ -1,9 +1,23 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+  ALLOWED_RESOURCE_EXTENSIONS,
+  RESOURCE_TYPES,
   deleteLearningItem,
   fetchLearningItems,
   saveLearningItem,
 } from "../services/learningContentService";
+
+function createEmptyModule(index = 0) {
+  return {
+    clientId: `modulo-${Date.now()}-${index}`,
+    id: null,
+    titulo: "",
+    descripcion: "",
+    youtubeLinksText: "",
+    selectedFiles: [],
+    recursos: [],
+  };
+}
 
 function getInitialForm(type) {
   return {
@@ -11,10 +25,30 @@ function getInitialForm(type) {
     tipo: type,
     titulo: "",
     descripcion: "",
-    youtube_url: "",
-    archivo_url: null,
-    archivo_path: null,
-    archivo_nombre: null,
+    modulos: [createEmptyModule()],
+  };
+}
+
+function getFileExtension(fileName) {
+  return fileName.split(".").pop()?.toLowerCase() ?? "";
+}
+
+function normalizeModuleForForm(module, index) {
+  const recursos = module.recursos ?? [];
+  const youtubeLinksText = recursos
+    .filter((resource) => resource.tipo === RESOURCE_TYPES.YOUTUBE)
+    .map((resource) => resource.youtube_url)
+    .filter(Boolean)
+    .join("\n");
+
+  return {
+    clientId: module.id ?? `modulo-edit-${index}`,
+    id: module.id,
+    titulo: module.titulo ?? "",
+    descripcion: module.descripcion ?? "",
+    youtubeLinksText,
+    selectedFiles: [],
+    recursos,
   };
 }
 
@@ -24,19 +58,9 @@ function AdminLearningManager({ type, title }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
-  const [selectedFile, setSelectedFile] = useState(null);
   const [form, setForm] = useState(getInitialForm(type));
 
-  useEffect(() => {
-    setForm(getInitialForm(type));
-    setSelectedFile(null);
-  }, [type]);
-
-  useEffect(() => {
-    loadItems();
-  }, [type]);
-
-  const loadItems = async () => {
+  const loadItems = useCallback(async () => {
     setLoading(true);
     setError("");
 
@@ -46,44 +70,178 @@ function AdminLearningManager({ type, title }) {
     } catch (loadError) {
       console.error("No se pudieron cargar los cursos", loadError);
       setError(
-        "No se pudo cargar el contenido. Revisa que la tabla y el bucket esten creados en Supabase."
+        "No se pudo cargar el contenido. Revisa que las tablas esten creadas en Supabase."
       );
     } finally {
       setLoading(false);
     }
-  };
+  }, [type]);
+
+  useEffect(() => {
+    setForm(getInitialForm(type));
+  }, [type]);
+
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
 
   const resetForm = () => {
     setForm(getInitialForm(type));
-    setSelectedFile(null);
     setFormError("");
+  };
+
+  const updateModule = (moduleIndex, changes) => {
+    setForm((currentForm) => ({
+      ...currentForm,
+      modulos: currentForm.modulos.map((module, index) =>
+        index === moduleIndex ? { ...module, ...changes } : module
+      ),
+    }));
+  };
+
+  const addModule = () => {
+    setForm((currentForm) => ({
+      ...currentForm,
+      modulos: [
+        ...currentForm.modulos,
+        createEmptyModule(currentForm.modulos.length),
+      ],
+    }));
+  };
+
+  const removeModule = (moduleIndex) => {
+    setForm((currentForm) => {
+      const nextModules = currentForm.modulos.filter(
+        (_module, index) => index !== moduleIndex
+      );
+
+      return {
+        ...currentForm,
+        modulos: nextModules.length > 0 ? nextModules : [createEmptyModule()],
+      };
+    });
+  };
+
+  const handleFilesChange = (moduleIndex, fileList) => {
+    const files = Array.from(fileList ?? []);
+    const invalidFile = files.find(
+      (file) => !ALLOWED_RESOURCE_EXTENSIONS.includes(getFileExtension(file.name))
+    );
+
+    if (invalidFile) {
+      setFormError(
+        `El archivo "${invalidFile.name}" no tiene un formato permitido. Formatos permitidos: ${ALLOWED_RESOURCE_EXTENSIONS.join(", ")}.`
+      );
+      return;
+    }
+
+    setFormError("");
+    setForm((currentForm) => ({
+      ...currentForm,
+      modulos: currentForm.modulos.map((module, index) =>
+        index === moduleIndex
+          ? {
+              ...module,
+              selectedFiles: [...(module.selectedFiles ?? []), ...files],
+            }
+          : module
+      ),
+    }));
+  };
+
+  const removeSelectedFile = (moduleIndex, fileIndex) => {
+    setForm((currentForm) => ({
+      ...currentForm,
+      modulos: currentForm.modulos.map((module, index) =>
+        index === moduleIndex
+          ? {
+              ...module,
+              selectedFiles: module.selectedFiles.filter(
+                (_file, selectedIndex) => selectedIndex !== fileIndex
+              ),
+            }
+          : module
+      ),
+    }));
+  };
+
+  const removeExistingResource = (moduleIndex, resourceId) => {
+    setForm((currentForm) => ({
+      ...currentForm,
+      modulos: currentForm.modulos.map((module, index) => {
+        if (index !== moduleIndex) {
+          return module;
+        }
+
+        const removedResource = module.recursos.find(
+          (resource) => resource.id === resourceId
+        );
+        const nextModule = {
+          ...module,
+          recursos: module.recursos.filter(
+            (resource) => resource.id !== resourceId
+          ),
+        };
+
+        if (removedResource?.tipo !== RESOURCE_TYPES.YOUTUBE) {
+          return nextModule;
+        }
+
+        return {
+          ...nextModule,
+          youtubeLinksText: module.youtubeLinksText
+            .split(/\r?\n/)
+            .map((link) => link.trim())
+            .filter((link) => link && link !== removedResource.youtube_url)
+            .join("\n"),
+        };
+      }),
+    }));
+  };
+
+  const validateForm = () => {
+    if (!form.titulo.trim()) {
+      return "El titulo es obligatorio.";
+    }
+
+    if (form.modulos.length === 0) {
+      return "La capacitacion debe tener al menos un modulo.";
+    }
+
+    const moduleWithoutTitle = form.modulos.find(
+      (module) => !module.titulo.trim()
+    );
+
+    if (moduleWithoutTitle) {
+      return "Todos los modulos deben tener titulo.";
+    }
+
+    return "";
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError("");
+
+    const validationError = validateForm();
+
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
+
     setSaving(true);
 
-    if (!form.titulo.trim()) {
-      setFormError("El titulo es obligatorio.");
-      setSaving(false);
-      return;
-    }
-
-    if (!selectedFile && !form.youtube_url && !form.archivo_url) {
-      setFormError("Carga un link de YouTube o selecciona un archivo.");
-      setSaving(false);
-      return;
-    }
-
     try {
-      await saveLearningItem(form, selectedFile);
+      await saveLearningItem(form);
       await loadItems();
       resetForm();
     } catch (saveError) {
       console.error("No se pudo guardar el curso", saveError);
       setFormError(
-        "No se pudo guardar el contenido. Revisa permisos de base de datos y storage."
+        saveError?.message
+          ? `No se pudo guardar el contenido: ${saveError.message}`
+          : "No se pudo guardar el contenido. Revisa permisos de base de datos y storage."
       );
     } finally {
       setSaving(false);
@@ -96,18 +254,17 @@ function AdminLearningManager({ type, title }) {
       tipo: item.tipo,
       titulo: item.titulo,
       descripcion: item.descripcion ?? "",
-      youtube_url: item.youtube_url ?? "",
-      archivo_url: item.archivo_url ?? null,
-      archivo_path: item.archivo_path ?? null,
-      archivo_nombre: item.archivo_nombre ?? null,
+      modulos:
+        item.modulos?.length > 0
+          ? item.modulos.map(normalizeModuleForForm)
+          : [createEmptyModule()],
     });
-    setSelectedFile(null);
     setFormError("");
   };
 
   const handleDelete = async (item) => {
     const shouldDelete = window.confirm(
-      `¿Seguro que quieres eliminar "${item.titulo}"?`
+      `Seguro que quieres eliminar "${item.titulo}"?`
     );
 
     if (!shouldDelete) {
@@ -132,7 +289,8 @@ function AdminLearningManager({ type, title }) {
       <header className="mb-8 border-b pb-4">
         <h1 className="text-3xl font-bold">{title}</h1>
         <p className="mt-2 text-sm text-gray-600">
-          Carga contenido simple para clientes mediante YouTube y archivos.
+          Administra capacitaciones, modulos y recursos publicados en la
+          aplicacion.
         </p>
       </header>
 
@@ -142,16 +300,16 @@ function AdminLearningManager({ type, title }) {
         </div>
       )}
 
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div className="grid gap-8 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
         <div className="rounded-lg bg-white p-6 shadow-md">
           <h2 className="mb-4 text-xl font-semibold">
-            {form.id ? "Editar contenido" : "Nuevo contenido"}
+            {form.id ? "Editar capacitacion" : "Nueva capacitacion"}
           </h2>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <input
               type="text"
-              placeholder="Titulo del curso"
+              placeholder="Titulo de la capacitacion"
               value={form.titulo}
               onChange={(e) => setForm({ ...form, titulo: e.target.value })}
               className="w-full rounded border p-3"
@@ -162,38 +320,171 @@ function AdminLearningManager({ type, title }) {
               placeholder="Descripcion breve"
               value={form.descripcion}
               onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-              className="min-h-[120px] w-full rounded border p-3"
+              className="min-h-[100px] w-full rounded border p-3"
             />
 
-            <input
-              type="url"
-              placeholder="https://www.youtube.com/..."
-              value={form.youtube_url}
-              onChange={(e) => setForm({ ...form, youtube_url: e.target.value })}
-              className="w-full rounded border p-3"
-            />
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Modulos
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Agrega al menos un modulo y combina archivos con videos.
+                  </p>
+                </div>
 
-            <div className="rounded border border-dashed border-gray-300 p-4">
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                Archivo
-              </label>
-              <input
-                type="file"
-                onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
-                className="w-full text-sm text-gray-700"
-              />
+                <button
+                  type="button"
+                  onClick={addModule}
+                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700"
+                >
+                  Agregar modulo
+                </button>
+              </div>
 
-              {form.archivo_nombre && !selectedFile && (
-                <p className="mt-2 text-xs text-gray-500">
-                  Archivo actual: {form.archivo_nombre}
-                </p>
-              )}
+              <div className="space-y-4">
+                {form.modulos.map((module, moduleIndex) => (
+                  <article
+                    key={module.clientId}
+                    className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+                  >
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <h4 className="font-semibold text-gray-900">
+                        Modulo {moduleIndex + 1}
+                      </h4>
 
-              {selectedFile && (
-                <p className="mt-2 text-xs text-gray-500">
-                  Nuevo archivo: {selectedFile.name}
-                </p>
-              )}
+                      <button
+                        type="button"
+                        onClick={() => removeModule(moduleIndex)}
+                        className="rounded bg-red-50 px-3 py-1 text-sm font-semibold text-red-600 hover:bg-red-100"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      <input
+                        type="text"
+                        placeholder="Titulo del modulo"
+                        value={module.titulo}
+                        onChange={(e) =>
+                          updateModule(moduleIndex, { titulo: e.target.value })
+                        }
+                        className="w-full rounded border p-3"
+                        required
+                      />
+
+                      <textarea
+                        placeholder="Descripcion del modulo"
+                        value={module.descripcion}
+                        onChange={(e) =>
+                          updateModule(moduleIndex, {
+                            descripcion: e.target.value,
+                          })
+                        }
+                        className="min-h-[80px] w-full rounded border p-3"
+                      />
+
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                          Links de YouTube
+                        </label>
+                        <textarea
+                          placeholder="Un link por linea"
+                          value={module.youtubeLinksText}
+                          onChange={(e) =>
+                            updateModule(moduleIndex, {
+                              youtubeLinksText: e.target.value,
+                            })
+                          }
+                          className="min-h-[90px] w-full rounded border p-3"
+                        />
+                      </div>
+
+                      <div className="rounded border border-dashed border-gray-300 p-4">
+                        <label className="mb-2 block text-sm font-medium text-gray-700">
+                          Archivos
+                        </label>
+                        <input
+                          type="file"
+                          multiple
+                          accept=".pdf,.docx,.pptx,.xlsx,.jpg,.png,.mp4"
+                          onChange={(e) => {
+                            handleFilesChange(moduleIndex, e.target.files);
+                            e.target.value = "";
+                          }}
+                          className="w-full text-sm text-gray-700"
+                        />
+                        <p className="mt-2 text-xs text-gray-500">
+                          Permitidos: {ALLOWED_RESOURCE_EXTENSIONS.join(", ")}
+                        </p>
+                      </div>
+
+                      {module.selectedFiles.length > 0 && (
+                        <div>
+                          <p className="mb-2 text-sm font-semibold text-gray-700">
+                            Archivos seleccionados
+                          </p>
+                          <ul className="space-y-2">
+                            {module.selectedFiles.map((file, fileIndex) => (
+                              <li
+                                key={`${file.name}-${file.lastModified}`}
+                                className="flex items-center justify-between gap-3 rounded bg-gray-50 px-3 py-2 text-sm"
+                              >
+                                <span>{file.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    removeSelectedFile(moduleIndex, fileIndex)
+                                  }
+                                  className="font-semibold text-red-600"
+                                >
+                                  Quitar
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {module.recursos.length > 0 && (
+                        <div>
+                          <p className="mb-2 text-sm font-semibold text-gray-700">
+                            Recursos actuales
+                          </p>
+                          <ul className="space-y-2">
+                            {module.recursos.map((resource) => (
+                              <li
+                                key={resource.id}
+                                className="flex items-center justify-between gap-3 rounded bg-gray-50 px-3 py-2 text-sm"
+                              >
+                                <span>
+                                  {resource.tipo === RESOURCE_TYPES.ARCHIVO
+                                    ? resource.archivo_nombre
+                                    : resource.youtube_url}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    removeExistingResource(
+                                      moduleIndex,
+                                      resource.id
+                                    )
+                                  }
+                                  className="font-semibold text-red-600"
+                                >
+                                  Quitar
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </article>
+                ))}
+              </div>
             </div>
 
             {formError && (
@@ -208,11 +499,7 @@ function AdminLearningManager({ type, title }) {
                 disabled={saving}
                 className="rounded-lg bg-blue-500 px-5 py-2 text-white shadow transition duration-200 hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-blue-300"
               >
-                {saving
-                  ? "Guardando..."
-                  : form.id
-                    ? "Actualizar"
-                    : "Guardar"}
+                {saving ? "Guardando..." : form.id ? "Actualizar" : "Guardar"}
               </button>
 
               {form.id && (
@@ -229,12 +516,12 @@ function AdminLearningManager({ type, title }) {
         </div>
 
         <div className="rounded-lg bg-white p-6 shadow-md">
-          <h2 className="mb-4 text-xl font-semibold">Contenidos cargados</h2>
+          <h2 className="mb-4 text-xl font-semibold">Capacitaciones cargadas</h2>
 
-          {loading && <p className="text-gray-600">Cargando contenidos...</p>}
+          {loading && <p className="text-gray-600">Cargando capacitaciones...</p>}
 
           {!loading && items.length === 0 && (
-            <p className="text-gray-600">Todavia no hay contenidos cargados.</p>
+            <p className="text-gray-600">Todavia no hay capacitaciones cargadas.</p>
           )}
 
           <div className="space-y-4">
@@ -253,6 +540,9 @@ function AdminLearningManager({ type, title }) {
                         {item.descripcion}
                       </p>
                     )}
+                    <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      {item.modulos?.length ?? 0} modulos
+                    </p>
                   </div>
 
                   <div className="flex flex-col gap-2">
@@ -269,30 +559,6 @@ function AdminLearningManager({ type, title }) {
                       Eliminar
                     </button>
                   </div>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-3">
-                  {item.youtube_url && (
-                    <a
-                      href={item.youtube_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-red-600"
-                    >
-                      Ver YouTube
-                    </a>
-                  )}
-
-                  {item.archivo_url && (
-                    <a
-                      href={item.archivo_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-blue-600"
-                    >
-                      Abrir archivo
-                    </a>
-                  )}
                 </div>
               </article>
             ))}
