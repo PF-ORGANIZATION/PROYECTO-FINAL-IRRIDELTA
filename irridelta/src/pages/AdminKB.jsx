@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import { pipeline, env } from "@xenova/transformers";
 import * as pdfjsLib from "pdfjs-dist";
+import { Trash2, Download, FileText } from "lucide-react";
 // El "?url" al final es clave para que Vite lo trate como un archivo estático
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'; 
 
@@ -40,6 +41,64 @@ function AdminKB() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
+  
+  const [filesList, setFilesList] = useState([]);
+  const [isLoadingList, setIsLoadingList] = useState(false);
+
+  useEffect(() => {
+    fetchFilesList();
+  }, []);
+
+  const fetchFilesList = async () => {
+    setIsLoadingList(true);
+    try {
+      const { data, error } = await supabase
+        .from("archivos_fuente")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setFilesList(data || []);
+    } catch (err) {
+      console.error("Error al cargar archivos:", err);
+    } finally {
+      setIsLoadingList(false);
+    }
+  };
+
+  const handleDeleteFile = async (id, storagePath) => {
+    if (!window.confirm("¿Estás seguro de eliminar este archivo? Se borrarán todos los fragmentos asociados en la base de conocimientos.")) return;
+    
+    try {
+      if (storagePath) {
+        await supabase.storage.from("kb-files").remove([storagePath]);
+      }
+      
+      const { error } = await supabase.from("archivos_fuente").delete().eq("id", id);
+      if (error) throw error;
+      
+      fetchFilesList();
+    } catch (err) {
+      console.error("Error eliminando el archivo:", err);
+      alert("Error al eliminar el archivo.");
+    }
+  };
+
+  const handleDownloadFile = async (storagePath) => {
+    if (!storagePath) {
+      alert("Esta es una carga manual de texto y no tiene archivo físico asociado.");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.storage.from("kb-files").createSignedUrl(storagePath, 60);
+      if (error) throw error;
+      
+      window.open(data.signedUrl, '_blank');
+    } catch (err) {
+      console.error("Error generando enlace de descarga:", err);
+      alert("Error al descargar el archivo.");
+    }
+  };
 
   // Extrae el texto del PDF usando pdfjs-dist o usa lectura estándar para TXT/MD
   const extractTextFromFile = async (file) => {
@@ -100,6 +159,31 @@ function AdminKB() {
       // 1. SANITIZACIÓN CRÍTICA: Remover caracteres nulos que rompen PostgreSQL
       fullText = fullText.replace(/\0/g, "");
 
+      setStatus("Subiendo archivo original e inicializando registro...");
+      let archivoId = null;
+      let storagePath = null;
+      const fileName = file ? file.name : `Carga_Manual_${new Date().toISOString()}`;
+
+      if (file) {
+        storagePath = `kb/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+        const { error: uploadError } = await supabase.storage
+          .from("kb-files")
+          .upload(storagePath, file);
+        if (uploadError) throw uploadError;
+      }
+
+      const { data: insertedFile, error: dbError } = await supabase
+        .from("archivos_fuente")
+        .insert({
+          nombre: fileName,
+          storage_path: storagePath
+        })
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+      archivoId = insertedFile.id;
+
       setStatus("Dividiendo el texto en fragmentos (chunks)...");
       const chunks = chunkText(fullText);
       const total = chunks.length;
@@ -107,7 +191,6 @@ function AdminKB() {
       setStatus("Cargando modelo de IA (gte-small)...");
       const extractor = await PipelineSingleton.getInstance();
 
-      const fileName = file ? file.name : "carga_manual";
       
       // Array para almacenar todos los registros antes de subir
       const rowsToInsert = [];
@@ -122,6 +205,7 @@ function AdminKB() {
 
         // Agregamos al lote en lugar de subirlo inmediatamente
         rowsToInsert.push({
+          archivo_id: archivoId,
           contenido: chunk,
           metadata: { source: fileName, chunk_index: i },
           embedding: embedding,
@@ -141,6 +225,7 @@ function AdminKB() {
       setStatus("¡Base de conocimientos actualizada con éxito!");
       setManualText("");
       setFile(null);
+      fetchFilesList();
       setTimeout(() => setStatus(""), 4000);
     } catch (err) {
       console.error(err);
@@ -151,7 +236,7 @@ function AdminKB() {
   };
 
   return (
-    <section className="min-h-[80vh] bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+    <section className="min-h-[80vh] bg-gray-50 px-4 py-12 sm:px-6 lg:px-8 space-y-8">
       <div className="mx-auto flex max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
         <header className="bg-green-600 px-6 py-4 shadow-sm">
           <h1 className="text-xl font-bold text-white">Panel de Conocimiento (RAG)</h1>
@@ -170,6 +255,61 @@ function AdminKB() {
           {status && <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><p className="text-sm text-gray-600 mb-2 font-medium">{status}</p>{isProcessing && <div className="w-full bg-gray-200 rounded-full h-2.5"><div className="bg-green-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div></div>}</div>}
           <div className="flex justify-end pt-4 border-t border-gray-200"><button type="submit" disabled={isProcessing || (!file && !manualText.trim())} className="rounded-xl bg-green-600 px-6 py-3 font-semibold text-white shadow-md transition hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">{isProcessing ? "Procesando..." : "Procesar y Subir"}</button></div>
         </form>
+      </div>
+
+      {/* --- SECCIÓN DE GESTIÓN DE ARCHIVOS --- */}
+      <div className="mx-auto flex max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl p-6">
+        <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <FileText className="w-5 h-5 text-green-600" />
+          Documentos Subidos
+        </h2>
+        
+        {isLoadingList ? (
+          <p className="text-gray-500 text-sm">Cargando documentos...</p>
+        ) : filesList.length === 0 ? (
+          <p className="text-gray-500 text-sm">No hay documentos registrados aún.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200 text-sm text-gray-600">
+                  <th className="py-3 px-4 font-semibold">Nombre</th>
+                  <th className="py-3 px-4 font-semibold">Fecha de Carga</th>
+                  <th className="py-3 px-4 font-semibold text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm text-gray-700">
+                {filesList.map((f) => (
+                  <tr key={f.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-3 px-4 max-w-[300px] truncate" title={f.nombre}>
+                      {f.nombre}
+                    </td>
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      {new Date(f.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="py-3 px-4 flex justify-end gap-2">
+                      <button
+                        onClick={() => handleDownloadFile(f.storage_path)}
+                        className={`p-2 rounded-lg transition ${f.storage_path ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-300 cursor-not-allowed'}`}
+                        title={f.storage_path ? "Descargar documento" : "Carga manual sin archivo"}
+                        disabled={!f.storage_path}
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteFile(f.id, f.storage_path)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                        title="Eliminar documento"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </section>
   );
