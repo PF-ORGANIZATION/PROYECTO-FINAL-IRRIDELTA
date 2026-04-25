@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { ChevronDown, Eye, X } from "lucide-react";
 import {
   ALLOWED_RESOURCE_EXTENSIONS,
   RESOURCE_TYPES,
@@ -6,6 +7,7 @@ import {
   fetchLearningItems,
   saveLearningItem,
 } from "../services/learningContentService";
+import LearningItemPreviewCard from "./LearningItemPreviewCard";
 
 function createEmptyModule(index = 0) {
   return {
@@ -16,6 +18,7 @@ function createEmptyModule(index = 0) {
     youtubeLinksText: "",
     selectedFiles: [],
     recursos: [],
+    isCollapsed: false,
   };
 }
 
@@ -49,6 +52,7 @@ function normalizeModuleForForm(module, index) {
     youtubeLinksText,
     selectedFiles: [],
     recursos,
+    isCollapsed: false,
   };
 }
 
@@ -59,6 +63,7 @@ function AdminLearningManager({ type, title }) {
   const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
   const [form, setForm] = useState(getInitialForm(type));
+  const [previewItem, setPreviewItem] = useState(null);
 
   const loadItems = useCallback(async () => {
     setLoading(true);
@@ -85,6 +90,23 @@ function AdminLearningManager({ type, title }) {
     loadItems();
   }, [loadItems]);
 
+  useEffect(() => {
+    if (!previewItem) {
+      return undefined;
+    }
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setPreviewItem(null);
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [previewItem]);
+
   const resetForm = () => {
     setForm(getInitialForm(type));
     setFormError("");
@@ -103,7 +125,10 @@ function AdminLearningManager({ type, title }) {
     setForm((currentForm) => ({
       ...currentForm,
       modulos: [
-        ...currentForm.modulos,
+        ...currentForm.modulos.map((module) => ({
+          ...module,
+          isCollapsed: true,
+        })),
         createEmptyModule(currentForm.modulos.length),
       ],
     }));
@@ -120,6 +145,17 @@ function AdminLearningManager({ type, title }) {
         modulos: nextModules.length > 0 ? nextModules : [createEmptyModule()],
       };
     });
+  };
+
+  const toggleModuleCollapse = (moduleIndex) => {
+    setForm((currentForm) => ({
+      ...currentForm,
+      modulos: currentForm.modulos.map((module, index) =>
+        index === moduleIndex
+          ? { ...module, isCollapsed: !module.isCollapsed }
+          : module
+      ),
+    }));
   };
 
   const handleFilesChange = (moduleIndex, fileList) => {
@@ -284,6 +320,14 @@ function AdminLearningManager({ type, title }) {
     }
   };
 
+  const openPreview = (item) => {
+    setPreviewItem(item);
+  };
+
+  const closePreview = () => {
+    setPreviewItem(null);
+  };
+
   return (
     <section className="min-h-screen bg-gray-100 px-6 py-6 md:px-12 lg:px-24">
       <header className="mb-8 border-b pb-4">
@@ -324,7 +368,7 @@ function AdminLearningManager({ type, title }) {
             />
 
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
                     Modulos
@@ -332,15 +376,10 @@ function AdminLearningManager({ type, title }) {
                   <p className="text-sm text-gray-600">
                     Agrega al menos un modulo y combina archivos con videos.
                   </p>
+                  <p className="mt-1 text-xs font-medium text-gray-500">
+                    Minimo requerido: 1 modulo.
+                  </p>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={addModule}
-                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700"
-                >
-                  Agregar modulo
-                </button>
               </div>
 
               <div className="space-y-4">
@@ -350,138 +389,158 @@ function AdminLearningManager({ type, title }) {
                     className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
                   >
                     <div className="mb-3 flex items-start justify-between gap-3">
-                      <h4 className="font-semibold text-gray-900">
-                        Modulo {moduleIndex + 1}
-                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => toggleModuleCollapse(moduleIndex)}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        aria-expanded={!module.isCollapsed}
+                      >
+                        <ChevronDown
+                          className={`h-5 w-5 flex-shrink-0 text-gray-500 transition-transform duration-200 ${
+                            module.isCollapsed ? "-rotate-90" : "rotate-0"
+                          }`}
+                        />
+                        <div className="min-w-0">
+                          <h4 className="font-semibold text-gray-900">
+                            Modulo {moduleIndex + 1}
+                          </h4>
+                          <p className="truncate text-sm text-gray-600">
+                            {module.titulo.trim() || "Sin titulo"}
+                          </p>
+                        </div>
+                      </button>
 
                       <button
                         type="button"
                         onClick={() => removeModule(moduleIndex)}
-                        className="rounded bg-red-50 px-3 py-1 text-sm font-semibold text-red-600 hover:bg-red-100"
+                        disabled={form.modulos.length === 1}
+                        className="rounded bg-red-50 px-3 py-1 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
                       >
                         Quitar
                       </button>
                     </div>
 
-                    <div className="space-y-3">
-                      <input
-                        type="text"
-                        placeholder="Titulo del modulo"
-                        value={module.titulo}
-                        onChange={(e) =>
-                          updateModule(moduleIndex, { titulo: e.target.value })
-                        }
-                        className="w-full rounded border p-3"
-                        required
-                      />
+                    {!module.isCollapsed && (
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          placeholder="Titulo del modulo"
+                          value={module.titulo}
+                          onChange={(e) =>
+                            updateModule(moduleIndex, { titulo: e.target.value })
+                          }
+                          className="w-full rounded border p-3"
+                          required
+                        />
 
-                      <textarea
-                        placeholder="Descripcion del modulo"
-                        value={module.descripcion}
-                        onChange={(e) =>
-                          updateModule(moduleIndex, {
-                            descripcion: e.target.value,
-                          })
-                        }
-                        className="min-h-[80px] w-full rounded border p-3"
-                      />
-
-                      <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">
-                          Links de YouTube
-                        </label>
                         <textarea
-                          placeholder="Un link por linea"
-                          value={module.youtubeLinksText}
+                          placeholder="Descripcion del modulo"
+                          value={module.descripcion}
                           onChange={(e) =>
                             updateModule(moduleIndex, {
-                              youtubeLinksText: e.target.value,
+                              descripcion: e.target.value,
                             })
                           }
-                          className="min-h-[90px] w-full rounded border p-3"
+                          className="min-h-[80px] w-full rounded border p-3"
                         />
-                      </div>
 
-                      <div className="rounded border border-dashed border-gray-300 p-4">
-                        <label className="mb-2 block text-sm font-medium text-gray-700">
-                          Archivos
-                        </label>
-                        <input
-                          type="file"
-                          multiple
-                          accept=".pdf,.docx,.pptx,.xlsx,.jpg,.png,.mp4"
-                          onChange={(e) => {
-                            handleFilesChange(moduleIndex, e.target.files);
-                            e.target.value = "";
-                          }}
-                          className="w-full text-sm text-gray-700"
-                        />
-                        <p className="mt-2 text-xs text-gray-500">
-                          Permitidos: {ALLOWED_RESOURCE_EXTENSIONS.join(", ")}
-                        </p>
-                      </div>
-
-                      {module.selectedFiles.length > 0 && (
                         <div>
-                          <p className="mb-2 text-sm font-semibold text-gray-700">
-                            Archivos seleccionados
-                          </p>
-                          <ul className="space-y-2">
-                            {module.selectedFiles.map((file, fileIndex) => (
-                              <li
-                                key={`${file.name}-${file.lastModified}`}
-                                className="flex items-center justify-between gap-3 rounded bg-gray-50 px-3 py-2 text-sm"
-                              >
-                                <span>{file.name}</span>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    removeSelectedFile(moduleIndex, fileIndex)
-                                  }
-                                  className="font-semibold text-red-600"
-                                >
-                                  Quitar
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
+                          <label className="mb-1 block text-sm font-medium text-gray-700">
+                            Links de YouTube
+                          </label>
+                          <textarea
+                            placeholder="Un link por linea"
+                            value={module.youtubeLinksText}
+                            onChange={(e) =>
+                              updateModule(moduleIndex, {
+                                youtubeLinksText: e.target.value,
+                              })
+                            }
+                            className="min-h-[90px] w-full rounded border p-3"
+                          />
                         </div>
-                      )}
 
-                      {module.recursos.length > 0 && (
-                        <div>
-                          <p className="mb-2 text-sm font-semibold text-gray-700">
-                            Recursos actuales
+                        <div className="rounded border border-dashed border-gray-300 p-4">
+                          <label className="mb-2 block text-sm font-medium text-gray-700">
+                            Archivos
+                          </label>
+                          <input
+                            type="file"
+                            multiple
+                            accept=".pdf,.docx,.pptx,.xlsx,.jpg,.png,.mp4"
+                            onChange={(e) => {
+                              handleFilesChange(moduleIndex, e.target.files);
+                              e.target.value = "";
+                            }}
+                            className="w-full text-sm text-gray-700"
+                          />
+                          <p className="mt-2 text-xs text-gray-500">
+                            Permitidos: {ALLOWED_RESOURCE_EXTENSIONS.join(", ")}
                           </p>
-                          <ul className="space-y-2">
-                            {module.recursos.map((resource) => (
-                              <li
-                                key={resource.id}
-                                className="flex items-center justify-between gap-3 rounded bg-gray-50 px-3 py-2 text-sm"
-                              >
-                                <span>
-                                  {resource.tipo === RESOURCE_TYPES.ARCHIVO
-                                    ? resource.archivo_nombre
-                                    : resource.youtube_url}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    removeExistingResource(
-                                      moduleIndex,
-                                      resource.id
-                                    )
-                                  }
-                                  className="font-semibold text-red-600"
-                                >
-                                  Quitar
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
                         </div>
-                      )}
-                    </div>
+
+                        {module.selectedFiles.length > 0 && (
+                          <div>
+                            <p className="mb-2 text-sm font-semibold text-gray-700">
+                              Archivos seleccionados
+                            </p>
+                            <ul className="space-y-2">
+                              {module.selectedFiles.map((file, fileIndex) => (
+                                <li
+                                  key={`${file.name}-${file.lastModified}`}
+                                  className="flex items-center justify-between gap-3 rounded bg-gray-50 px-3 py-2 text-sm"
+                                >
+                                  <span>{file.name}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      removeSelectedFile(moduleIndex, fileIndex)
+                                    }
+                                    className="font-semibold text-red-600"
+                                  >
+                                    Quitar
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {module.recursos.length > 0 && (
+                          <div>
+                            <p className="mb-2 text-sm font-semibold text-gray-700">
+                              Recursos actuales
+                            </p>
+                            <ul className="space-y-2">
+                              {module.recursos.map((resource) => (
+                                <li
+                                  key={resource.id}
+                                  className="flex items-center justify-between gap-3 rounded bg-gray-50 px-3 py-2 text-sm"
+                                >
+                                  <span>
+                                    {resource.tipo === RESOURCE_TYPES.ARCHIVO
+                                      ? resource.archivo_nombre
+                                      : resource.youtube_url}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      removeExistingResource(
+                                        moduleIndex,
+                                        resource.id
+                                      )
+                                    }
+                                    className="font-semibold text-red-600"
+                                  >
+                                    Quitar
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </article>
                 ))}
               </div>
@@ -493,7 +552,15 @@ function AdminLearningManager({ type, title }) {
               </div>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={addModule}
+                className="rounded-lg bg-green-600 px-5 py-2 text-white shadow transition duration-200 hover:bg-green-700"
+              >
+                Agregar modulo
+              </button>
+
               <button
                 type="submit"
                 disabled={saving}
@@ -547,6 +614,13 @@ function AdminLearningManager({ type, title }) {
 
                   <div className="flex flex-col gap-2">
                     <button
+                      onClick={() => openPreview(item)}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-700 px-4 py-1 text-white"
+                    >
+                      <Eye className="h-4 w-4" />
+                      Ver
+                    </button>
+                    <button
                       onClick={() => handleEdit(item)}
                       className="rounded-lg bg-yellow-500 px-4 py-1 text-white"
                     >
@@ -565,6 +639,56 @@ function AdminLearningManager({ type, title }) {
           </div>
         </div>
       </div>
+
+      {previewItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+          <button
+            type="button"
+            aria-label="Cerrar previsualizacion"
+            onClick={closePreview}
+            className="absolute inset-0 bg-slate-900/65"
+          />
+
+          <div className="relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-600">
+                  Previsualizacion
+                </p>
+                <h2 className="mt-2 text-2xl font-bold text-gray-900">
+                  {previewItem.titulo}
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Vista previa de la capacitacion sin salir del panel de administracion.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closePreview}
+                className="rounded-full p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
+                aria-label="Cerrar modal de previsualizacion"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto bg-gray-50 p-6">
+              <LearningItemPreviewCard item={previewItem} />
+            </div>
+
+            <div className="flex justify-end border-t border-gray-200 bg-white px-6 py-4">
+              <button
+                type="button"
+                onClick={closePreview}
+                className="rounded-lg bg-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition duration-200 hover:bg-gray-300"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
