@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { HiMenu, HiX } from "react-icons/hi";
+import { ChevronDown } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useSessionStore } from "../store/sessionStore";
 import { USER_ROLES } from "../utils/authRoles";
@@ -8,8 +9,11 @@ import { USER_ROLES } from "../utils/authRoles";
 function Navbar() {
   const { logOut } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
+  const [isMobileAdminMenuOpen, setIsMobileAdminMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const adminMenuRef = useRef(null);
   const user = useSessionStore((state) => state.user);
   const role = useSessionStore((state) => state.role);
   const isLoading = useSessionStore((state) => state.isLoading);
@@ -37,25 +41,57 @@ function Navbar() {
   }
 
   if (user && role === USER_ROLES.ADMIN) {
-    navItems.push({ name: "Admin Productos", path: "/admin/productos" });
     navItems.push({
-      name: "Admin Capacitaciones",
-      path: "/admin/capacitaciones",
-    });
-    navItems.push({
-      name: "Admin Certificaciones",
-      path: "/admin/certificaciones",
+      name: "Admin",
+      children: [
+        { name: "Productos", path: "/admin/productos" },
+        { name: "Capacitaciones", path: "/admin/capacitaciones" },
+        { name: "Certificaciones", path: "/admin/certificaciones" },
+      ],
     });
   }
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (adminMenuRef.current && !adminMenuRef.current.contains(event.target)) {
+        setIsAdminMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    setIsAdminMenuOpen(false);
+    setIsMobileAdminMenuOpen(false);
+  }, [location.pathname]);
 
   const getLinkClasses = (path) => {
     const isActive = location.pathname === path;
     return `${baseLinkClasses} ${isActive ? activeLinkClasses : defaultLinkClasses}`;
   };
 
+  const adminItems =
+    role === USER_ROLES.ADMIN
+      ? [
+          { name: "Productos", path: "/admin/productos" },
+          { name: "Capacitaciones", path: "/admin/capacitaciones" },
+          { name: "Certificaciones", path: "/admin/certificaciones" },
+        ]
+      : [];
+
+  const isAdminSectionActive = adminItems.some(
+    (item) => location.pathname === item.path
+  );
+
   const handleSignOut = async () => {
     await logOut();
     setIsOpen(false);
+    setIsAdminMenuOpen(false);
+    setIsMobileAdminMenuOpen(false);
     navigate("/login", { replace: true });
   };
 
@@ -84,12 +120,61 @@ function Navbar() {
 
           <div className="hidden items-center gap-4 md:flex">
             <div className="flex items-baseline space-x-4">
-            {navItems.map((item) => (
-              <Link key={item.name} to={item.path} className={getLinkClasses(item.path)}>
-                {item.name}
-              </Link>
-            ))}
-          </div>
+              {navItems.map((item) => {
+                if (item.children) {
+                  return (
+                    <div key={item.name} className="relative" ref={adminMenuRef}>
+                      <button
+                        type="button"
+                        onClick={() => setIsAdminMenuOpen((prev) => !prev)}
+                        className={`${baseLinkClasses} inline-flex items-center gap-2 ${
+                          isAdminSectionActive || isAdminMenuOpen
+                            ? activeLinkClasses
+                            : defaultLinkClasses
+                        }`}
+                        aria-expanded={isAdminMenuOpen}
+                        aria-haspopup="menu"
+                      >
+                        {item.name}
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform duration-200 ${
+                            isAdminMenuOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </button>
+
+                      {isAdminMenuOpen && (
+                        <div className="absolute right-0 mt-2 w-60 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+                          {item.children.map((child) => {
+                            const isActive = location.pathname === child.path;
+
+                            return (
+                              <Link
+                                key={child.name}
+                                to={child.path}
+                                className={`block px-4 py-3 text-sm transition ${
+                                  isActive
+                                    ? "border-l-2 border-green-500 bg-green-50 font-semibold text-green-700"
+                                    : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
+                                }`}
+                              >
+                                {child.name}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <Link key={item.name} to={item.path} className={getLinkClasses(item.path)}>
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </div>
 
             {!isLoading && !user && (
               <Link to={ctaPath} className={ctaClasses}>
@@ -125,16 +210,68 @@ function Navbar() {
       {isOpen && (
         <div className="md:hidden" id="mobile-menu">
           <div className="space-y-1 px-2 pb-4 pt-2 sm:px-3">
-            {navItems.map((item) => (
-              <Link
-                key={item.name}
-                to={item.path}
-                className={`block text-base ${getLinkClasses(item.path)}`}
-                onClick={() => setIsOpen(false)}
-              >
-                {item.name}
-              </Link>
-            ))}
+            {navItems.map((item) => {
+              if (item.children) {
+                return (
+                  <div
+                    key={item.name}
+                    className="overflow-hidden rounded-xl border border-gray-700 bg-gray-900/50"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setIsMobileAdminMenuOpen((prev) => !prev)}
+                      className={`flex w-full items-center justify-between px-4 py-3 text-left text-base font-medium transition ${
+                        isAdminSectionActive
+                          ? "bg-gray-900 text-green-400"
+                          : "text-gray-300 hover:bg-gray-700 hover:text-green-400"
+                      }`}
+                      aria-expanded={isMobileAdminMenuOpen}
+                    >
+                      {item.name}
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform duration-200 ${
+                          isMobileAdminMenuOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {isMobileAdminMenuOpen && (
+                      <div className="border-t border-gray-700 bg-white">
+                        {item.children.map((child) => {
+                          const isActive = location.pathname === child.path;
+
+                          return (
+                            <Link
+                              key={child.name}
+                              to={child.path}
+                              className={`block px-4 py-3 text-sm transition ${
+                                isActive
+                                  ? "border-l-2 border-green-500 bg-green-50 font-semibold text-green-700"
+                                  : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
+                              }`}
+                              onClick={() => setIsOpen(false)}
+                            >
+                              {child.name}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              return (
+                <Link
+                  key={item.name}
+                  to={item.path}
+                  className={`block text-base ${getLinkClasses(item.path)}`}
+                  onClick={() => setIsOpen(false)}
+                >
+                  {item.name}
+                </Link>
+              );
+            })}
 
             {!isLoading && !user && (
               <Link
