@@ -13,6 +13,10 @@ Main route groups:
 - Client routes: capacitaciones, certificaciones, certification exam.
 - Admin routes: products, capacitaciones, certificaciones.
 
+Navigation note:
+
+- The desktop and mobile navbar groups admin links inside one `Admin` dropdown rather than rendering three separate top-level admin links.
+
 ## State And Data Access
 
 - Session state lives in `src/store/sessionStore.js`.
@@ -38,12 +42,14 @@ Learning admin:
 
 - `src/pages/AdminCapacitaciones.jsx` renders `AdminLearningManager`.
 - `src/components/AdminLearningManager.jsx` owns the capacitaciones form state and module/resource UI.
+- `src/components/AdminLearningManager.jsx` also owns the admin-side capacitacion preview modal.
 - `src/pages/AdminCertificaciones.jsx` owns final certification form state.
 
 ## Client Learning Views
 
 - `src/pages/Capacitaciones.jsx` renders the learning catalog for trainings.
 - `src/components/LearningCatalog.jsx` displays capacitaciones, modules, and resources.
+- `src/components/LearningItemPreviewCard.jsx` is the shared presentational card for capacitacion content.
 - `src/pages/Certificaciones.jsx` lists final certifications.
 - `src/pages/CertificationExam.jsx` handles the exam experience.
 
@@ -57,3 +63,11 @@ Future production hardening should consider:
 - Moving multi-table writes into Supabase RPCs for stronger consistency.
 - Adding better upload error recovery.
 - Adding pagination or lazy loading if content volume grows.
+
+Current admin UX choices worth preserving unless intentionally redesigned:
+
+- Capacitaciones require at least one module.
+- The last remaining module cannot be removed from the form.
+- Modules can be collapsed independently to reduce scrolling in long forms.
+- New module creation collapses previous modules automatically.
+- Admin preview uses a modal instead of route navigation so editors keep their place in the panel.
