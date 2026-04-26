@@ -22,8 +22,8 @@ Navigation note:
 - Session state lives in `src/store/sessionStore.js`.
 - Auth helpers live in `src/hooks/useAuth.js`.
 - Role helpers live in `src/utils/authRoles.js`.
-- Product/category data access is handled through `src/context/ProductContext.jsx`.
-- Learning/certification data access is centralized in `src/services/learningContentService.js`.
+- Product and category data access is handled through `src/context/ProductContext.jsx`.
+- Learning and certification data access is centralized in `src/services/learningContentService.js`.
 
 ## Supabase Client
 
@@ -35,16 +35,16 @@ Keep this file generic. Do not hardcode project URLs, anon keys, service-role ke
 
 Product admin:
 
-- Uses product/category context.
+- Uses product and category context.
 - UI pieces are under `src/admin/`.
 
 Learning admin:
 
-- `src/pages/AdminCapacitacionesList.jsx` owns the admin list/search/delete experience for capacitaciones.
-- `src/pages/AdminCapacitacionEditor.jsx` loads one capacitacion (or an empty form) and renders `AdminLearningManager`.
+- `src/pages/AdminCapacitacionesList.jsx` owns the admin list, search, and delete experience for capacitaciones.
+- `src/pages/AdminCapacitacionEditor.jsx` loads one capacitacion, or an empty form, and renders `AdminLearningManager`.
 - `src/components/AdminLearningManager.jsx` owns the capacitaciones editor UI, section layout, save actions, preview access, and assessment modals.
 - `src/components/ModuleCard.jsx` encapsulates one module card with content and test summary.
-- `src/components/AssessmentEditor.jsx`, `AssessmentModal.jsx`, and `AssessmentSummaryCard.jsx` support module/final evaluation editing.
+- `src/components/AssessmentEditor.jsx`, `AssessmentModal.jsx`, and `AssessmentSummaryCard.jsx` support module and final evaluation editing.
 - `src/components/UnsavedChangesModal.jsx` handles the editor warning before leaving with unsaved changes.
 - `src/pages/AdminCertificaciones.jsx` owns final certification form state.
 
@@ -58,7 +58,7 @@ Learning admin:
 
 ## Design Tradeoffs
 
-The current learning-content implementation favors simple frontend orchestration for MVP speed. The main tradeoff is that saving modules/resources requires multiple Supabase calls.
+The current learning-content implementation favors simple frontend orchestration for MVP speed. The main tradeoff is that saving modules and resources requires multiple Supabase calls.
 
 Future production hardening should consider:
 

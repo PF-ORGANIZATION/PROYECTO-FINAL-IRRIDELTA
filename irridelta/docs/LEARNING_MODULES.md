@@ -53,7 +53,7 @@ High-level save flow:
 5. Validate the required final evaluation.
 6. Validate allowed file extensions.
 7. Save the parent capacitacion row, including `publicada`.
-8. Replace module/resource rows for that capacitacion.
+8. Replace module and resource rows for that capacitacion.
 9. Upload new files to Supabase Storage.
 10. Insert module resource rows with file or YouTube metadata.
 11. Upsert the final certification row linked to the capacitacion.
@@ -83,20 +83,20 @@ These are defined in `learningContentService.js` and reused by the admin UI.
 
 ## Known Tradeoffs
 
-The current implementation replaces module/resource rows during edits. This keeps the code simpler, but it is not ideal for high-volume production usage.
+The current implementation replaces module and resource rows during edits. This keeps the code simpler, but it is not ideal for high-volume production usage.
 
 The admin preview modal intentionally reuses the same shared preview card as the public catalog. This reduces duplicated markup and helps keep admin preview and client-facing output visually consistent.
 
 Module collapse state is UI-only. It is not persisted to the database and resets when the admin form is rebuilt.
 
-The current admin editor warns before leaving when there are unsaved changes. This protection currently covers in-app navigation triggers used by the editor plus browser refresh/close.
+The current admin editor warns before leaving when there are unsaved changes. This protection currently covers in-app navigation triggers used by the editor plus browser refresh and close.
 
 Potential future improvements:
 
 - Use a database RPC for transactional multi-table writes.
 - Add upload progress.
 - Add file size limits.
-- Add better rollback/cleanup for partial upload failures.
+- Add better rollback and cleanup for partial upload failures.
 - Split `AdminLearningManager` into smaller components.
 - Add resource ordering controls in the UI.
 - Add pagination or lazy loading if content volume grows.

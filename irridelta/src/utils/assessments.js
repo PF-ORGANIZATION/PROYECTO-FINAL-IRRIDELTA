@@ -201,3 +201,60 @@ export function isAssessmentComplete(
     }) === ""
   );
 }
+
+export function isQuestionReadyForImport(question) {
+  if (!question?.enunciado?.trim()) {
+    return false;
+  }
+
+  if (question.tipo === QUESTION_TYPES.TRUE_FALSE) {
+    return true;
+  }
+
+  if (!Array.isArray(question.opciones) || question.opciones.length < MIN_OPTIONS) {
+    return false;
+  }
+
+  return !question.opciones.some((option) => !option?.trim());
+}
+
+export function isQuestionEmpty(question) {
+  if (!question) {
+    return true;
+  }
+
+  if (question.enunciado?.trim()) {
+    return false;
+  }
+
+  if (question.tipo === QUESTION_TYPES.TRUE_FALSE) {
+    return true;
+  }
+
+  return !(question.opciones ?? []).some((option) => option?.trim());
+}
+
+export function buildImportedQuestion(question) {
+  return {
+    ...question,
+    id: buildQuestion(question.tipo).id,
+    opciones:
+      question.tipo === QUESTION_TYPES.TRUE_FALSE
+        ? ["Verdadero", "Falso"]
+        : [...(question.opciones ?? [])],
+    respuesta_correcta: Number(question.respuesta_correcta ?? 0),
+    enunciado: question.enunciado ?? "",
+  };
+}
+
+export function getQuestionFingerprint(question) {
+  return JSON.stringify({
+    tipo: question?.tipo ?? QUESTION_TYPES.MULTIPLE_CHOICE,
+    enunciado: question?.enunciado?.trim() ?? "",
+    opciones:
+      question?.tipo === QUESTION_TYPES.TRUE_FALSE
+        ? ["Verdadero", "Falso"]
+        : (question?.opciones ?? []).map((option) => option.trim()),
+    respuesta_correcta: Number(question?.respuesta_correcta ?? 0),
+  });
+}
