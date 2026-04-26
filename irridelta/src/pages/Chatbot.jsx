@@ -1,25 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useSessionStore } from "../store/sessionStore";
 import { supabase } from "../supabaseClient";
-import { pipeline, env } from "@xenova/transformers";
-
-// Configuramos el entorno de Transformers.js para evitar errores en Vite
-env.allowLocalModels = false;
-env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
-
-// Singleton para cargar el modelo de IA una sola vez en el navegador
-class PipelineSingleton {
-  static task = "feature-extraction";
-  static model = "Supabase/gte-small";
-  static instance = null;
-
-  static async getInstance() {
-    if (this.instance === null) {
-      this.instance = pipeline(this.task, this.model);
-    }
-    return this.instance;
-  }
-}
+import { embed } from "../services/embeddingService";
 
 function Chatbot() {
   const user = useSessionStore((state) => state.user);
@@ -54,9 +36,7 @@ function Chatbot() {
 
     try {
       // 1. Vectorizar la pregunta del usuario
-      const extractor = await PipelineSingleton.getInstance();
-      const output = await extractor(userMsg, { pooling: "mean", normalize: true });
-      const queryEmbedding = Array.from(output.data);
+      const queryEmbedding = await embed(userMsg);
 
       // 2. Buscar contexto en Supabase
       // match_threshold: 0.3 es un buen punto de partida (30% de similitud mínima)
