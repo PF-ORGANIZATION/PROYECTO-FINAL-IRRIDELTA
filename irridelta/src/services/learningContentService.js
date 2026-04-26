@@ -1,4 +1,9 @@
 import { supabase } from "../supabaseClient";
+import {
+  QUESTION_TYPES,
+  sanitizeQuestionForSave,
+  validateAssessment,
+} from "../utils/assessments";
 
 export const CAPACITACIONES_TABLE = "capacitaciones";
 export const CAPACITACION_MODULOS_TABLE = "capacitacion_modulos";
@@ -26,10 +31,7 @@ export const LEARNING_TYPES = {
   CERTIFICACION: "certificacion",
 };
 
-export const CERTIFICATION_QUESTION_TYPES = {
-  MULTIPLE_CHOICE: "multiple_choice",
-  TRUE_FALSE: "true_false",
-};
+export const CERTIFICATION_QUESTION_TYPES = QUESTION_TYPES;
 
 function normalizeText(value) {
   const trimmed = value?.trim();
@@ -74,6 +76,17 @@ function validateLearningModules(modules) {
   }
 
   for (const module of modules) {
+    const assessmentError = validateAssessment(module, {
+      name: `El test del modulo "${module.titulo?.trim() || "sin titulo"}"`,
+      includeQuestionCount: true,
+      questionCountKey: "cantidad_preguntas_a_mostrar",
+      questionCountLabel: "La cantidad de preguntas a mostrar del test del modulo",
+    });
+
+    if (assessmentError) {
+      throw new Error(assessmentError);
+    }
+
     for (const file of module.selectedFiles ?? []) {
       validateFileExtension(file.name);
     }
@@ -86,24 +99,14 @@ function normalizeCertificationQuestion(question, index) {
       ? CERTIFICATION_QUESTION_TYPES.TRUE_FALSE
       : CERTIFICATION_QUESTION_TYPES.MULTIPLE_CHOICE;
 
-  const options =
-    type === CERTIFICATION_QUESTION_TYPES.TRUE_FALSE
-      ? ["Verdadero", "Falso"]
-      : (question.opciones ?? []).map((option) => option.trim());
-
-  return {
-    id: question.id ?? `pregunta-${index + 1}`,
-    tipo: type,
-    enunciado: question.enunciado.trim(),
-    opciones: options,
-    respuesta_correcta: Number(question.respuesta_correcta ?? 0),
-  };
+  return sanitizeQuestionForSave({ ...question, tipo: type }, index);
 }
 
 function mapCapacitacionItem(item) {
   return {
     ...item,
     modulos: item.modulos ?? [],
+    certificacion: item.certificacion ?? null,
     tipo: LEARNING_TYPES.CAPACITACION,
   };
 }
@@ -115,12 +118,18 @@ function mapCertificationItem(item) {
   };
 }
 
-export async function fetchLearningItems(type) {
+export async function fetchLearningItems(type, options = {}) {
   if (type === LEARNING_TYPES.CAPACITACION) {
-    const { data, error } = await supabase
+    let query = supabase
       .from(CAPACITACIONES_TABLE)
       .select("*")
       .order("created_at", { ascending: false });
+
+    if (options.onlyPublished) {
+      query = query.eq("publicada", true);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw error;
@@ -130,10 +139,32 @@ export async function fetchLearningItems(type) {
   }
 
   if (type === LEARNING_TYPES.CERTIFICACION) {
-    const { data, error } = await supabase
+    let query = supabase
       .from(CERTIFICACIONES_TABLE)
       .select("*")
       .order("created_at", { ascending: false });
+
+    if (options.onlyPublished) {
+      const { data: publishedCapacitaciones, error: publishedCapacitacionesError } =
+        await supabase
+          .from(CAPACITACIONES_TABLE)
+          .select("id")
+          .eq("publicada", true);
+
+      if (publishedCapacitacionesError) {
+        throw publishedCapacitacionesError;
+      }
+
+      const publishedIds = (publishedCapacitaciones ?? []).map((item) => item.id);
+
+      if (publishedIds.length === 0) {
+        return [];
+      }
+
+      query = query.in("capacitacion_id", publishedIds);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw error;
@@ -194,10 +225,31 @@ async function hydrateCapacitaciones(capacitaciones) {
     return acc;
   }, {});
 
+  const { data: certifications, error: certificationsError } = await supabase
+    .from(CERTIFICACIONES_TABLE)
+    .select("*")
+    .in("capacitacion_id", capacitacionIds);
+
+  if (certificationsError) {
+    throw certificationsError;
+  }
+
+  const certificationsByCapacitacionId = (certifications ?? []).reduce(
+    (acc, certification) => {
+      acc[certification.capacitacion_id] = mapCertificationItem({
+        ...certification,
+        requiere_aprobacion_modulos: true,
+      });
+      return acc;
+    },
+    {}
+  );
+
   return capacitaciones.map((item) =>
     mapCapacitacionItem({
       ...item,
       modulos: modulesByCapacitacionId[item.id] ?? [],
+      certificacion: certificationsByCapacitacionId[item.id] ?? null,
     })
   );
 }
@@ -213,7 +265,10 @@ export async function fetchCertificationById(id) {
     throw error;
   }
 
-  return mapCertificationItem(data);
+  return mapCertificationItem({
+    ...data,
+    requiere_aprobacion_modulos: true,
+  });
 }
 
 async function uploadLearningFile(file, capacitacionId, moduleIndex) {
@@ -303,6 +358,15 @@ async function fetchResourcesForCapacitacion(capacitacionId) {
 }
 
 async function deleteCapacitacionChildren(capacitacionId) {
+  const { error: certificationDeleteError } = await supabase
+    .from(CERTIFICACIONES_TABLE)
+    .delete()
+    .eq("capacitacion_id", capacitacionId);
+
+  if (certificationDeleteError) {
+    throw certificationDeleteError;
+  }
+
   const { data: modules, error: modulesError } = await supabase
     .from(CAPACITACION_MODULOS_TABLE)
     .select("id")
@@ -383,6 +447,10 @@ async function replaceCapacitacionModules(capacitacionId, modules) {
           titulo: module.titulo.trim(),
           descripcion: normalizeText(module.descripcion),
           orden: moduleIndex + 1,
+          preguntas: module.preguntas.map(normalizeCertificationQuestion),
+          porcentaje_aprobacion: Number(module.porcentaje_aprobacion),
+          duracion_maxima_minutos: Number(module.duracion_maxima_minutos),
+          cantidad_preguntas_a_mostrar: Number(module.cantidad_preguntas_a_mostrar),
         },
       ])
       .select()
@@ -441,15 +509,69 @@ async function replaceCapacitacionModules(capacitacionId, modules) {
   }
 }
 
+async function upsertFinalCertification(capacitacionId, certification) {
+  const assessmentError = validateAssessment(certification, {
+    name: "El test final",
+  });
+
+  if (assessmentError) {
+    throw new Error(assessmentError);
+  }
+
+  const payload = {
+    capacitacion_id: capacitacionId,
+    titulo: certification.titulo.trim(),
+    descripcion: normalizeText(certification.descripcion),
+    preguntas: certification.preguntas.map(normalizeCertificationQuestion),
+    porcentaje_aprobacion: Number(certification.porcentaje_aprobacion),
+    duracion_maxima_minutos: Number(certification.duracion_maxima_minutos),
+  };
+
+  const { data: existingCertification, error: existingCertificationError } =
+    await supabase
+      .from(CERTIFICACIONES_TABLE)
+      .select("id")
+      .eq("capacitacion_id", capacitacionId)
+      .maybeSingle();
+
+  if (existingCertificationError) {
+    throw existingCertificationError;
+  }
+
+  if (existingCertification?.id) {
+    const { error } = await supabase
+      .from(CERTIFICACIONES_TABLE)
+      .update(payload)
+      .eq("id", existingCertification.id);
+
+    if (error) {
+      throw error;
+    }
+
+    return;
+  }
+
+  const { error } = await supabase.from(CERTIFICACIONES_TABLE).insert([payload]);
+
+  if (error) {
+    throw error;
+  }
+}
+
 export async function saveLearningItem(item) {
   const now = new Date().toISOString();
   const payload = {
     titulo: item.titulo.trim(),
     descripcion: normalizeText(item.descripcion),
+    publicada: Boolean(item.publicada),
     updated_at: now,
   };
   const modules = item.modulos ?? [];
   validateLearningModules(modules);
+
+  if (!item.certificacion) {
+    throw new Error("La capacitacion debe tener un test final configurado.");
+  }
 
   if (item.id) {
     const { data, error } = await supabase
@@ -464,6 +586,7 @@ export async function saveLearningItem(item) {
     }
 
     await replaceCapacitacionModules(data.id, modules);
+    await upsertFinalCertification(data.id, item.certificacion);
     return (await hydrateCapacitaciones([data]))[0];
   }
 
@@ -478,6 +601,7 @@ export async function saveLearningItem(item) {
   }
 
   await replaceCapacitacionModules(data.id, modules);
+  await upsertFinalCertification(data.id, item.certificacion);
   return (await hydrateCapacitaciones([data]))[0];
 }
 

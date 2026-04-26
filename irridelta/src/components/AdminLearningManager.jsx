@@ -1,116 +1,116 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { ChevronDown, Eye, X } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ALLOWED_RESOURCE_EXTENSIONS,
-  RESOURCE_TYPES,
-  deleteLearningItem,
-  fetchLearningItems,
-  saveLearningItem,
-} from "../services/learningContentService";
-import LearningItemPreviewCard from "./LearningItemPreviewCard";
+  ArrowLeft,
+  ChevronDown,
+  CircleCheck,
+  Eye,
+  FileQuestion,
+  Globe,
+  Layers3,
+  ListChecks,
+  Save,
+} from "lucide-react";
+import { ALLOWED_RESOURCE_EXTENSIONS, RESOURCE_TYPES, saveLearningItem } from "../services/learningContentService";
+import {
+  createEmptyModule,
+  isFinalAssessmentConfigured,
+  isModuleAssessmentConfigured,
+} from "../utils/adminCapacitacionesForm";
+import AssessmentModal from "./AssessmentModal";
+import AssessmentSummaryCard from "./AssessmentSummaryCard";
+import CapacitacionPreviewModal from "./CapacitacionPreviewModal";
+import ModuleCard from "./ModuleCard";
 
-function createEmptyModule(index = 0) {
-  return {
-    clientId: `modulo-${Date.now()}-${index}`,
-    id: null,
-    titulo: "",
-    descripcion: "",
-    youtubeLinksText: "",
-    selectedFiles: [],
-    recursos: [],
-    isCollapsed: false,
-  };
-}
-
-function getInitialForm(type) {
-  return {
-    id: null,
-    tipo: type,
-    titulo: "",
-    descripcion: "",
-    modulos: [createEmptyModule()],
-  };
-}
+const EDITOR_TABS = {
+  GENERAL: "general",
+  MODULES: "modules",
+  FINAL: "final",
+};
 
 function getFileExtension(fileName) {
   return fileName.split(".").pop()?.toLowerCase() ?? "";
 }
 
-function normalizeModuleForForm(module, index) {
-  const recursos = module.recursos ?? [];
-  const youtubeLinksText = recursos
-    .filter((resource) => resource.tipo === RESOURCE_TYPES.YOUTUBE)
-    .map((resource) => resource.youtube_url)
-    .filter(Boolean)
-    .join("\n");
-
-  return {
-    clientId: module.id ?? `modulo-edit-${index}`,
-    id: module.id,
-    titulo: module.titulo ?? "",
-    descripcion: module.descripcion ?? "",
-    youtubeLinksText,
-    selectedFiles: [],
-    recursos,
-    isCollapsed: false,
-  };
+function getGeneralSectionComplete(form) {
+  return Boolean(form.titulo.trim());
 }
 
-function AdminLearningManager({ type, title }) {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+function getModulesSectionComplete(form) {
+  return (
+    form.modulos.length > 0 &&
+    form.modulos.every(
+      (module) => module.titulo.trim() && isModuleAssessmentConfigured(module)
+    )
+  );
+}
+
+function getFinalAssessmentSectionComplete(form) {
+  return isFinalAssessmentConfigured(form.certificacion);
+}
+
+function AdminLearningManager({
+  form,
+  setForm,
+  title,
+  onBack,
+  onSaveSuccess,
+  onSaveAndExitSuccess,
+}) {
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
-  const [form, setForm] = useState(getInitialForm(type));
-  const [previewItem, setPreviewItem] = useState(null);
-
-  const loadItems = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const data = await fetchLearningItems(type);
-      setItems(data);
-    } catch (loadError) {
-      console.error("No se pudieron cargar los cursos", loadError);
-      setError(
-        "No se pudo cargar el contenido. Revisa que las tablas esten creadas en Supabase."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [type]);
+  const [activeTab, setActiveTab] = useState(EDITOR_TABS.GENERAL);
+  const [activeModuleAssessmentIndex, setActiveModuleAssessmentIndex] = useState(null);
+  const [isFinalAssessmentModalOpen, setIsFinalAssessmentModalOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isSaveMenuOpen, setIsSaveMenuOpen] = useState(false);
+  const submitModeRef = useRef("stay");
+  const saveMenuRef = useRef(null);
 
   useEffect(() => {
-    setForm(getInitialForm(type));
-  }, [type]);
-
-  useEffect(() => {
-    loadItems();
-  }, [loadItems]);
-
-  useEffect(() => {
-    if (!previewItem) {
+    if (!isSaveMenuOpen) {
       return undefined;
     }
 
-    const handleEscape = (event) => {
-      if (event.key === "Escape") {
-        setPreviewItem(null);
+    const handlePointerDown = (event) => {
+      if (!saveMenuRef.current?.contains(event.target)) {
+        setIsSaveMenuOpen(false);
       }
     };
 
-    document.addEventListener("keydown", handleEscape);
+    document.addEventListener("mousedown", handlePointerDown);
     return () => {
-      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("mousedown", handlePointerDown);
     };
-  }, [previewItem]);
+  }, [isSaveMenuOpen]);
 
-  const resetForm = () => {
-    setForm(getInitialForm(type));
-    setFormError("");
-  };
+  const currentModuleAssessment = useMemo(() => {
+    if (activeModuleAssessmentIndex === null) {
+      return null;
+    }
+
+    return form.modulos[activeModuleAssessmentIndex] ?? null;
+  }, [activeModuleAssessmentIndex, form.modulos]);
+
+  const sectionStatuses = [
+    {
+      id: EDITOR_TABS.GENERAL,
+      icon: Layers3,
+      title: "Datos generales",
+      complete: getGeneralSectionComplete(form),
+    },
+    {
+      id: EDITOR_TABS.MODULES,
+      icon: ListChecks,
+      title: "Modulos",
+      complete: getModulesSectionComplete(form),
+    },
+    {
+      id: EDITOR_TABS.FINAL,
+      icon: FileQuestion,
+      title: "Evaluacion final",
+      complete: getFinalAssessmentSectionComplete(form),
+    },
+  ];
 
   const updateModule = (moduleIndex, changes) => {
     setForm((currentForm) => ({
@@ -118,6 +118,16 @@ function AdminLearningManager({ type, title }) {
       modulos: currentForm.modulos.map((module, index) =>
         index === moduleIndex ? { ...module, ...changes } : module
       ),
+    }));
+  };
+
+  const updateFinalCertification = (changes) => {
+    setForm((currentForm) => ({
+      ...currentForm,
+      certificacion: {
+        ...currentForm.certificacion,
+        ...changes,
+      },
     }));
   };
 
@@ -237,10 +247,17 @@ function AdminLearningManager({ type, title }) {
 
   const validateForm = () => {
     if (!form.titulo.trim()) {
+      setActiveTab(EDITOR_TABS.GENERAL);
       return "El titulo es obligatorio.";
     }
 
+    if (!form.certificacion.titulo.trim()) {
+      setActiveTab(EDITOR_TABS.FINAL);
+      return "La prueba final debe tener un titulo.";
+    }
+
     if (form.modulos.length === 0) {
+      setActiveTab(EDITOR_TABS.MODULES);
       return "La capacitacion debe tener al menos un modulo.";
     }
 
@@ -249,16 +266,15 @@ function AdminLearningManager({ type, title }) {
     );
 
     if (moduleWithoutTitle) {
+      setActiveTab(EDITOR_TABS.MODULES);
       return "Todos los modulos deben tener titulo.";
     }
 
     return "";
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const persistForm = async (mode = "stay") => {
     setFormError("");
-
     const validationError = validateForm();
 
     if (validationError) {
@@ -269,11 +285,24 @@ function AdminLearningManager({ type, title }) {
     setSaving(true);
 
     try {
-      await saveLearningItem(form);
-      await loadItems();
-      resetForm();
+      const savedItem = await saveLearningItem({
+        ...form,
+        certificacion: {
+          ...form.certificacion,
+          titulo:
+            form.certificacion.titulo.trim() ||
+            `Evaluacion final - ${form.titulo.trim()}`,
+        },
+      });
+
+      if (mode === "exit") {
+        onSaveAndExitSuccess(savedItem);
+        return;
+      }
+
+      onSaveSuccess(savedItem);
     } catch (saveError) {
-      console.error("No se pudo guardar el curso", saveError);
+      console.error("No se pudo guardar la capacitacion", saveError);
       setFormError(
         saveError?.message
           ? `No se pudo guardar el contenido: ${saveError.message}`
@@ -284,411 +313,352 @@ function AdminLearningManager({ type, title }) {
     }
   };
 
-  const handleEdit = (item) => {
-    setForm({
-      id: item.id,
-      tipo: item.tipo,
-      titulo: item.titulo,
-      descripcion: item.descripcion ?? "",
-      modulos:
-        item.modulos?.length > 0
-          ? item.modulos.map(normalizeModuleForForm)
-          : [createEmptyModule()],
-    });
-    setFormError("");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await persistForm(submitModeRef.current);
   };
 
-  const handleDelete = async (item) => {
-    const shouldDelete = window.confirm(
-      `Seguro que quieres eliminar "${item.titulo}"?`
-    );
-
-    if (!shouldDelete) {
-      return;
-    }
-
-    try {
-      await deleteLearningItem(item);
-      await loadItems();
-
-      if (form.id === item.id) {
-        resetForm();
-      }
-    } catch (deleteError) {
-      console.error("No se pudo eliminar el curso", deleteError);
-      setError("No se pudo eliminar el contenido.");
-    }
+  const triggerSave = async (mode) => {
+    submitModeRef.current = mode;
+    setIsSaveMenuOpen(false);
+    await persistForm(mode);
   };
 
-  const openPreview = (item) => {
-    setPreviewItem(item);
-  };
+  const renderGeneralTab = () => (
+    <section className="rounded-2xl bg-white p-6 shadow-md">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-xl font-semibold text-gray-900">Datos generales</h3>
+          <p className="mt-1 text-sm text-gray-600">
+            Configura la informacion principal y el estado de publicacion.
+          </p>
+        </div>
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+            getGeneralSectionComplete(form)
+              ? "bg-green-100 text-green-700"
+              : "bg-amber-100 text-amber-700"
+          }`}
+        >
+          {getGeneralSectionComplete(form) ? "Completo" : "Pendiente"}
+        </span>
+      </div>
 
-  const closePreview = () => {
-    setPreviewItem(null);
-  };
+      <div className="space-y-4">
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-700">
+            Titulo
+          </label>
+          <input
+            type="text"
+            placeholder="Titulo de la capacitacion"
+            value={form.titulo}
+            onChange={(e) => setForm((current) => ({ ...current, titulo: e.target.value }))}
+            className="w-full rounded border p-3"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-700">
+            Descripcion
+          </label>
+          <textarea
+            placeholder="Descripcion breve"
+            value={form.descripcion}
+            onChange={(e) =>
+              setForm((current) => ({ ...current, descripcion: e.target.value }))
+            }
+            className="min-h-[140px] w-full rounded border p-3"
+          />
+        </div>
+      </div>
+    </section>
+  );
+
+  const renderModulesTab = () => (
+    <section className="space-y-4 rounded-2xl bg-white p-6 shadow-md">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-xl font-semibold text-gray-900">Modulos</h3>
+        </div>
+        <div className="flex items-center gap-3">
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+              getModulesSectionComplete(form)
+                ? "bg-green-100 text-green-700"
+                : "bg-amber-100 text-amber-700"
+            }`}
+          >
+            {getModulesSectionComplete(form) ? "Completo" : "Pendiente"}
+          </span>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {form.modulos.map((module, moduleIndex) => (
+          <ModuleCard
+            key={module.clientId}
+            module={module}
+            index={moduleIndex}
+            canRemove={form.modulos.length > 1}
+            onToggle={() => toggleModuleCollapse(moduleIndex)}
+            onRemove={() => removeModule(moduleIndex)}
+            onUpdate={(changes) => updateModule(moduleIndex, changes)}
+            onFilesChange={(fileList) => handleFilesChange(moduleIndex, fileList)}
+            onRemoveSelectedFile={(fileIndex) =>
+              removeSelectedFile(moduleIndex, fileIndex)
+            }
+            onRemoveExistingResource={(resourceId) =>
+              removeExistingResource(moduleIndex, resourceId)
+            }
+            onEditAssessment={() => setActiveModuleAssessmentIndex(moduleIndex)}
+          />
+        ))}
+      </div>
+
+      <div className="flex justify-end pt-2">
+        <button
+          type="button"
+          onClick={addModule}
+          className="rounded-lg bg-green-600 px-5 py-2 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700"
+        >
+          Agregar modulo
+        </button>
+      </div>
+    </section>
+  );
+
+  const renderFinalTab = () => (
+    <section className="rounded-2xl bg-white p-6 shadow-md">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-xl font-semibold text-gray-900">Evaluacion final</h3>
+        </div>
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+            getFinalAssessmentSectionComplete(form)
+              ? "bg-green-100 text-green-700"
+              : "bg-amber-100 text-amber-700"
+          }`}
+        >
+          {getFinalAssessmentSectionComplete(form) ? "Completo" : "Pendiente"}
+        </span>
+      </div>
+
+      <div className="mb-4 grid gap-4 md:grid-cols-2">
+        <input
+          type="text"
+          placeholder="Titulo de la prueba final"
+          value={form.certificacion.titulo}
+          onChange={(e) => updateFinalCertification({ titulo: e.target.value })}
+          className="w-full rounded border p-3"
+          required
+        />
+      </div>
+
+      <textarea
+        placeholder="Descripcion de la prueba final"
+        value={form.certificacion.descripcion}
+        onChange={(e) =>
+          updateFinalCertification({ descripcion: e.target.value })
+        }
+        className="mb-4 min-h-[120px] w-full rounded border p-3"
+      />
+
+      <AssessmentSummaryCard
+        title="Prueba final obligatoria"
+        isConfigured={getFinalAssessmentSectionComplete(form)}
+        onEdit={() => setIsFinalAssessmentModalOpen(true)}
+        description=""
+        showStatus={false}
+      />
+    </section>
+  );
 
   return (
     <section className="min-h-screen bg-gray-100 px-6 py-6 md:px-12 lg:px-24">
       <header className="mb-8 border-b pb-4">
-        <h1 className="text-3xl font-bold">{title}</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          Administra capacitaciones, modulos y recursos publicados en la
-          aplicacion.
-        </p>
-      </header>
-
-      {error && (
-        <div className="mb-6 rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700">
-          {error}
-        </div>
-      )}
-
-      <div className="grid gap-8 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
-        <div className="rounded-lg bg-white p-6 shadow-md">
-          <h2 className="mb-4 text-xl font-semibold">
-            {form.id ? "Editar capacitacion" : "Nueva capacitacion"}
-          </h2>
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <input
-              type="text"
-              placeholder="Titulo de la capacitacion"
-              value={form.titulo}
-              onChange={(e) => setForm({ ...form, titulo: e.target.value })}
-              className="w-full rounded border p-3"
-              required
-            />
-
-            <textarea
-              placeholder="Descripcion breve"
-              value={form.descripcion}
-              onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-              className="min-h-[100px] w-full rounded border p-3"
-            />
-
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <div className="mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Modulos
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Agrega al menos un modulo y combina archivos con videos.
-                  </p>
-                  <p className="mt-1 text-xs font-medium text-gray-500">
-                    Minimo requerido: 1 modulo.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {form.modulos.map((module, moduleIndex) => (
-                  <article
-                    key={module.clientId}
-                    className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
-                  >
-                    <div className="mb-3 flex items-start justify-between gap-3">
-                      <button
-                        type="button"
-                        onClick={() => toggleModuleCollapse(moduleIndex)}
-                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                        aria-expanded={!module.isCollapsed}
-                      >
-                        <ChevronDown
-                          className={`h-5 w-5 flex-shrink-0 text-gray-500 transition-transform duration-200 ${
-                            module.isCollapsed ? "-rotate-90" : "rotate-0"
-                          }`}
-                        />
-                        <div className="min-w-0">
-                          <h4 className="font-semibold text-gray-900">
-                            Modulo {moduleIndex + 1}
-                          </h4>
-                          <p className="truncate text-sm text-gray-600">
-                            {module.titulo.trim() || "Sin titulo"}
-                          </p>
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => removeModule(moduleIndex)}
-                        disabled={form.modulos.length === 1}
-                        className="rounded bg-red-50 px-3 py-1 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
-                      >
-                        Quitar
-                      </button>
-                    </div>
-
-                    {!module.isCollapsed && (
-                      <div className="space-y-3">
-                        <input
-                          type="text"
-                          placeholder="Titulo del modulo"
-                          value={module.titulo}
-                          onChange={(e) =>
-                            updateModule(moduleIndex, { titulo: e.target.value })
-                          }
-                          className="w-full rounded border p-3"
-                          required
-                        />
-
-                        <textarea
-                          placeholder="Descripcion del modulo"
-                          value={module.descripcion}
-                          onChange={(e) =>
-                            updateModule(moduleIndex, {
-                              descripcion: e.target.value,
-                            })
-                          }
-                          className="min-h-[80px] w-full rounded border p-3"
-                        />
-
-                        <div>
-                          <label className="mb-1 block text-sm font-medium text-gray-700">
-                            Links de YouTube
-                          </label>
-                          <textarea
-                            placeholder="Un link por linea"
-                            value={module.youtubeLinksText}
-                            onChange={(e) =>
-                              updateModule(moduleIndex, {
-                                youtubeLinksText: e.target.value,
-                              })
-                            }
-                            className="min-h-[90px] w-full rounded border p-3"
-                          />
-                        </div>
-
-                        <div className="rounded border border-dashed border-gray-300 p-4">
-                          <label className="mb-2 block text-sm font-medium text-gray-700">
-                            Archivos
-                          </label>
-                          <input
-                            type="file"
-                            multiple
-                            accept=".pdf,.docx,.pptx,.xlsx,.jpg,.png,.mp4"
-                            onChange={(e) => {
-                              handleFilesChange(moduleIndex, e.target.files);
-                              e.target.value = "";
-                            }}
-                            className="w-full text-sm text-gray-700"
-                          />
-                          <p className="mt-2 text-xs text-gray-500">
-                            Permitidos: {ALLOWED_RESOURCE_EXTENSIONS.join(", ")}
-                          </p>
-                        </div>
-
-                        {module.selectedFiles.length > 0 && (
-                          <div>
-                            <p className="mb-2 text-sm font-semibold text-gray-700">
-                              Archivos seleccionados
-                            </p>
-                            <ul className="space-y-2">
-                              {module.selectedFiles.map((file, fileIndex) => (
-                                <li
-                                  key={`${file.name}-${file.lastModified}`}
-                                  className="flex items-center justify-between gap-3 rounded bg-gray-50 px-3 py-2 text-sm"
-                                >
-                                  <span>{file.name}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      removeSelectedFile(moduleIndex, fileIndex)
-                                    }
-                                    className="font-semibold text-red-600"
-                                  >
-                                    Quitar
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {module.recursos.length > 0 && (
-                          <div>
-                            <p className="mb-2 text-sm font-semibold text-gray-700">
-                              Recursos actuales
-                            </p>
-                            <ul className="space-y-2">
-                              {module.recursos.map((resource) => (
-                                <li
-                                  key={resource.id}
-                                  className="flex items-center justify-between gap-3 rounded bg-gray-50 px-3 py-2 text-sm"
-                                >
-                                  <span>
-                                    {resource.tipo === RESOURCE_TYPES.ARCHIVO
-                                      ? resource.archivo_nombre
-                                      : resource.youtube_url}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      removeExistingResource(
-                                        moduleIndex,
-                                        resource.id
-                                      )
-                                    }
-                                    className="font-semibold text-red-600"
-                                  >
-                                    Quitar
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </article>
-                ))}
-              </div>
-            </div>
-
-            {formError && (
-              <div className="rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700">
-                {formError}
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={addModule}
-                className="rounded-lg bg-green-600 px-5 py-2 text-white shadow transition duration-200 hover:bg-green-700"
+                onClick={onBack}
+                className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow transition duration-200 hover:bg-gray-50"
               >
-                Agregar modulo
+                <ArrowLeft className="h-4 w-4" />
+                Volver
+              </button>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  form.publicada
+                    ? "bg-green-100 text-green-700"
+                    : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                {form.publicada ? "Publicada" : "Borrador"}
+              </span>
+            </div>
+
+            <h1 className="mt-4 text-3xl font-bold text-gray-900">{title}</h1>
+            <p className="mt-2 text-sm text-gray-600">
+              Primero gestionas la capacitacion. Despues editas cada evaluacion en vistas enfocadas.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsPreviewOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow transition duration-200 hover:bg-slate-50"
+            >
+              <Eye className="h-4 w-4" />
+              Ver
+            </button>
+
+            <button
+              type="button"
+              aria-pressed={form.publicada}
+              onClick={() =>
+                setForm((current) => ({ ...current, publicada: !current.publicada }))
+              }
+              className={`inline-flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold shadow transition duration-200 ${
+                form.publicada
+                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                  : "bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <Globe className="h-4 w-4" />
+              {form.publicada ? "Publicada" : "Publicar"}
+            </button>
+
+            <div ref={saveMenuRef} className="relative flex">
+              <button
+                type="button"
+                onClick={() => triggerSave("stay")}
+                disabled={saving}
+                className="inline-flex items-center gap-2 rounded-l-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+              >
+                <Save className="h-4 w-4" />
+                {saving ? "Guardando..." : "Guardar"}
               </button>
 
               <button
-                type="submit"
+                type="button"
+                onClick={() => setIsSaveMenuOpen((current) => !current)}
                 disabled={saving}
-                className="rounded-lg bg-blue-500 px-5 py-2 text-white shadow transition duration-200 hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-blue-300"
+                aria-haspopup="menu"
+                aria-expanded={isSaveMenuOpen}
+                className="inline-flex items-center rounded-r-lg border-l border-white/20 bg-blue-600 px-3 py-3 text-white shadow transition duration-200 hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
               >
-                {saving ? "Guardando..." : form.id ? "Actualizar" : "Guardar"}
+                <ChevronDown className="h-4 w-4" />
               </button>
 
-              {form.id && (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="rounded-lg bg-gray-500 px-5 py-2 text-white shadow"
-                >
-                  Cancelar
-                </button>
+              {isSaveMenuOpen && (
+                <div className="absolute right-0 top-[calc(100%+0.6rem)] z-30 w-56 rounded-2xl border border-gray-200 bg-white p-2 shadow-xl">
+                  <button
+                    type="button"
+                    onClick={() => triggerSave("stay")}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                  >
+                    <Save className="h-4 w-4 text-blue-600" />
+                    Guardar cambios
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => triggerSave("exit")}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                  >
+                    <CircleCheck className="h-4 w-4 text-slate-700" />
+                    Guardar y salir
+                  </button>
+                </div>
               )}
             </div>
-          </form>
-        </div>
-
-        <div className="rounded-lg bg-white p-6 shadow-md">
-          <h2 className="mb-4 text-xl font-semibold">Capacitaciones cargadas</h2>
-
-          {loading && <p className="text-gray-600">Cargando capacitaciones...</p>}
-
-          {!loading && items.length === 0 && (
-            <p className="text-gray-600">Todavia no hay capacitaciones cargadas.</p>
-          )}
-
-          <div className="space-y-4">
-            {items.map((item) => (
-              <article
-                key={item.id}
-                className="rounded-lg bg-gray-50 p-4 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">
-                      {item.titulo}
-                    </h3>
-                    {item.descripcion && (
-                      <p className="mt-2 text-sm text-gray-600">
-                        {item.descripcion}
-                      </p>
-                    )}
-                    <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      {item.modulos?.length ?? 0} modulos
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <button
-                      onClick={() => openPreview(item)}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-700 px-4 py-1 text-white"
-                    >
-                      <Eye className="h-4 w-4" />
-                      Ver
-                    </button>
-                    <button
-                      onClick={() => handleEdit(item)}
-                      className="rounded-lg bg-yellow-500 px-4 py-1 text-white"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => handleDelete(item)}
-                      className="rounded-lg bg-red-500 px-4 py-1 text-white"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </div>
-              </article>
-            ))}
           </div>
         </div>
-      </div>
+      </header>
 
-      {previewItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
-          <button
-            type="button"
-            aria-label="Cerrar previsualizacion"
-            onClick={closePreview}
-            className="absolute inset-0 bg-slate-900/65"
-          />
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <nav className="sticky top-20 z-20 rounded-2xl bg-white p-3 shadow-md">
+          <div className="flex flex-wrap gap-2">
+            {sectionStatuses.map((section) => {
+              const Icon = section.icon;
+              const isActive = activeTab === section.id;
 
-          <div className="relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
-            <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-600">
-                  Previsualizacion
-                </p>
-                <h2 className="mt-2 text-2xl font-bold text-gray-900">
-                  {previewItem.titulo}
-                </h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  Vista previa de la capacitacion sin salir del panel de administracion.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={closePreview}
-                className="rounded-full p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
-                aria-label="Cerrar modal de previsualizacion"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="overflow-y-auto bg-gray-50 p-6">
-              <LearningItemPreviewCard item={previewItem} />
-            </div>
-
-            <div className="flex justify-end border-t border-gray-200 bg-white px-6 py-4">
-              <button
-                type="button"
-                onClick={closePreview}
-                className="rounded-lg bg-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition duration-200 hover:bg-gray-300"
-              >
-                Cerrar
-              </button>
-            </div>
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setActiveTab(section.id)}
+                  className={`inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                    isActive
+                      ? "bg-slate-900 text-white"
+                      : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {section.title}
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs ${
+                      isActive
+                        ? "bg-white/15 text-white"
+                        : section.complete
+                          ? "bg-green-100 text-green-700"
+                          : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {section.complete ? "Completo" : "Pendiente"}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        </div>
-      )}
+        </nav>
+
+        {activeTab === EDITOR_TABS.GENERAL && renderGeneralTab()}
+        {activeTab === EDITOR_TABS.MODULES && renderModulesTab()}
+        {activeTab === EDITOR_TABS.FINAL && renderFinalTab()}
+
+        {formError && (
+          <div className="rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700">
+            {formError}
+          </div>
+        )}
+      </form>
+
+      <AssessmentModal
+        isOpen={currentModuleAssessment !== null}
+        title={
+          currentModuleAssessment
+            ? `Prueba del ${currentModuleAssessment.titulo.trim() || "módulo"}`
+            : ""
+        }
+        description="Edita preguntas, cantidad a mostrar, porcentaje de aprobación y duración de la prueba del módulo."
+        value={currentModuleAssessment ?? createEmptyModule(0)}
+        onChange={(changes) => {
+          if (activeModuleAssessmentIndex !== null) {
+            updateModule(activeModuleAssessmentIndex, changes);
+          }
+        }}
+        onClose={() => setActiveModuleAssessmentIndex(null)}
+        countFieldKey="cantidad_preguntas_a_mostrar"
+        countFieldLabel="Cantidad de preguntas a mostrar en la prueba"
+      />
+
+      <AssessmentModal
+        isOpen={isFinalAssessmentModalOpen}
+        title={form.certificacion.titulo || "Prueba final obligatoria"}
+        description="Configura la evaluación final de la capacitación en una vista amplia y enfocada."
+        value={form.certificacion}
+        onChange={updateFinalCertification}
+        onClose={() => setIsFinalAssessmentModalOpen(false)}
+      />
+      <CapacitacionPreviewModal
+        item={isPreviewOpen ? form : null}
+        onClose={() => setIsPreviewOpen(false)}
+      />
     </section>
   );
 }
