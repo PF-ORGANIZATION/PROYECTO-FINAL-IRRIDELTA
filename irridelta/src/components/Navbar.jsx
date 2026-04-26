@@ -69,8 +69,19 @@ function Navbar() {
     setIsMobileAdminMenuOpen(false);
   }, [location.pathname]);
 
+  const isPathActive = (targetPath) => {
+    if (targetPath === "/") {
+      return location.pathname === targetPath;
+    }
+
+    return (
+      location.pathname === targetPath ||
+      location.pathname.startsWith(`${targetPath}/`)
+    );
+  };
+
   const getLinkClasses = (path) => {
-    const isActive = location.pathname === path;
+    const isActive = isPathActive(path);
     return `${baseLinkClasses} ${isActive ? activeLinkClasses : defaultLinkClasses}`;
   };
 
@@ -84,7 +95,7 @@ function Navbar() {
       : [];
 
   const isAdminSectionActive = adminItems.some(
-    (item) => location.pathname === item.path
+    (item) => isPathActive(item.path)
   );
 
   const handleSignOut = async () => {
@@ -146,7 +157,7 @@ function Navbar() {
                       {isAdminMenuOpen && (
                         <div className="absolute right-0 mt-2 w-60 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
                           {item.children.map((child) => {
-                            const isActive = location.pathname === child.path;
+                            const isActive = isPathActive(child.path);
 
                             return (
                               <Link
@@ -238,7 +249,7 @@ function Navbar() {
                     {isMobileAdminMenuOpen && (
                       <div className="border-t border-gray-700 bg-white">
                         {item.children.map((child) => {
-                          const isActive = location.pathname === child.path;
+                          const isActive = isPathActive(child.path);
 
                           return (
                             <Link

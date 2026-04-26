@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { fetchLearningItems } from "../services/learningContentService";
 import LearningItemPreviewCard from "./LearningItemPreviewCard";
 
-function LearningCatalog({ type, title, emptyMessage }) {
+function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -15,7 +15,7 @@ function LearningCatalog({ type, title, emptyMessage }) {
       setError("");
 
       try {
-        const data = await fetchLearningItems(type);
+        const data = await fetchLearningItems(type, { onlyPublished });
 
         if (!ignore) {
           setItems(data);
@@ -39,7 +39,7 @@ function LearningCatalog({ type, title, emptyMessage }) {
     return () => {
       ignore = true;
     };
-  }, [type]);
+  }, [onlyPublished, type]);
 
   return (
     <section className="min-h-[70vh] bg-gray-50 px-4 py-16">
