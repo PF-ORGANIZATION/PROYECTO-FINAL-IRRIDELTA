@@ -9,6 +9,10 @@ function Chatbot() {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
+  // Historial de conversación para el LLM (últimos N turnos user/assistant)
+  const MAX_HISTORY_TURNS = 10;
+  const conversationHistory = useRef([]);
+
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -67,14 +71,18 @@ Responde de manera profesional, clara y concisa.
 CONTEXTO:
 ${contexto}`;
 
-      // 5. Llamada a la Edge Function segura (el API Key de Groq nunca sale del servidor)
+      // 5. Armar el array de mensajes con historial de conversación
+      const llmMessages = [
+        { role: "system", content: systemPrompt },
+        ...conversationHistory.current,
+        { role: "user", content: userMsg },
+      ];
+
+      // 6. Llamada a la Edge Function segura (el API Key de Groq nunca sale del servidor)
       const { data: groqData, error: fnError } = await supabase.functions.invoke("chat", {
         body: {
           model: "llama-3.1-8b-instant",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userMsg }
-          ],
+          messages: llmMessages,
           temperature: 0.1, // Muy bajo para evitar "alucinaciones"
           max_tokens: 1024,
         },
@@ -87,7 +95,17 @@ ${contexto}`;
 
       const botReply = groqData.choices[0].message.content;
 
-      // 6. Mostrar la respuesta en la interfaz
+      // 7. Guardar el turno en el historial de conversación
+      conversationHistory.current.push(
+        { role: "user", content: userMsg },
+        { role: "assistant", content: botReply }
+      );
+      // Limitar a los últimos N turnos (cada turno = 2 mensajes: user + assistant)
+      if (conversationHistory.current.length > MAX_HISTORY_TURNS * 2) {
+        conversationHistory.current = conversationHistory.current.slice(-MAX_HISTORY_TURNS * 2);
+      }
+
+      // 8. Mostrar la respuesta en la interfaz
       setMessages((prev) => [
         ...prev,
         {
