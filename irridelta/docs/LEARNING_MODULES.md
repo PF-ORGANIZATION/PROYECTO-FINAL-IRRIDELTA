@@ -14,12 +14,15 @@ Admin users can:
 
 - Create a capacitacion with title and description.
 - Add one or more modules.
+- Keep working with one mandatory module minimum in the form.
 - Add a title and optional description to each module.
 - Upload multiple files per module.
 - Add multiple YouTube links per module.
 - Mix files and YouTube links in the same module.
 - Remove selected files before saving.
 - Remove existing resources while editing.
+- Collapse or expand each module independently without losing unsaved form data.
+- Preview a capacitacion inside the admin panel without leaving the current page.
 
 Client users can:
 
@@ -71,6 +74,10 @@ These are defined in `learningContentService.js` and reused by the admin UI.
 ## Known Tradeoffs
 
 The current implementation replaces module/resource rows during edits. This keeps the code simpler, but it is not ideal for high-volume production usage.
+
+The admin preview modal intentionally reuses the same shared preview card as the public catalog. This reduces duplicated markup and helps keep admin preview and client-facing output visually consistent.
+
+Module collapse state is UI-only. It is not persisted to the database and resets when the admin form is rebuilt.
 
 Potential future improvements:
 
