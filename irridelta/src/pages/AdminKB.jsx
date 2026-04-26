@@ -1,39 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
-import { pipeline, env } from "@xenova/transformers";
+import { getEmbedder } from "../services/embeddingService";
 import * as pdfjsLib from "pdfjs-dist";
 import { Trash2, Download, FileText } from "lucide-react";
 // El "?url" al final es clave para que Vite lo trate como un archivo estático
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'; 
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
-
-// 1. Deshabilitamos la búsqueda local del modelo para que vaya directo al Hub
-env.allowLocalModels = false;
-
-// 2. Le indicamos explícitamente de dónde bajar los binarios WASM de ONNX
-// Esto evita el error del módulo dinámico .jsep.mjs
-env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
-
-// Configuramos el worker de PDF.js apuntando a un CDN para evitar problemas de empaquetado con Vite
-//pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-
-// Deshabilitamos la búsqueda de modelos en el sistema de archivos local para forzar el uso de HuggingFace Hub
-env.allowLocalModels = false;
-
-// Singleton para evitar recargar el modelo de IA en cada renderizado
-class PipelineSingleton {
-  static task = "feature-extraction";
-  static model = "Supabase/gte-small";
-  static instance = null;
-
-  static async getInstance(progress_callback = null) {
-    if (this.instance === null) {
-      this.instance = pipeline(this.task, this.model, { progress_callback });
-    }
-    return this.instance;
-  }
-}
 
 function AdminKB() {
   const [file, setFile] = useState(null);
@@ -189,7 +162,7 @@ function AdminKB() {
       const total = chunks.length;
 
       setStatus("Cargando modelo de IA (gte-small)...");
-      const extractor = await PipelineSingleton.getInstance();
+      const extractor = await getEmbedder();
 
       
       // Array para almacenar todos los registros antes de subir
