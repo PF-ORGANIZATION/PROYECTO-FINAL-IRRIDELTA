@@ -31,10 +31,12 @@ IRRIDELTA is a React + Vite single-page app for a business website with:
 - `src/supabaseClient.js`: Supabase browser client using Vite env variables.
 - `src/store/sessionStore.js`: current user/session/role state.
 - `src/utils/authRoles.js`: app role detection from Supabase Auth metadata.
+- `src/components/Navbar.jsx`: main navigation, including the admin dropdown menu.
 - `src/context/ProductContext.jsx`: product/category CRUD logic.
 - `src/services/learningContentService.js`: learning content, modules, resources, files, and certification persistence.
 - `src/components/AdminLearningManager.jsx`: admin UI for capacitaciones.
 - `src/components/LearningCatalog.jsx`: client-facing capacitaciones catalog.
+- `src/components/LearningItemPreviewCard.jsx`: shared training preview card used by the public catalog and admin preview modal.
 - `src/pages/AdminCertificaciones.jsx`: admin UI for final certifications.
 - `src/pages/CertificationExam.jsx`: client certification exam flow.
 
@@ -73,6 +75,14 @@ Business rules:
 ## Current Implementation Notes
 
 The capacitaciones admin flow currently saves the parent training item and then replaces the module/resource rows for that training item. This is simple and acceptable for MVP scale.
+
+The admin learning form keeps at least one module in the UI at all times. The last module cannot be removed, and the save flow also validates that a capacitacion has at least one titled module.
+
+Modules in the admin form can be collapsed individually to reduce scroll while editing long capacitaciones. Adding a new module automatically collapses the previous ones so the newest module stays in focus.
+
+Admins can preview a capacitacion inside the admin panel through a modal. That preview reuses the same shared presentation component as the public learning catalog to keep both views visually aligned.
+
+Admin navigation is grouped under a single `Admin` dropdown in the top navbar instead of three separate top-level links.
 
 If this grows, consider moving multi-step database writes into a Supabase RPC/Postgres function so the database changes can be transactional. Storage uploads still need careful cleanup/rollback behavior because object storage and database writes are not one atomic operation.
 
