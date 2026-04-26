@@ -7,6 +7,7 @@ function Chatbot() {
   const user = useSessionStore((state) => state.user);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const messagesEndRef = useRef(null);
 
   // Historial de conversación para el LLM (últimos N turnos user/assistant)
@@ -127,6 +128,18 @@ ${contexto}`;
       ]);
     } finally {
       setIsLoading(false);
+
+      // Cooldown de 3 segundos para evitar spam
+      setCooldown(3);
+      const timer = setInterval(() => {
+        setCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     }
   };
 
@@ -168,9 +181,9 @@ ${contexto}`;
 
         {/* Input Area */}
         <form onSubmit={handleSend} className="bg-white border-t border-gray-100 p-4 sm:p-6 flex gap-3">
-          <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Escribe tu consulta aquí..." className="flex-1 rounded-xl border border-gray-300 px-4 py-3 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-200" disabled={isLoading} />
-          <button type="submit" disabled={isLoading || !input.trim()} className="rounded-xl bg-green-600 px-6 py-3 font-semibold text-white shadow-md transition hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
-            Enviar
+          <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Escribe tu consulta aquí..." className="flex-1 rounded-xl border border-gray-300 px-4 py-3 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-200" disabled={isLoading || cooldown > 0} />
+          <button type="submit" disabled={isLoading || cooldown > 0 || !input.trim()} className="rounded-xl bg-green-600 px-6 py-3 font-semibold text-white shadow-md transition hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
+            {cooldown > 0 ? `Espera ${cooldown}s` : "Enviar"}
           </button>
         </form>
       </div>
