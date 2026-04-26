@@ -40,39 +40,25 @@ function Chatbot() {
     setIsLoading(true);
 
     try {
-      // 1. Construir una consulta enriquecida para la búsqueda vectorial.
-      //    Si el usuario hace una pregunta corta como "ventajas?", el embedding
-      //    solo de esa palabra es demasiado genérico. Al agregar contexto de los
-      //    últimos turnos, el vector captura el tema de la conversación.
-      const recentContext = conversationHistory.current
-        .slice(-4) // últimos 2 turnos (4 mensajes: user+assistant+user+assistant)
-        .map((m) => m.content)
-        .join(" ");
-      const searchQuery = recentContext
-        ? `${recentContext} ${userMsg}`
-        : userMsg;
-      const queryEmbedding = await embed(searchQuery);
-
-      // 2. Buscar contexto en Supabase
-      // match_threshold: 0.3 es un buen punto de partida (30% de similitud mínima)
-      const { data: documentos, error } = await supabase.rpc('buscar_contexto_kb', {
+      // 1. Vectorizar la pregunta del usuario y buscar en la KB
+      const queryEmbedding = await embed(userMsg);
+      const { data: documentos, error: searchErr } = await supabase.rpc('buscar_contexto_kb', {
         query_embedding: queryEmbedding,
-        match_threshold: 0.3, 
-        match_count: 4 // Traemos los 4 mejores fragmentos
+        match_threshold: 0.15,
+        match_count: 5,
       });
-
-      if (error) {
-        console.error("Error buscando en Supabase:", error);
-        throw error;
+      if (searchErr) {
+        console.error("Error buscando en Supabase:", searchErr);
+        throw searchErr;
       }
 
-      // 3. Preparar el contexto si se encontraron resultados
+      // 2. Preparar el contexto si se encontraron resultados
       let contexto = "";
       if (documentos && documentos.length > 0) {
         contexto = documentos.map(doc => doc.contenido).join("\n\n---\n\n");
       }
 
-      // 4. Armar el System Prompt
+      // 3. Armar el System Prompt
       const systemPrompt = `Eres el asistente virtual técnico de la empresa Irridelta.
 Tu tarea es responder la pregunta del usuario utilizando ÚNICAMENTE la información provista en el bloque de CONTEXTO.
 Si la respuesta no está clara en el contexto, pide disculpas y responde: "No dispongo de esa información en mis manuales actuales".
@@ -82,26 +68,26 @@ Responde de manera profesional, clara y concisa.
 CONTEXTO:
 ${contexto}`;
 
-      // 5. Armar el array de mensajes con historial de conversación
+      // 4. Armar el array de mensajes con historial de conversación
       const llmMessages = [
         { role: "system", content: systemPrompt },
         ...conversationHistory.current,
         { role: "user", content: userMsg },
       ];
 
-      // 6. Llamada a la Edge Function segura (el API Key de Groq nunca sale del servidor)
+      // 5. Llamada a la Edge Function (reintentos se manejan server-side)
       const { data: groqData, error: fnError } = await supabase.functions.invoke("chat", {
         body: {
           model: "llama-3.1-8b-instant",
           messages: llmMessages,
-          temperature: 0.1, // Muy bajo para evitar "alucinaciones"
+          temperature: 0.1,
           max_tokens: 1024,
         },
       });
 
       if (fnError) {
         console.error("Error en la Edge Function:", fnError);
-        throw new Error("Fallo en la comunicación con la IA generativa.");
+        throw new Error("No se pudo conectar con la IA. Intenta de nuevo en unos segundos.");
       }
 
       const botReply = groqData.choices[0].message.content;
@@ -133,14 +119,14 @@ ${contexto}`;
         {
           id: Date.now() + 1,
           sender: "bot",
-          text: "Hubo un problema al procesar tu consulta. Revisa la consola para más detalles.",
+          text: error.message || "Hubo un problema al procesar tu consulta. Intenta de nuevo.",
         },
       ]);
     } finally {
       setIsLoading(false);
 
-      // Cooldown de 3 segundos para evitar spam
-      setCooldown(3);
+      // Cooldown de 5 segundos para evitar saturar la API
+      setCooldown(5);
       const timer = setInterval(() => {
         setCooldown((prev) => {
           if (prev <= 1) {

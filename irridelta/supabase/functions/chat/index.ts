@@ -44,27 +44,43 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Forward the request to Groq
-    const groqResponse = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${groqApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: model ?? "llama-3.1-8b-instant",
-        messages,
-        temperature: temperature ?? 0.1,
-        max_tokens: max_tokens ?? 1024,
-      }),
-    });
+    // Forward the request to Groq with retry for 429 (rate limit)
+    const MAX_RETRIES = 3;
+    let groqResponse: Response | null = null;
+    let groqData: any = null;
 
-    const groqData = await groqResponse.json();
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      groqResponse = await fetch(GROQ_API_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${groqApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: model ?? "llama-3.1-8b-instant",
+          messages,
+          temperature: temperature ?? 0.1,
+          max_tokens: max_tokens ?? 1024,
+        }),
+      });
 
-    if (!groqResponse.ok) {
+      groqData = await groqResponse.json();
+
+      // If not rate-limited, break out
+      if (groqResponse.status !== 429) break;
+
+      console.warn(`Groq 429 — intento ${attempt}/${MAX_RETRIES}`);
+
+      if (attempt < MAX_RETRIES) {
+        // Espera exponencial: 2s, 4s, 6s
+        await new Promise((r) => setTimeout(r, 2000 * attempt));
+      }
+    }
+
+    if (!groqResponse!.ok) {
       console.error("Groq API error:", groqData);
       return new Response(JSON.stringify({ error: "Groq API error", details: groqData }), {
-        status: groqResponse.status,
+        status: groqResponse!.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
