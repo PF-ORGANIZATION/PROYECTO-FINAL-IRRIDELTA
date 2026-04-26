@@ -40,8 +40,18 @@ function Chatbot() {
     setIsLoading(true);
 
     try {
-      // 1. Vectorizar la pregunta del usuario
-      const queryEmbedding = await embed(userMsg);
+      // 1. Construir una consulta enriquecida para la búsqueda vectorial.
+      //    Si el usuario hace una pregunta corta como "ventajas?", el embedding
+      //    solo de esa palabra es demasiado genérico. Al agregar contexto de los
+      //    últimos turnos, el vector captura el tema de la conversación.
+      const recentContext = conversationHistory.current
+        .slice(-4) // últimos 2 turnos (4 mensajes: user+assistant+user+assistant)
+        .map((m) => m.content)
+        .join(" ");
+      const searchQuery = recentContext
+        ? `${recentContext} ${userMsg}`
+        : userMsg;
+      const queryEmbedding = await embed(searchQuery);
 
       // 2. Buscar contexto en Supabase
       // match_threshold: 0.3 es un buen punto de partida (30% de similitud mínima)
