@@ -87,31 +87,24 @@ Responde de manera profesional, clara y concisa.
 CONTEXTO:
 ${contexto}`;
 
-      // 5. Llamada a la API de Groq
-      const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
+      // 5. Llamada a la Edge Function segura (el API Key de Groq nunca sale del servidor)
+      const { data: groqData, error: fnError } = await supabase.functions.invoke("chat", {
+        body: {
           model: "llama-3.1-8b-instant",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userMsg }
           ],
           temperature: 0.1, // Muy bajo para evitar "alucinaciones"
-          max_tokens: 1024
-        })
+          max_tokens: 1024,
+        },
       });
 
-      if (!groqResponse.ok) {
-        const errData = await groqResponse.json();
-        console.error("Error de Groq:", errData);
+      if (fnError) {
+        console.error("Error en la Edge Function:", fnError);
         throw new Error("Fallo en la comunicación con la IA generativa.");
       }
-      
-      const groqData = await groqResponse.json();
+
       const botReply = groqData.choices[0].message.content;
 
       // 6. Mostrar la respuesta en la interfaz
