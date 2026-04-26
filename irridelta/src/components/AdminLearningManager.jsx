@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ChevronDown,
   CircleCheck,
+  Download,
   Eye,
   FileQuestion,
   Globe,
@@ -20,6 +21,12 @@ import AssessmentModal from "./AssessmentModal";
 import AssessmentSummaryCard from "./AssessmentSummaryCard";
 import CapacitacionPreviewModal from "./CapacitacionPreviewModal";
 import ModuleCard from "./ModuleCard";
+import {
+  buildImportedQuestion,
+  getQuestionFingerprint,
+  isQuestionEmpty,
+  isQuestionReadyForImport,
+} from "../utils/assessments";
 
 const EDITOR_TABS = {
   GENERAL: "general",
@@ -63,6 +70,7 @@ function AdminLearningManager({
   const [isFinalAssessmentModalOpen, setIsFinalAssessmentModalOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSaveMenuOpen, setIsSaveMenuOpen] = useState(false);
+  const [finalImportMessage, setFinalImportMessage] = useState("");
   const submitModeRef = useRef("stay");
   const saveMenuRef = useRef(null);
 
@@ -129,6 +137,46 @@ function AdminLearningManager({
         ...changes,
       },
     }));
+  };
+
+  const importModuleQuestionsToFinal = () => {
+    const existingQuestions = form.certificacion.preguntas ?? [];
+    const importableQuestions = form.modulos
+      .flatMap((module) => module.preguntas ?? [])
+      .filter(isQuestionReadyForImport);
+
+    if (importableQuestions.length === 0) {
+      setFinalImportMessage("No hay preguntas de modulos listas para importar.");
+      return;
+    }
+
+    const existingFingerprints = new Set(
+      existingQuestions
+        .filter((question) => !isQuestionEmpty(question))
+        .map(getQuestionFingerprint)
+    );
+
+    const newQuestions = importableQuestions
+      .filter((question) => !existingFingerprints.has(getQuestionFingerprint(question)))
+      .map(buildImportedQuestion);
+
+    if (newQuestions.length === 0) {
+      setFinalImportMessage("No hay preguntas nuevas para importar.");
+      return;
+    }
+
+    const shouldReplaceInitialBlankQuestion =
+      existingQuestions.length === 1 && isQuestionEmpty(existingQuestions[0]);
+
+    updateFinalCertification({
+      preguntas: shouldReplaceInitialBlankQuestion
+        ? newQuestions
+        : [...existingQuestions, ...newQuestions],
+    });
+
+    setFinalImportMessage(
+      `Se importaron ${newQuestions.length} pregunta${newQuestions.length === 1 ? "" : "s"} desde los modulos.`
+    );
   };
 
   const addModule = () => {
@@ -465,6 +513,21 @@ function AdminLearningManager({
         }
         className="mb-4 min-h-[120px] w-full rounded border p-3"
       />
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={importModuleQuestionsToFinal}
+          className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow transition duration-200 hover:bg-slate-50"
+        >
+          <Download className="h-4 w-4" />
+          Importar preguntas de modulos
+        </button>
+
+        {finalImportMessage && (
+          <p className="text-sm text-slate-600">{finalImportMessage}</p>
+        )}
+      </div>
 
       <AssessmentSummaryCard
         title="Prueba final obligatoria"
