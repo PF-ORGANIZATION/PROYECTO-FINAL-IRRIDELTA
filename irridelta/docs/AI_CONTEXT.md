@@ -90,10 +90,10 @@ Current admin UX choices:
 - Modules can be collapsed individually to reduce scroll while editing long capacitaciones.
 - Module tests and the final evaluation are edited in large modals rather than inline.
 - Admins can preview a capacitacion inside the editor through a modal. That preview reuses the same shared presentation component as the public learning catalog to keep both views visually aligned.
-- The editor warns about unsaved changes before leaving the page and on browser refresh/close.
+- The editor warns about unsaved changes before leaving the page and on browser refresh or close.
 - Admin navigation is grouped under a single `Admin` dropdown in the top navbar instead of three separate top-level links.
 
-If this grows, consider moving multi-step database writes into a Supabase RPC/Postgres function so the database changes can be transactional. Storage uploads still need careful cleanup/rollback behavior because object storage and database writes are not one atomic operation.
+If this grows, consider moving multi-step database writes into a Supabase RPC or Postgres function so the database changes can be transactional. Storage uploads still need careful cleanup and rollback behavior because object storage and database writes are not one atomic operation.
 
 ## Safety Rules For Future AI Work
 
@@ -101,6 +101,6 @@ If this grows, consider moving multi-step database writes into a Supabase RPC/Po
 - Do not expose Supabase anon keys, service-role keys, auth tokens, emails, or real credentials.
 - Do not commit `.env`, `.env.admin.local`, or generated secrets.
 - Keep RLS and Storage policies versioned when possible so the database setup is reproducible.
-- Prefer small, focused changes and verify with targeted lint/build commands.
+- Prefer small, focused changes and verify with targeted lint and build commands.
 - Do not change certification logic unless the task explicitly asks for it.
 - When editing learning content, preserve the relationship between capacitaciones, modules, resources, and final certifications.
