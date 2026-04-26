@@ -28,7 +28,9 @@ function Certificaciones() {
       setError("");
 
       try {
-        const data = await fetchLearningItems(LEARNING_TYPES.CERTIFICACION);
+        const data = await fetchLearningItems(LEARNING_TYPES.CERTIFICACION, {
+          onlyPublished: true,
+        });
 
         if (!ignore) {
           setItems(data);
