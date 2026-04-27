@@ -17,3 +17,23 @@ body {
 .brand-logo-card:hover {
   filter: grayscale(0%);
 }
+
+/* ── Chatbot: estilos para tablas renderizadas por ReactMarkdown ── */
+.chatbot-content table {
+  @apply w-full text-xs border-collapse rounded-lg overflow-hidden my-3;
+}
+.chatbot-content thead {
+  @apply bg-green-50;
+}
+.chatbot-content th {
+  @apply px-3 py-2 text-left font-semibold text-green-800 border-b border-green-200;
+}
+.chatbot-content td {
+  @apply px-3 py-2 border-b border-gray-100;
+}
+.chatbot-content tbody tr:nth-child(even) {
+  @apply bg-gray-50;
+}
+.chatbot-content tbody tr:hover {
+  @apply bg-green-50/50;
+}
