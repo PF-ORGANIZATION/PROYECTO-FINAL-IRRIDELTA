@@ -512,6 +512,9 @@ async function replaceCapacitacionModules(capacitacionId, modules) {
 async function upsertFinalCertification(capacitacionId, certification) {
   const assessmentError = validateAssessment(certification, {
     name: "El test final",
+    includeQuestionCount: true,
+    questionCountKey: "cantidad_preguntas_examen",
+    questionCountLabel: "La cantidad de preguntas a mostrar del test final",
   });
 
   if (assessmentError) {
@@ -525,6 +528,7 @@ async function upsertFinalCertification(capacitacionId, certification) {
     preguntas: certification.preguntas.map(normalizeCertificationQuestion),
     porcentaje_aprobacion: Number(certification.porcentaje_aprobacion),
     duracion_maxima_minutos: Number(certification.duracion_maxima_minutos),
+    cantidad_preguntas_examen: Number(certification.cantidad_preguntas_examen),
   };
 
   const { data: existingCertification, error: existingCertificationError } =
@@ -613,6 +617,7 @@ export async function saveCertification(certification) {
     preguntas: certification.preguntas.map(normalizeCertificationQuestion),
     porcentaje_aprobacion: Number(certification.porcentaje_aprobacion),
     duracion_maxima_minutos: Number(certification.duracion_maxima_minutos),
+    cantidad_preguntas_examen: Number(certification.cantidad_preguntas_examen),
     created_at: certification.created_at ?? undefined,
   };
 

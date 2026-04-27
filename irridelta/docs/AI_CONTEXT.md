@@ -14,6 +14,7 @@ IRRIDELTA is a React + Vite single-page app for a business website with:
 - Role-based routes for clients and admins.
 - Learning content for clients: capacitaciones and certificaciones.
 - Admin panels for products, capacitaciones, and certificaciones.
+- Admin KB management.
 
 ## Stack
 
@@ -71,7 +72,10 @@ Business rules:
 - Files and YouTube links can be mixed in the same module.
 - Each module has one required test in the current admin flow.
 - Each capacitacion has one required final evaluation.
+- Module tests and the final evaluation share the same assessment editor and validation utilities.
+- Module tests use `cantidad_preguntas_a_mostrar`; final evaluations use `cantidad_preguntas_examen`.
 - A capacitacion can be saved as draft or marked as published.
+- A capacitacion cannot be marked as published while `Datos generales`, `Modulos`, or `Evaluacion final` is pending.
 - Public client views only show published capacitaciones and their final certifications.
 - Allowed MVP file extensions: `pdf`, `docx`, `pptx`, `xlsx`, `jpg`, `png`, `mp4`.
 - No resource reuse is implemented.
@@ -89,9 +93,11 @@ Current admin UX choices:
 - The admin learning form keeps at least one module in the UI at all times. The last module cannot be removed, and the save flow also validates that a capacitacion has at least one titled module.
 - Modules can be collapsed individually to reduce scroll while editing long capacitaciones.
 - Module tests and the final evaluation are edited in large modals rather than inline.
+- The publish button is disabled until all three editor sections are complete. The save flow also blocks persisted published content if any required section is incomplete.
 - Admins can preview a capacitacion inside the editor through a modal. That preview reuses the same shared presentation component as the public learning catalog to keep both views visually aligned.
 - The editor warns about unsaved changes before leaving the page and on browser refresh or close.
 - Admin navigation is grouped under a single `Admin` dropdown in the top navbar instead of three separate top-level links.
+- For detailed implementation notes on this module, read `docs/LEARNING_MODULES.md` before changing capacitaciones admin behavior.
 
 If this grows, consider moving multi-step database writes into a Supabase RPC or Postgres function so the database changes can be transactional. Storage uploads still need careful cleanup and rollback behavior because object storage and database writes are not one atomic operation.
 

@@ -47,12 +47,15 @@ Suggested important columns:
 - `id`
 - `titulo`
 - `descripcion`
+- `publicada`
 - `created_at`
 - `updated_at`
 
 Business rule:
 
 - A capacitacion should have at least one module.
+- Client-facing capacitaciones are filtered by `publicada = true`.
+- The admin UI can save incomplete drafts, but published capacitaciones should have complete general data, modules, module tests, and final certification.
 
 ## Capacitacion Modulos
 
@@ -63,6 +66,10 @@ Suggested important columns:
 - `titulo`
 - `descripcion`
 - `orden`
+- `preguntas`
+- `cantidad_preguntas_a_mostrar`
+- `porcentaje_aprobacion`
+- `duracion_maxima_minutos`
 - `created_at`
 
 Business rules:
@@ -70,6 +77,10 @@ Business rules:
 - Modules are created manually.
 - A capacitacion can have one or more modules.
 - `orden` controls display order.
+- Each module has one required test stored on the module row.
+- `cantidad_preguntas_a_mostrar` must be between 1 and the number of loaded module questions.
+- `porcentaje_aprobacion` must be between 1 and 100.
+- `duracion_maxima_minutos` must be between 1 and the frontend `MAX_DURATION_MINUTES` value.
 
 ## Modulo Recursos
 
@@ -102,6 +113,7 @@ Suggested important columns:
 - `titulo`
 - `descripcion`
 - `preguntas`
+- `cantidad_preguntas_examen`
 - `porcentaje_aprobacion`
 - `duracion_maxima_minutos`
 - `created_at`
@@ -109,6 +121,10 @@ Suggested important columns:
 Business rule:
 
 - A certification is one final evaluation associated with a capacitacion.
+- For capacitaciones, there should be one final certification per `capacitacion_id`.
+- `cantidad_preguntas_examen` controls how many questions the client receives when taking the final exam.
+- `cantidad_preguntas_examen` must be between 1 and the number of loaded final certification questions.
+- Public client certification listings should only include certifications whose parent capacitacion is published.
 
 ## Storage
 

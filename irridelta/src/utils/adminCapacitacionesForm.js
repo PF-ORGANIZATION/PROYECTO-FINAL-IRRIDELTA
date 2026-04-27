@@ -26,7 +26,10 @@ export function createEmptyFinalCertification() {
     id: null,
     titulo: "Evaluacion final",
     descripcion: "",
-    ...buildAssessment(),
+    ...buildAssessment({
+      includeQuestionCount: true,
+      questionCountKey: "cantidad_preguntas_examen",
+    }),
   };
 }
 
@@ -75,7 +78,10 @@ export function normalizeFinalCertificationForForm(capacitacion) {
       certification.titulo ??
       `Evaluacion final - ${capacitacion.titulo ?? "Capacitacion"}`,
     descripcion: certification.descripcion ?? "",
-    ...normalizeAssessmentForForm(certification),
+    ...normalizeAssessmentForForm(certification, {
+      includeQuestionCount: true,
+      questionCountKey: "cantidad_preguntas_examen",
+    }),
   };
 }
 
@@ -216,6 +222,9 @@ export function serializeCapacitacionForm(form) {
       duracion_maxima_minutos: Number(
         form.certificacion?.duracion_maxima_minutos ?? 0
       ),
+      cantidad_preguntas_examen: Number(
+        form.certificacion?.cantidad_preguntas_examen ?? 0
+      ),
     },
   });
 }
@@ -250,6 +259,9 @@ export function getModuleCompletionInfo(module) {
 export function isFinalAssessmentConfigured(certification) {
   return (
     Boolean(certification?.titulo?.trim()) &&
-    isAssessmentComplete(certification)
+    isAssessmentComplete(certification, {
+      includeQuestionCount: true,
+      questionCountKey: "cantidad_preguntas_examen",
+    })
   );
 }

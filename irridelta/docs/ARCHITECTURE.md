@@ -12,10 +12,12 @@ Main route groups:
 - Auth route: login.
 - Client routes: capacitaciones, certificaciones, certification exam.
 - Admin routes: products, capacitaciones, certificaciones.
+- Admin knowledge base route: KB management.
 
 Navigation note:
 
 - The desktop and mobile navbar groups admin links inside one `Admin` dropdown rather than rendering three separate top-level admin links.
+- Current admin dropdown items are Products, Capacitaciones, Certificaciones, and Admin KB.
 
 ## State And Data Access
 
@@ -47,6 +49,7 @@ Learning admin:
 - `src/components/AssessmentEditor.jsx`, `AssessmentModal.jsx`, and `AssessmentSummaryCard.jsx` support module and final evaluation editing.
 - `src/components/UnsavedChangesModal.jsx` handles the editor warning before leaving with unsaved changes.
 - `src/pages/AdminCertificaciones.jsx` owns final certification form state.
+- Detailed learning-admin behavior is documented in `docs/LEARNING_MODULES.md`.
 
 ## Client Learning Views
 
@@ -70,11 +73,13 @@ Future production hardening should consider:
 Current admin UX choices worth preserving unless intentionally redesigned:
 
 - Capacitaciones require at least one module.
+- The publish action must stay disabled while `Datos generales`, `Modulos`, or `Evaluacion final` is pending.
 - The last remaining module cannot be removed from the form.
 - Modules can be collapsed independently to reduce scrolling in long forms.
 - New module creation collapses previous modules automatically.
 - Module cards expose completion state and explain why a module is still pending.
 - Module tests and the final evaluation are edited in dedicated modals instead of inline.
+- Module tests and the final evaluation share the same assessment primitives. Module tests use `cantidad_preguntas_a_mostrar`; the final evaluation uses `cantidad_preguntas_examen`.
 - Admin preview uses a modal instead of route navigation so editors keep their place in the panel.
 - The editor warns before leaving when there are unsaved changes.
 - Capacitaciones and certifications shown to client users are filtered by `publicada = true`.

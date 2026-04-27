@@ -101,6 +101,7 @@ function AdminLearningManager({
   const submitModeRef = useRef("stay");
   const saveMenuRef = useRef(null);
   const publishBlockInfo = getPublishBlockInfo(form);
+  const isPublishDisabled = !form.publicada && Boolean(publishBlockInfo);
 
   useEffect(() => {
     if (!isSaveMenuOpen) {
@@ -609,10 +610,15 @@ function AdminLearningManager({
 
       <AssessmentSummaryCard
         title="Prueba final obligatoria"
+        questionCount={form.certificacion.preguntas?.length ?? 0}
+        questionCountToShow={form.certificacion.cantidad_preguntas_examen ?? 0}
+        passingScore={form.certificacion.porcentaje_aprobacion ?? null}
+        durationMinutes={form.certificacion.duracion_maxima_minutos ?? null}
         isConfigured={getFinalAssessmentSectionComplete(form)}
         onEdit={() => setIsFinalAssessmentModalOpen(true)}
         description=""
         showStatus={false}
+        showMetrics
       />
     </section>
   );
@@ -662,16 +668,17 @@ function AdminLearningManager({
               type="button"
               aria-pressed={form.publicada}
               onClick={handlePublishToggle}
+              disabled={isPublishDisabled}
               title={
-                !form.publicada && publishBlockInfo
+                isPublishDisabled
                   ? publishBlockInfo.message
                   : undefined
               }
               className={`inline-flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold shadow transition duration-200 ${
                 form.publicada
                   ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                  : publishBlockInfo
-                    ? "bg-gray-100 text-gray-400 hover:bg-gray-100"
+                  : isPublishDisabled
+                    ? "cursor-not-allowed bg-gray-100 text-gray-400 hover:bg-gray-100"
                     : "bg-white text-slate-700 hover:bg-slate-50"
               }`}
             >
@@ -800,6 +807,8 @@ function AdminLearningManager({
         value={form.certificacion}
         onChange={updateFinalCertification}
         onClose={() => setIsFinalAssessmentModalOpen(false)}
+        countFieldKey="cantidad_preguntas_examen"
+        countFieldLabel="Cantidad de preguntas a mostrar en la prueba final"
       />
       <CapacitacionPreviewModal
         item={isPreviewOpen ? form : null}
