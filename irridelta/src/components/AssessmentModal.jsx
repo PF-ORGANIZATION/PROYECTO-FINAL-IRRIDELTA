@@ -87,6 +87,7 @@ function AssessmentModal({
             countFieldKey={countFieldKey}
             countFieldLabel={countFieldLabel}
             showQuestionToolbar={false}
+            showHeader={false}
           />
         </div>
 

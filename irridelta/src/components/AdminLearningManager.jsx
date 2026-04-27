@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertTriangle,
   ArrowLeft,
   ChevronDown,
   CircleCheck,
@@ -55,6 +56,31 @@ function getFinalAssessmentSectionComplete(form) {
   return isFinalAssessmentConfigured(form.certificacion);
 }
 
+function getPublishBlockInfo(form) {
+  if (!getGeneralSectionComplete(form)) {
+    return {
+      tab: EDITOR_TABS.GENERAL,
+      message: "Completa los datos generales antes de publicar.",
+    };
+  }
+
+  if (!getModulesSectionComplete(form)) {
+    return {
+      tab: EDITOR_TABS.MODULES,
+      message: "Completa todos los modulos y sus pruebas antes de publicar.",
+    };
+  }
+
+  if (!getFinalAssessmentSectionComplete(form)) {
+    return {
+      tab: EDITOR_TABS.FINAL,
+      message: "Completa la evaluacion final antes de publicar.",
+    };
+  }
+
+  return null;
+}
+
 function AdminLearningManager({
   form,
   setForm,
@@ -71,8 +97,10 @@ function AdminLearningManager({
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSaveMenuOpen, setIsSaveMenuOpen] = useState(false);
   const [finalImportMessage, setFinalImportMessage] = useState("");
+  const [moduleRemovalRequest, setModuleRemovalRequest] = useState(null);
   const submitModeRef = useRef("stay");
   const saveMenuRef = useRef(null);
+  const publishBlockInfo = getPublishBlockInfo(form);
 
   useEffect(() => {
     if (!isSaveMenuOpen) {
@@ -205,6 +233,47 @@ function AdminLearningManager({
     });
   };
 
+  const requestModuleRemoval = (moduleIndex) => {
+    const module = form.modulos[moduleIndex];
+
+    setModuleRemovalRequest({
+      index: moduleIndex,
+      title: module?.titulo?.trim() || `Modulo ${moduleIndex + 1}`,
+    });
+  };
+
+  const cancelModuleRemoval = () => {
+    setModuleRemovalRequest(null);
+  };
+
+  const confirmModuleRemoval = () => {
+    if (moduleRemovalRequest === null) {
+      return;
+    }
+
+    removeModule(moduleRemovalRequest.index);
+    setModuleRemovalRequest(null);
+  };
+
+  const handlePublishToggle = () => {
+    if (form.publicada) {
+      setFormError("");
+      setForm((current) => ({ ...current, publicada: false }));
+      return;
+    }
+
+    const blockInfo = getPublishBlockInfo(form);
+
+    if (blockInfo) {
+      setActiveTab(blockInfo.tab);
+      setFormError(blockInfo.message);
+      return;
+    }
+
+    setFormError("");
+    setForm((current) => ({ ...current, publicada: true }));
+  };
+
   const toggleModuleCollapse = (moduleIndex) => {
     setForm((currentForm) => ({
       ...currentForm,
@@ -316,6 +385,15 @@ function AdminLearningManager({
     if (moduleWithoutTitle) {
       setActiveTab(EDITOR_TABS.MODULES);
       return "Todos los modulos deben tener titulo.";
+    }
+
+    if (form.publicada) {
+      const blockInfo = getPublishBlockInfo(form);
+
+      if (blockInfo) {
+        setActiveTab(blockInfo.tab);
+        return blockInfo.message;
+      }
     }
 
     return "";
@@ -451,7 +529,7 @@ function AdminLearningManager({
             index={moduleIndex}
             canRemove={form.modulos.length > 1}
             onToggle={() => toggleModuleCollapse(moduleIndex)}
-            onRemove={() => removeModule(moduleIndex)}
+            onRemove={() => requestModuleRemoval(moduleIndex)}
             onUpdate={(changes) => updateModule(moduleIndex, changes)}
             onFilesChange={(fileList) => handleFilesChange(moduleIndex, fileList)}
             onRemoveSelectedFile={(fileIndex) =>
@@ -583,13 +661,18 @@ function AdminLearningManager({
             <button
               type="button"
               aria-pressed={form.publicada}
-              onClick={() =>
-                setForm((current) => ({ ...current, publicada: !current.publicada }))
+              onClick={handlePublishToggle}
+              title={
+                !form.publicada && publishBlockInfo
+                  ? publishBlockInfo.message
+                  : undefined
               }
               className={`inline-flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold shadow transition duration-200 ${
                 form.publicada
                   ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                  : "bg-white text-slate-700 hover:bg-slate-50"
+                  : publishBlockInfo
+                    ? "bg-gray-100 text-gray-400 hover:bg-gray-100"
+                    : "bg-white text-slate-700 hover:bg-slate-50"
               }`}
             >
               <Globe className="h-4 w-4" />
@@ -722,6 +805,51 @@ function AdminLearningManager({
         item={isPreviewOpen ? form : null}
         onClose={() => setIsPreviewOpen(false)}
       />
+
+      {moduleRemovalRequest && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center px-4 py-6">
+          <button
+            type="button"
+            aria-label="Cancelar eliminacion de modulo"
+            onClick={cancelModuleRemoval}
+            className="absolute inset-0 bg-slate-900/65"
+          />
+
+          <div className="relative z-10 w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-red-700">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+
+              <div className="min-w-0">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Quitar modulo
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-gray-600">
+                  Vas a quitar "{moduleRemovalRequest.title}" junto con su contenido y preguntas.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                onClick={cancelModuleRemoval}
+                className="rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow transition duration-200 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmModuleRemoval}
+                className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow transition duration-200 hover:bg-red-700"
+              >
+                Quitar modulo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
