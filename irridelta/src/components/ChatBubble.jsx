@@ -28,7 +28,7 @@ function ChatBubble({ msg }) {
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
             </div>
             {msg.sources && msg.sources.length > 0 && (
-              <div className="mt-3 pt-2 border-t border-gray-100 text-xs text-gray-400">
+              <div className="mt-3 pt-2 border-t border-gray-100 text-xs text-gray-400 break-all">
                 <span className="font-semibold">Fuentes RAG:</span> {msg.sources.join(", ")}
               </div>
             )}

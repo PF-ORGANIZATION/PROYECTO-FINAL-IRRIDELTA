@@ -54,10 +54,6 @@ function Navbar() {
       path: "/admin/kb",
     });
   }
-
-  if (user) {
-    navItems.push({ name: "Asistente AI", path: "/chatbot" });
-  }
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (adminMenuRef.current && !adminMenuRef.current.contains(event.target)) {
