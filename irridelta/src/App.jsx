@@ -20,7 +20,9 @@ import CertificationExam from "./pages/CertificationExam";
 import AdminCapacitacionesList from "./pages/AdminCapacitacionesList";
 import AdminCapacitacionEditor from "./pages/AdminCapacitacionEditor";
 import AdminCertificaciones from "./pages/AdminCertificaciones";
+import AdminKB from "./pages/AdminKB";
 import { getDefaultPathByRole, USER_ROLES } from "./utils/authRoles";
+import Chatbot from "./pages/Chatbot";
 
 const WHATSAPP_NUMBER = "5491162856483";
 
@@ -185,6 +187,23 @@ function App() {
                   <ProtectedRoute
                     element={AdminCertificaciones}
                     allowedRoles={[USER_ROLES.ADMIN]}
+                  />
+                }
+              />
+              <Route
+                path="/admin/kb"
+                element={
+                  <ProtectedRoute
+                    element={AdminKB}
+                    allowedRoles={[USER_ROLES.ADMIN]}
+                  />
+                }
+              />
+              <Route
+                path="/chatbot"
+                element={
+                  <ProtectedRoute
+                    element={Chatbot}
                   />
                 }
               />
