@@ -3,11 +3,12 @@
 
 import React from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 /**
  * Renderiza una burbuja de chat.
  * - Mensajes del usuario: texto plano, burbuja verde.
- * - Mensajes del bot: Markdown renderizado, burbuja blanca, con fuentes RAG opcionales.
+ * - Mensajes del bot: Markdown renderizado (con GFM para tablas), burbuja blanca, con fuentes RAG opcionales.
  */
 function ChatBubble({ msg }) {
   const isUser = msg.sender === "user";
@@ -23,8 +24,8 @@ function ChatBubble({ msg }) {
       >
         {!isUser ? (
           <div className="flex flex-col">
-            <div className="text-sm leading-relaxed prose prose-sm prose-green max-w-none overflow-x-auto">
-              <ReactMarkdown>{msg.text}</ReactMarkdown>
+            <div className="text-sm leading-relaxed prose prose-sm prose-green max-w-none overflow-x-auto chatbot-content">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
             </div>
             {msg.sources && msg.sources.length > 0 && (
               <div className="mt-3 pt-2 border-t border-gray-100 text-xs text-gray-400">
