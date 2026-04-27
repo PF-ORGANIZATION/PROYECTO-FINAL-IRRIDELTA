@@ -17,6 +17,7 @@ function AssessmentEditor({
   countFieldKey = null,
   countFieldLabel = "Cantidad de preguntas a mostrar",
   showQuestionToolbar = true,
+  showHeader = true,
 }) {
   const [collapsedQuestions, setCollapsedQuestions] = useState({});
 
@@ -157,12 +158,14 @@ function AssessmentEditor({
 
   return (
     <div className="space-y-5 rounded-lg border border-gray-200 bg-gray-50 p-4">
-      <div>
-        <h5 className="text-base font-semibold text-gray-900">{title}</h5>
-        {description && (
-          <p className="mt-1 text-sm text-gray-600">{description}</p>
-        )}
-      </div>
+      {showHeader && (
+        <div>
+          <h5 className="text-base font-semibold text-gray-900">{title}</h5>
+          {description && (
+            <p className="mt-1 text-sm text-gray-600">{description}</p>
+          )}
+        </div>
+      )}
 
       <div className={`grid gap-4 ${countFieldKey ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
         {countFieldKey && (
