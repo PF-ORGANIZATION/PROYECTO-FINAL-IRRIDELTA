@@ -2,8 +2,7 @@
 // Supabase Edge Function — acts as a secure proxy to the Groq API.
 // The GROQ_API_KEY secret is stored in Supabase's secret vault and
 // never sent to the browser.
-
-// Deno.serve() is a built-in global in the Supabase Edge Runtime — no import needed.
+// Supports both streaming (stream: true) and non-streaming responses.
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -27,16 +26,13 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // The secret is read server-side from Supabase's vault — never exposed to the client
     const groqApiKey = Deno.env.get("GROQ_API_KEY");
     if (!groqApiKey) {
       throw new Error("GROQ_API_KEY secret is not configured in Supabase.");
     }
 
-    // Parse the request body sent by the frontend
-    const { messages, model, temperature, max_tokens } = await req.json();
+    const { messages, model, temperature, max_tokens, stream } = await req.json();
 
-    // Basic validation
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "Invalid request: messages is required." }), {
         status: 400,
@@ -44,7 +40,47 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Forward the request to Groq with retry for 429 (rate limit)
+    const groqBody = {
+      model: model ?? "llama-3.1-8b-instant",
+      messages,
+      temperature: temperature ?? 0.1,
+      max_tokens: max_tokens ?? 1024,
+      stream: !!stream,
+    };
+
+    // ── Streaming mode ──
+    if (stream) {
+      const groqResponse = await fetch(GROQ_API_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${groqApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(groqBody),
+      });
+
+      if (!groqResponse.ok) {
+        const errData = await groqResponse.json();
+        console.error("Groq streaming error:", errData);
+        return new Response(JSON.stringify({ error: "Groq API error", details: errData }), {
+          status: groqResponse.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Pipe Groq's SSE stream directly to the browser
+      return new Response(groqResponse.body, {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
+    }
+
+    // ── Non-streaming mode (with retry for 429) ──
     const MAX_RETRIES = 3;
     let groqResponse: Response | null = null;
     let groqData: any = null;
@@ -56,23 +92,16 @@ Deno.serve(async (req: Request) => {
           "Authorization": `Bearer ${groqApiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          model: model ?? "llama-3.1-8b-instant",
-          messages,
-          temperature: temperature ?? 0.1,
-          max_tokens: max_tokens ?? 1024,
-        }),
+        body: JSON.stringify(groqBody),
       });
 
       groqData = await groqResponse.json();
 
-      // If not rate-limited, break out
       if (groqResponse.status !== 429) break;
 
       console.warn(`Groq 429 — intento ${attempt}/${MAX_RETRIES}`);
 
       if (attempt < MAX_RETRIES) {
-        // Espera exponencial: 2s, 4s, 6s
         await new Promise((r) => setTimeout(r, 2000 * attempt));
       }
     }

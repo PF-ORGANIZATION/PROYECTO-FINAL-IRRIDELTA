@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 import { useSessionStore } from "../store/sessionStore";
 import { supabase } from "../supabaseClient";
 import { embed } from "../services/embeddingService";
 
 function Chatbot() {
   const user = useSessionStore((state) => state.user);
+  const userRole = useSessionStore((state) => state.role);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -52,10 +54,41 @@ function Chatbot() {
         throw searchErr;
       }
 
-      // 2. Preparar el contexto si se encontraron resultados
+      // 2. Preparar el contexto y extraer fuentes si se encontraron resultados
       let contexto = "";
+      let fuentesUnicas = [];
       if (documentos && documentos.length > 0) {
         contexto = documentos.map(doc => doc.contenido).join("\n\n---\n\n");
+        fuentesUnicas = [...new Set(documentos.map(doc => doc.metadata?.source).filter(Boolean))];
+      }
+
+      // 2b. FILTRO DE RELEVANCIA: si no hay contexto RAG y la pregunta no es sobre Irridelta, bloquear
+      const KEYWORDS_IRRIDELTA = [
+        "irridelta", "riego", "goteo", "aspersión", "aspersor", "microaspersión",
+        "bomba", "piscina", "filtro", "tubería", "cañería", "válvula",
+        "jardín", "jardinería", "césped", "tratamiento de agua", "ablandador",
+        "sumergible", "centrífuga", "periférica", "multietapa", "desagote",
+        "sucursal", "contacto", "whatsapp", "horario", "benavídez", "benavidez", "escobar",
+        "nosotros", "ustedes", "historia", "marca", "producto", "servicio",
+        "cotización", "presupuesto", "precio", "instalar", "instalación",
+        "capacitación", "certificación", "asesor",
+      ];
+      const queryLower = userMsg.toLowerCase();
+      const tieneContexto = contexto.length > 0;
+      const tieneHistorial = conversationHistory.current.length > 0;
+      const esRelevante = KEYWORDS_IRRIDELTA.some((kw) => queryLower.includes(kw));
+
+      if (!tieneContexto && !tieneHistorial && !esRelevante) {
+        // Respuesta enlatada sin llamar al LLM
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now() + 1,
+            sender: "bot",
+            text: "Lo siento, soy el asistente técnico de Irridelta y solo puedo ayudarte con consultas sobre **riego, bombas, piscinas, tratamiento de agua, jardinería** y nuestros **productos y servicios**.\n\n¿En qué te puedo ayudar?",
+          },
+        ]);
+        return;
       }
 
       // 3. Armar el System Prompt
@@ -64,11 +97,20 @@ function Chatbot() {
 SOBRE IRRIDELTA:
 Irridelta trabaja en el sector del riego desde fines de los años 90. Iniciaron como instaladores de sistemas residenciales, deportivos y agrícolas. En 2012 abrieron su local en Benavídez enfocándose en venta de insumos, capacitación y formación de instaladores independientes. Son distribuidores de las principales marcas del rubro. También comercializan productos de áreas afines: piscinas, tratamiento de agua, bombas (centrífugas, sumergibles, periféricas, multietapas), herramientas de jardinería y máquinas de explosión. En octubre de 2024 abrieron una nueva sucursal en Escobar.
 
-INSTRUCCIONES:
-- Respondé usando el CONTEXTO, la información sobre Irridelta y la conversación previa.
-- Si no encontrás la respuesta en ninguna de esas fuentes, respondé: "No dispongo de esa información en mis manuales actuales".
-- NUNCA inventes datos técnicos, precios ni información no respaldada.
-- Sé profesional, claro y conciso.
+SUCURSALES Y CONTACTO:
+- Sucursal Benavídez: Av. Benavidez 3750, Benavidez (Locales 5 y 6). WhatsApp: +54 9 11 6285-6457. Horario: Lunes a Viernes 8-17hs, Sábados 8-13hs.
+- Sucursal Escobar: Av. San Martín 2213, Belén de Escobar. WhatsApp: +54 9 11 6285-6483. Horario: Lunes a Viernes 8-17hs, Sábados 8-13hs.
+- Página de contacto web: /contacto (formulario de consulta).
+- Instagram: https://instagram.com/irridelta
+- Facebook: https://www.facebook.com/p/Irridelta-100064054083065/
+
+INSTRUCCIONES CRÍTICAS DE COMPORTAMIENTO:
+1. IDENTIDAD: Eres parte del equipo de Irridelta. Habla siempre en primera persona del plural ("nosotros", "ofrecemos", "nuestros locales") cuando te refieras a la empresa. NUNCA hables de Irridelta en tercera persona (ej. NUNCA digas "contacta con Irridelta", di "contactate con nosotros" o "hablá con uno de nuestros asesores").
+2. LÍMITE DE TEMA: Solo puedes responder preguntas relacionadas con Irridelta, riego, piscinas, tratamiento de agua, bombas, jardinería y herramientas afines. Si el usuario pregunta sobre CUALQUIER otro tema, DEBES negarte respondiendo: "Lo siento, soy un asistente técnico y solo puedo ayudar con consultas sobre productos y servicios de Irridelta."
+3. LÍMITE DE INFORMACIÓN: Basa tu respuesta ÚNICAMENTE en el CONTEXTO provisto, en la información SOBRE IRRIDELTA y en el historial. Si la respuesta a una pregunta válida no está en estas fuentes, responde: "No dispongo de esa información en mis manuales actuales. Por favor, contactate con nuestros asesores para más detalles."
+4. REGLA SOBRE PRECIOS: Jamás inventes ni des estimaciones de precios numéricos a menos que aparezcan exactamente en el CONTEXTO. Si te piden precios que no están en el texto, responde que requieren una cotización personalizada.
+5. FORMATO: Usá Markdown para formatear: **negrita** para términos clave, listas con viñetas (- o *) para enumerar, y encabezados (##) para secciones. NUNCA uses tablas Markdown (|---|), usá listas en su lugar.
+6. Sé profesional, claro y conciso.
 
 CONTEXTO:
 ${contexto}`;
@@ -80,53 +122,120 @@ ${contexto}`;
         { role: "user", content: userMsg },
       ];
 
-      // 5. Llamada a la Edge Function (reintentos se manejan server-side)
-      const { data: groqData, error: fnError } = await supabase.functions.invoke("chat", {
-        body: {
-          model: "llama-3.1-8b-instant",
+      // 5. Llamada a la Edge Function con streaming
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
+      const botMsgId = Date.now() + 1;
+
+      // Crear el mensaje del bot con placeholder para ir llenándolo
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: botMsgId,
+          sender: "bot",
+          text: "_Pensando..._",
+          isStreaming: true,
+          sources: userRole === "admin" ? fuentesUnicas : undefined,
+        },
+      ]);
+      setIsLoading(false); // Ocultar spinner, el texto ya aparece progresivamente
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseKey}`,
+          "apikey": supabaseKey,
+        },
+        body: JSON.stringify({
+          //model: "llama-3.1-8b-instant",
+          model: "openai/gpt-oss-20b",
           messages: llmMessages,
           temperature: 0.1,
           max_tokens: 1024,
-        },
+          stream: true,
+        }),
       });
 
-      if (fnError) {
-        console.error("Error en la Edge Function:", fnError);
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        console.error("Error en la Edge Function:", errData);
         throw new Error("No se pudo conectar con la IA. Intenta de nuevo en unos segundos.");
       }
 
-      const botReply = groqData.choices[0].message.content;
+      // Leer el stream SSE token por token
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullReply = "";
 
-      // 7. Guardar el turno en el historial de conversación
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const token = parsed.choices?.[0]?.delta?.content;
+            if (token) {
+              fullReply += token;
+              // Actualizar el mensaje del bot progresivamente
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === botMsgId ? { ...msg, text: fullReply } : msg
+                )
+              );
+            }
+          } catch {
+            // Línea SSE no parseable, ignorar
+          }
+        }
+      }
+
+      // 7. Guardar el turno completo en el historial de conversación
       conversationHistory.current.push(
         { role: "user", content: userMsg },
-        { role: "assistant", content: botReply }
+        { role: "assistant", content: fullReply }
       );
       // Limitar a los últimos N turnos (cada turno = 2 mensajes: user + assistant)
       if (conversationHistory.current.length > MAX_HISTORY_TURNS * 2) {
         conversationHistory.current = conversationHistory.current.slice(-MAX_HISTORY_TURNS * 2);
       }
 
-      // 8. Mostrar la respuesta en la interfaz
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          sender: "bot",
-          text: botReply,
-        },
-      ]);
+      // Limpiar flag de streaming
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === botMsgId ? { ...msg, isStreaming: false } : msg
+        )
+      );
 
     } catch (error) {
       console.error("Excepción general en el chatbot:", error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          sender: "bot",
-          text: error.message || "Hubo un problema al procesar tu consulta. Intenta de nuevo.",
-        },
-      ]);
+      // Si ya se creó la burbuja de streaming, reemplazarla con el error
+      setMessages((prev) => {
+        const hasStreamBubble = prev.some((m) => m.isStreaming);
+        if (hasStreamBubble) {
+          return prev.map((m) =>
+            m.isStreaming
+              ? { ...m, text: error.message || "Hubo un problema al procesar tu consulta.", isStreaming: false }
+              : m
+          );
+        }
+        return [
+          ...prev,
+          {
+            id: Date.now() + 1,
+            sender: "bot",
+            text: error.message || "Hubo un problema al procesar tu consulta. Intenta de nuevo.",
+          },
+        ];
+      });
     } finally {
       setIsLoading(false);
 
@@ -158,11 +267,26 @@ ${contexto}`;
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-[80%] rounded-2xl px-5 py-3 shadow-sm whitespace-pre-wrap ${
-                  msg.sender === "user" ? "bg-green-500 text-white rounded-br-none" : "bg-white text-gray-800 border border-gray-100 rounded-bl-none"
+                className={`max-w-[80%] rounded-2xl px-5 py-3 shadow-sm ${
+                  msg.sender === "user"
+                    ? "bg-green-500 text-white rounded-br-none whitespace-pre-wrap"
+                    : "bg-white text-gray-800 border border-gray-100 rounded-bl-none"
                 }`}
               >
-                <p className="text-sm leading-relaxed">{msg.text}</p>
+                {msg.sender === "bot" ? (
+                  <div className="flex flex-col">
+                    <div className="text-sm leading-relaxed prose prose-sm prose-green max-w-none overflow-x-auto">
+                      <ReactMarkdown>{msg.text}</ReactMarkdown>
+                    </div>
+                    {msg.sources && msg.sources.length > 0 && (
+                      <div className="mt-3 pt-2 border-t border-gray-100 text-xs text-gray-400">
+                        <span className="font-semibold">Fuentes RAG:</span> {msg.sources.join(", ")}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm leading-relaxed">{msg.text}</p>
+                )}
               </div>
             </div>
           ))}
