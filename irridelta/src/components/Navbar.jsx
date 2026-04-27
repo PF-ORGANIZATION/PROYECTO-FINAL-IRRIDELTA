@@ -46,11 +46,13 @@ function Navbar() {
       name: "Admin Certificaciones",
       path: "/admin/certificaciones",
     });
+    navItems.push({
+      name: "Admin KB",
+      path: "/admin/kb",
+    });
   }
 
-  if (user) {
-    navItems.push({ name: "Asistente AI", path: "/chatbot" });
-  }
+
 
   const getLinkClasses = (path) => {
     const isActive = location.pathname === path;
