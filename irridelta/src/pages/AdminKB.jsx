@@ -18,6 +18,10 @@ function AdminKB() {
   const [filesList, setFilesList] = useState([]);
   const [isLoadingList, setIsLoadingList] = useState(false);
 
+  // Validación de archivos
+  const ALLOWED_EXTENSIONS = [".pdf", ".md", ".txt"];
+  const MAX_SIZE_MB = 10;
+
   useEffect(() => {
     fetchFilesList();
   }, []);
@@ -112,6 +116,20 @@ function AdminKB() {
 
   const handleProcess = async (e) => {
     e.preventDefault();
+
+    // Validación de tipo y tamaño del archivo
+    if (file) {
+      const ext = "." + file.name.split(".").pop().toLowerCase();
+      if (!ALLOWED_EXTENSIONS.includes(ext)) {
+        alert(`Tipo de archivo no soportado. Solo se permiten: ${ALLOWED_EXTENSIONS.join(", ")}`);
+        return;
+      }
+      if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+        alert(`El archivo no debe superar ${MAX_SIZE_MB}MB.`);
+        return;
+      }
+    }
+
     try {
       setIsProcessing(true);
       setProgress(0);
@@ -132,16 +150,23 @@ function AdminKB() {
       // 1. SANITIZACIÓN CRÍTICA: Remover caracteres nulos que rompen PostgreSQL
       fullText = fullText.replace(/\0/g, "");
 
-      setStatus("Subiendo archivo original e inicializando registro...");
+      setStatus("Subiendo archivo al storage...");
       let archivoId = null;
-      let storagePath = null;
-      const fileName = file ? file.name : `Carga_Manual_${new Date().toISOString()}`;
+      const fileName = file ? file.name : `Carga_Manual_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.txt`;
+      const storagePath = `kb/${Date.now()}_${fileName.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
 
       if (file) {
-        storagePath = `kb/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+        // Subir el archivo adjunto
         const { error: uploadError } = await supabase.storage
           .from("kb-files")
           .upload(storagePath, file);
+        if (uploadError) throw uploadError;
+      } else {
+        // Generar un .txt a partir del texto pegado para que se pueda descargar/eliminar
+        const txtBlob = new Blob([fullText], { type: "text/plain" });
+        const { error: uploadError } = await supabase.storage
+          .from("kb-files")
+          .upload(storagePath, txtBlob, { contentType: "text/plain" });
         if (uploadError) throw uploadError;
       }
 
