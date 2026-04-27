@@ -7,7 +7,7 @@ export const MATCH_COUNT = 5;
 export const COOLDOWN_SECONDS = 5;
 export const LLM_MODEL = "openai/gpt-oss-20b";
 export const LLM_TEMPERATURE = 0.1;
-export const LLM_MAX_TOKENS = 1024;
+export const LLM_MAX_TOKENS = 2048;
 
 /**
  * Keywords de Irridelta usadas por el filtro de relevancia.

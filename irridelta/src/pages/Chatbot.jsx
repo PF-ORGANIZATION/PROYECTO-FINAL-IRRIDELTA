@@ -24,6 +24,7 @@ function Chatbot() {
   const [isLoading, setIsLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Historial de conversación para el LLM (últimos N turnos user/assistant)
@@ -246,16 +247,35 @@ function Chatbot() {
 
       {/* Ventana de Chat Flotante */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 z-50 flex h-[600px] max-h-[80vh] w-[350px] sm:w-[400px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5">
+        <div 
+          className={`fixed bottom-24 right-6 z-50 flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 ease-in-out ${
+            isExpanded 
+              ? "w-[90vw] md:w-[800px] lg:w-[1000px] h-[85vh] max-h-[900px]" 
+              : "w-[350px] sm:w-[400px] h-[600px] max-h-[80vh]"
+          }`}
+        >
           {/* Header */}
           <header className="bg-green-600 px-5 py-4 shadow-sm flex justify-between items-center">
             <div>
               <h1 className="text-lg font-bold text-white">Asistente AI Irridelta</h1>
               <p className="text-xs text-green-100">Consultas sobre manuales y datos de empresa</p>
             </div>
-            <button onClick={() => setIsOpen(false)} className="text-green-100 hover:text-white">
-              <HiX size={20} />
-            </button>
+            <div className="flex gap-3">
+              <button onClick={() => setIsExpanded(!isExpanded)} className="text-green-100 hover:text-white" title={isExpanded ? "Reducir" : "Expandir"}>
+                {isExpanded ? (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7M4 10h6m0 0V4m0 6l-7-7m17 11h-6m0 0v6m0-6l7 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                  </svg>
+                )}
+              </button>
+              <button onClick={() => setIsOpen(false)} className="text-green-100 hover:text-white" title="Cerrar">
+                <HiX size={20} />
+              </button>
+            </div>
           </header>
 
           {/* Messages */}
