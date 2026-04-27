@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { HiChat, HiX } from "react-icons/hi";
 import { useSessionStore } from "../store/sessionStore";
 import { supabase } from "../supabaseClient";
 import { embed } from "../services/embeddingService";
@@ -22,6 +23,7 @@ function Chatbot() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [isOpen, setIsOpen] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Historial de conversación para el LLM (últimos N turnos user/assistant)
@@ -229,43 +231,73 @@ function Chatbot() {
     }
   };
 
+  if (!user) return null;
+
   return (
-    <section className="min-h-[80vh] bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="mx-auto flex h-[70vh] max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
-        {/* Header */}
-        <header className="bg-green-600 px-6 py-4 shadow-sm">
-          <h1 className="text-xl font-bold text-white">Asistente AI Irridelta</h1>
-          <p className="text-sm text-green-100">Consultas basadas exclusivamente en nuestros datos</p>
-        </header>
+    <>
+      {/* Botón Flotante (FAB) */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-green-600 text-white shadow-2xl transition-transform hover:scale-105 hover:bg-green-700"
+        aria-label="Abrir asistente"
+      >
+        {isOpen ? <HiX size={28} /> : <HiChat size={28} />}
+      </button>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
-          {messages.map((msg) => (
-            <ChatBubble key={msg.id} msg={msg} />
-          ))}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-white border border-gray-100 text-gray-400 rounded-2xl rounded-bl-none px-5 py-3 shadow-sm text-sm flex items-center gap-2">
-                <svg className="animate-spin h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Analizando manuales...
-              </div>
+      {/* Ventana de Chat Flotante */}
+      {isOpen && (
+        <div className="fixed bottom-24 right-6 z-50 flex h-[600px] max-h-[80vh] w-[350px] sm:w-[400px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5">
+          {/* Header */}
+          <header className="bg-green-600 px-5 py-4 shadow-sm flex justify-between items-center">
+            <div>
+              <h1 className="text-lg font-bold text-white">Asistente AI Irridelta</h1>
+              <p className="text-xs text-green-100">Consultas sobre manuales y datos de empresa</p>
             </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+            <button onClick={() => setIsOpen(false)} className="text-green-100 hover:text-white">
+              <HiX size={20} />
+            </button>
+          </header>
 
-        {/* Input Area */}
-        <form onSubmit={handleSend} className="bg-white border-t border-gray-100 p-4 sm:p-6 flex gap-3">
-          <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Escribe tu consulta aquí..." className="flex-1 rounded-xl border border-gray-300 px-4 py-3 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-200" disabled={isLoading || cooldown > 0} />
-          <button type="submit" disabled={isLoading || cooldown > 0 || !input.trim()} className="rounded-xl bg-green-600 px-6 py-3 font-semibold text-white shadow-md transition hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
-            {cooldown > 0 ? `Espera ${cooldown}s` : "Enviar"}
-          </button>
-        </form>
-      </div>
-    </section>
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+            {messages.map((msg) => (
+              <ChatBubble key={msg.id} msg={msg} />
+            ))}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="bg-white border border-gray-100 text-gray-400 rounded-2xl rounded-bl-none px-4 py-2 shadow-sm text-sm flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Analizando...
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Area */}
+          <form onSubmit={handleSend} className="bg-white border-t border-gray-100 p-4 flex gap-2">
+            <input 
+              type="text" 
+              value={input} 
+              onChange={(e) => setInput(e.target.value)} 
+              placeholder="Escribe tu consulta..." 
+              className="flex-1 rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-200" 
+              disabled={isLoading || cooldown > 0} 
+            />
+            <button 
+              type="submit" 
+              disabled={isLoading || cooldown > 0 || !input.trim()} 
+              className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {cooldown > 0 ? `${cooldown}s` : "Enviar"}
+            </button>
+          </form>
+        </div>
+      )}
+    </>
   );
 }
 

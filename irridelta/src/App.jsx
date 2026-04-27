@@ -181,20 +181,13 @@ function App() {
                 }
               />
               <Route
-                path="/chatbot"
-                element={
-                  <ProtectedRoute
-                    element={Chatbot}
-                  />
-                }
-              />
-              <Route
                 path="*"
                 element={<div className="p-8 text-center">404 - Pagina no encontrada</div>}
               />
             </Routes>
           </main>
 
+          <Chatbot />
           <Footer />
         </div>
       </Router>
