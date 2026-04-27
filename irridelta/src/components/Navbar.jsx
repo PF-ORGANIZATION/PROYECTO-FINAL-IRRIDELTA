@@ -42,16 +42,13 @@ function Navbar() {
 
   if (user && role === USER_ROLES.ADMIN) {
     navItems.push({
-      name: "Admin Capacitaciones",
-      path: "/admin/capacitaciones",
-    });
-    navItems.push({
-      name: "Admin Certificaciones",
-      path: "/admin/certificaciones",
-    });
-    navItems.push({
-      name: "Admin KB",
-      path: "/admin/kb",
+      name: "Admin",
+      children: [
+        { name: "Productos", path: "/admin/productos" },
+        { name: "Capacitaciones", path: "/admin/capacitaciones" },
+        { name: "Certificaciones", path: "/admin/certificaciones" },
+        { name: "Admin KB", path: "/admin/kb" },
+      ],
     });
   }
   useEffect(() => {
@@ -94,6 +91,7 @@ function Navbar() {
           { name: "Productos", path: "/admin/productos" },
           { name: "Capacitaciones", path: "/admin/capacitaciones" },
           { name: "Certificaciones", path: "/admin/certificaciones" },
+          { name: "Admin KB", path: "/admin/kb" },
         ]
       : [];
 
