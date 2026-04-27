@@ -17,7 +17,8 @@ import AdminProducts from "./pages/AdminProducts";
 import Capacitaciones from "./pages/Capacitaciones";
 import Certificaciones from "./pages/Certificaciones";
 import CertificationExam from "./pages/CertificationExam";
-import AdminCapacitaciones from "./pages/AdminCapacitaciones";
+import AdminCapacitacionesList from "./pages/AdminCapacitacionesList";
+import AdminCapacitacionEditor from "./pages/AdminCapacitacionEditor";
 import AdminCertificaciones from "./pages/AdminCertificaciones";
 import AdminKB from "./pages/AdminKB";
 import { getDefaultPathByRole, USER_ROLES } from "./utils/authRoles";
@@ -25,7 +26,7 @@ import Chatbot from "./pages/Chatbot";
 
 const WHATSAPP_NUMBER = "5491162856483";
 
-function ProtectedRoute({ element: Element, allowedRoles = [], ...rest }) {
+function ProtectedRoute({ element: Component, allowedRoles = [], ...rest }) {
   const user = useSessionStore((state) => state.user);
   const role = useSessionStore((state) => state.role);
   const isLoading = useSessionStore((state) => state.isLoading);
@@ -42,7 +43,7 @@ function ProtectedRoute({ element: Element, allowedRoles = [], ...rest }) {
     return <Navigate to={getDefaultPathByRole(role)} replace />;
   }
 
-  return <Element {...rest} />;
+  return React.createElement(Component, rest);
 }
 
 function App() {
@@ -157,7 +158,25 @@ function App() {
                 path="/admin/capacitaciones"
                 element={
                   <ProtectedRoute
-                    element={AdminCapacitaciones}
+                    element={AdminCapacitacionesList}
+                    allowedRoles={[USER_ROLES.ADMIN]}
+                  />
+                }
+              />
+              <Route
+                path="/admin/capacitaciones/nueva"
+                element={
+                  <ProtectedRoute
+                    element={AdminCapacitacionEditor}
+                    allowedRoles={[USER_ROLES.ADMIN]}
+                  />
+                }
+              />
+              <Route
+                path="/admin/capacitaciones/:capacitacionId/editar"
+                element={
+                  <ProtectedRoute
+                    element={AdminCapacitacionEditor}
                     allowedRoles={[USER_ROLES.ADMIN]}
                   />
                 }
