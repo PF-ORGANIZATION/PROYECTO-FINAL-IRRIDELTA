@@ -135,21 +135,27 @@ function Chatbot() {
         throw new Error("No se pudo conectar con la IA. Intenta de nuevo en unos segundos.");
       }
 
-      // 5. Leer el stream SSE token por token
+      // 5. Leer el stream SSE token por token (con buffer para chunks parciales)
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let fullReply = "";
+      let sseBuffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
+        sseBuffer += decoder.decode(value, { stream: true });
 
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6).trim();
+        // Procesar solo líneas completas (terminadas en \n)
+        const parts = sseBuffer.split("\n");
+        // La última parte puede estar incompleta, la guardamos para el próximo ciclo
+        sseBuffer = parts.pop() || "";
+
+        for (const line of parts) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data: ")) continue;
+          const data = trimmed.slice(6);
           if (data === "[DONE]") continue;
 
           try {
@@ -164,7 +170,7 @@ function Chatbot() {
               );
             }
           } catch {
-            // Línea SSE no parseable, ignorar
+            // JSON incompleto, se procesará cuando llegue el resto
           }
         }
       }
