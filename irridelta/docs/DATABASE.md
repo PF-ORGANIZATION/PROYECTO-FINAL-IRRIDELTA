@@ -33,12 +33,15 @@ Expected learning tables:
 - `capacitacion_modulos`
 - `modulo_recursos`
 - `certificaciones`
+- `certification_requests`
 
 Expected relationships:
 
 - `capacitacion_modulos.capacitacion_id` references `capacitaciones.id`.
 - `modulo_recursos.modulo_id` references `capacitacion_modulos.id`.
 - `certificaciones.capacitacion_id` references `capacitaciones.id`.
+- `certification_requests.certification_id` references `certificaciones.id`.
+- `certification_requests.capacitacion_id` references `capacitaciones.id`.
 
 ## Capacitaciones
 
@@ -125,6 +128,57 @@ Business rule:
 - `cantidad_preguntas_examen` controls how many questions the client receives when taking the final exam.
 - `cantidad_preguntas_examen` must be between 1 and the number of loaded final certification questions.
 - Public client certification listings should only include certifications whose parent capacitacion is published.
+
+## Certification Requests
+
+This table supports the certification approval flow after a client passes the final exam.
+
+Suggested important columns:
+
+- `id`
+- `certification_id`
+- `capacitacion_id`
+- `certification_title`
+- `capacitacion_title`
+- `requester_name`
+- `user_id`
+- `status`
+- `rejection_reason`
+- `exam_percentage`
+- `exam_approved_at`
+- `requested_at`
+- `reviewed_at`
+
+Business rules:
+
+- `status` is one of `pending`, `approved`, or `rejected`.
+- The client can request a certificate only after passing the final exam in the frontend flow.
+- The request only asks for `requester_name` in the current MVP.
+- Admins approve or reject requests inside the Admin Certificaciones panel.
+- Rejected requests should include `rejection_reason` so the client can correct the name and submit again.
+- Approved requests can generate certificate downloads as PNG and PDF from the browser.
+- Email delivery is intentionally not implemented yet.
+
+Suggested SQL shape:
+
+```sql
+create table public.certification_requests (
+  id uuid primary key default gen_random_uuid(),
+  certification_id uuid not null references public.certificaciones(id) on delete cascade,
+  capacitacion_id uuid references public.capacitaciones(id) on delete cascade,
+  certification_title text not null,
+  capacitacion_title text,
+  requester_name text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  status text not null default 'pending'
+    check (status in ('pending', 'approved', 'rejected')),
+  rejection_reason text,
+  exam_percentage numeric,
+  exam_approved_at timestamptz,
+  requested_at timestamptz not null default now(),
+  reviewed_at timestamptz
+);
+```
 
 ## Storage
 

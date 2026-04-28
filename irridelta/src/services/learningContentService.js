@@ -265,8 +265,23 @@ export async function fetchCertificationById(id) {
     throw error;
   }
 
+  let capacitacionTitle = null;
+
+  if (data?.capacitacion_id) {
+    const { data: capacitacionData, error: capacitacionError } = await supabase
+      .from(CAPACITACIONES_TABLE)
+      .select("titulo")
+      .eq("id", data.capacitacion_id)
+      .maybeSingle();
+
+    if (!capacitacionError) {
+      capacitacionTitle = capacitacionData?.titulo ?? null;
+    }
+  }
+
   return mapCertificationItem({
     ...data,
+    capacitacion_titulo: capacitacionTitle,
     requiere_aprobacion_modulos: true,
   });
 }
