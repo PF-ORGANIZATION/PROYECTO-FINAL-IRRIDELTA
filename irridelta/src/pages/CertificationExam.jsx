@@ -1,7 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useParams } from "react-router-dom";
+import {
+  CERTIFICATION_REQUEST_STATUS,
+  createCertificationRequest,
+  fetchUserCertificationRequest,
+} from "../services/certificationRequestService";
 import { fetchCertificationById } from "../services/learningContentService";
+import { useSessionStore } from "../store/sessionStore";
+import {
+  downloadCertificatePdf,
+  downloadCertificatePng,
+} from "../utils/certificateDownloads";
 import {
   formatCountdown,
   formatDurationLabel,
@@ -44,10 +54,16 @@ function countAnsweredQuestions(examQuestions, answers) {
 
 function CertificationExam() {
   const { certificationId } = useParams();
+  const user = useSessionStore((state) => state.user);
   const [certification, setCertification] = useState(null);
   const [examQuestions, setExamQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
+  const [certificateRequest, setCertificateRequest] = useState(null);
+  const [requesterName, setRequesterName] = useState("");
+  const [requestMessage, setRequestMessage] = useState("");
+  const [requestError, setRequestError] = useState("");
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [uiError, setUiError] = useState("");
@@ -71,6 +87,8 @@ function CertificationExam() {
       setExamQuestions([]);
       setAnswers({});
       setResult(null);
+      setRequestMessage("");
+      setRequestError("");
       setStage("exam");
       setSecondsRemaining(null);
       return;
@@ -80,6 +98,8 @@ function CertificationExam() {
     setExamQuestions(generatedExam);
     setAnswers({});
     setResult(null);
+    setRequestMessage("");
+    setRequestError("");
     setUiError("");
     setStage("exam");
 
@@ -154,6 +174,35 @@ function CertificationExam() {
       ignore = true;
     };
   }, [certificationId]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadCertificateRequest = async () => {
+      if (!certificationId || !user?.id) {
+        setCertificateRequest(null);
+        return;
+      }
+
+      try {
+        const request = await fetchUserCertificationRequest(certificationId, user.id);
+
+        if (!ignore) {
+          setCertificateRequest(request);
+        }
+      } catch (error) {
+        if (!ignore) {
+          console.error("No se pudo cargar la solicitud de certificado", error);
+        }
+      }
+    };
+
+    loadCertificateRequest();
+
+    return () => {
+      ignore = true;
+    };
+  }, [certificationId, user?.id]);
 
   useEffect(() => {
     if (
@@ -238,6 +287,48 @@ function CertificationExam() {
 
     resetExamState(certification);
   };
+
+  const handleSubmitCertificateRequest = async (event) => {
+    event.preventDefault();
+
+    if (!result?.passed || !certification) {
+      return;
+    }
+
+    setRequestError("");
+    setRequestMessage("");
+    setIsSubmittingRequest(true);
+
+    try {
+      const request = await createCertificationRequest({
+        certification,
+        requesterName,
+        examResult: result,
+        userId: user?.id,
+      });
+
+      setCertificateRequest(request);
+      setRequesterName("");
+      setRequestMessage(
+        "Solicitud enviada. Un administrador debe aprobarla antes de que puedas descargar el certificado."
+      );
+    } catch (error) {
+      console.error("No se pudo solicitar el certificado", error);
+      setRequestError(
+        error?.message || "No se pudo enviar la solicitud de certificado."
+      );
+    } finally {
+      setIsSubmittingRequest(false);
+    }
+  };
+
+  const getCertificateDownloadData = () => ({
+    requesterName: certificateRequest?.requester_name || requesterName,
+    certificationTitle: certification?.titulo,
+    capacitacionTitle:
+      certificateRequest?.capacitacion_title || certification?.capacitacion_titulo,
+    approvedAt: certificateRequest?.reviewed_at,
+  });
 
   const timerBadgeClass =
     secondsRemaining !== null && secondsRemaining <= 60
@@ -501,6 +592,131 @@ function CertificationExam() {
                       Volver al listado
                     </Link>
                   </div>
+
+                  {result.passed && (
+                    <div className="mt-6 rounded-2xl border border-green-200 bg-white p-5 text-gray-800">
+                      <h2 className="text-xl font-bold text-gray-900">
+                        Certificado
+                      </h2>
+
+                      {!certificateRequest && (
+                        <form
+                          onSubmit={handleSubmitCertificateRequest}
+                          className="mt-4 space-y-4"
+                        >
+                          <p className="text-sm text-gray-600">
+                            Completa tu nombre y apellido. La solicitud queda
+                            pendiente hasta que un administrador la apruebe.
+                          </p>
+                          <input
+                            type="text"
+                            placeholder="Nombre y apellido"
+                            value={requesterName}
+                            onChange={(event) =>
+                              setRequesterName(event.target.value)
+                            }
+                            className="w-full rounded border p-3"
+                            required
+                          />
+                          <button
+                            type="submit"
+                            disabled={isSubmittingRequest}
+                            className="rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-300"
+                          >
+                            {isSubmittingRequest
+                              ? "Enviando..."
+                              : "Obtener certificado"}
+                          </button>
+                        </form>
+                      )}
+
+                      {certificateRequest?.status ===
+                        CERTIFICATION_REQUEST_STATUS.PENDING && (
+                        <p className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+                          Tu solicitud esta pendiente de aprobacion.
+                        </p>
+                      )}
+
+                      {certificateRequest?.status ===
+                        CERTIFICATION_REQUEST_STATUS.REJECTED && (
+                        <form
+                          onSubmit={handleSubmitCertificateRequest}
+                          className="mt-4 space-y-4"
+                        >
+                          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                            <p className="font-semibold">
+                              Tu solicitud fue rechazada.
+                            </p>
+                            {certificateRequest.rejection_reason && (
+                              <p className="mt-1">
+                                Motivo: {certificateRequest.rejection_reason}
+                              </p>
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="Nombre y apellido"
+                            value={requesterName}
+                            onChange={(event) =>
+                              setRequesterName(event.target.value)
+                            }
+                            className="w-full rounded border p-3"
+                            required
+                          />
+                          <button
+                            type="submit"
+                            disabled={isSubmittingRequest}
+                            className="rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-300"
+                          >
+                            {isSubmittingRequest
+                              ? "Reenviando..."
+                              : "Volver a solicitar"}
+                          </button>
+                        </form>
+                      )}
+
+                      {certificateRequest?.status ===
+                        CERTIFICATION_REQUEST_STATUS.APPROVED && (
+                        <div className="mt-4">
+                          <p className="rounded-lg bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+                            Tu certificado fue aprobado. Ya podes descargarlo.
+                          </p>
+                          <div className="mt-4 flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                downloadCertificatePng(getCertificateDownloadData())
+                              }
+                              className="rounded-lg bg-slate-800 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-slate-900"
+                            >
+                              Descargar PNG
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                downloadCertificatePdf(getCertificateDownloadData())
+                              }
+                              className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-blue-700"
+                            >
+                              Descargar PDF
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {requestMessage && (
+                        <p className="mt-4 rounded-lg bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
+                          {requestMessage}
+                        </p>
+                      )}
+
+                      {requestError && (
+                        <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                          {requestError}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
