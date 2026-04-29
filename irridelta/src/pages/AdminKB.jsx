@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import { getEmbedder } from "../services/embeddingService";
 import * as pdfjsLib from "pdfjs-dist";
-import { Trash2, Download, FileText } from "lucide-react";
+import { Trash2, Download, FileText, UploadCloud, X } from "lucide-react";
 // El "?url" al final es clave para que Vite lo trate como un archivo estático
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'; 
 
@@ -14,13 +14,55 @@ function AdminKB() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
   
   const [filesList, setFilesList] = useState([]);
   const [isLoadingList, setIsLoadingList] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Validación de archivos
   const ALLOWED_EXTENSIONS = [".pdf", ".md", ".txt"];
   const MAX_SIZE_MB = 10;
+
+  const validateAndSetFile = useCallback((selectedFile) => {
+    if (!selectedFile) return;
+    const ext = "." + selectedFile.name.split(".").pop().toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      alert(`Tipo de archivo no soportado. Solo se permiten: ${ALLOWED_EXTENSIONS.join(", ")}`);
+      return;
+    }
+    if (selectedFile.size > MAX_SIZE_MB * 1024 * 1024) {
+      alert(`El archivo no debe superar ${MAX_SIZE_MB}MB.`);
+      return;
+    }
+    setFile(selectedFile);
+  }, []);
+
+  const handleDragEnter = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget.contains(e.relatedTarget)) return;
+    setIsDragging(false);
+  }, []);
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const droppedFile = e.dataTransfer.files?.[0];
+    validateAndSetFile(droppedFile);
+  }, [validateAndSetFile]);
 
   useEffect(() => {
     fetchFilesList();
@@ -223,6 +265,7 @@ function AdminKB() {
       setStatus("¡Base de conocimientos actualizada con éxito!");
       setManualText("");
       setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
       fetchFilesList();
       setTimeout(() => setStatus(""), 4000);
     } catch (err) {
@@ -244,7 +287,55 @@ function AdminKB() {
         <form onSubmit={handleProcess} className="p-6 space-y-6 bg-gray-50 flex-1 overflow-y-auto">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Subir Archivo (PDF, Markdown, TXT)</label>
-            <input type="file" accept=".pdf,.md,.txt" onChange={(e) => setFile(e.target.files[0])} disabled={isProcessing} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 transition duration-150" />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.md,.txt"
+              onChange={(e) => validateAndSetFile(e.target.files[0])}
+              disabled={isProcessing}
+              className="hidden"
+            />
+            {!file ? (
+              <div
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => !isProcessing && fileInputRef.current?.click()}
+                className={`relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 cursor-pointer transition-all duration-200 ${
+                  isProcessing
+                    ? "opacity-50 cursor-not-allowed border-gray-200 bg-gray-100"
+                    : isDragging
+                    ? "border-green-500 bg-green-50 scale-[1.02] shadow-lg"
+                    : "border-gray-300 bg-white hover:border-green-400 hover:bg-green-50/50"
+                }`}
+              >
+                <UploadCloud className={`w-10 h-10 transition-colors duration-200 ${isDragging ? "text-green-600" : "text-gray-400"}`} />
+                <div className="text-center">
+                  <p className={`text-sm font-semibold transition-colors duration-200 ${isDragging ? "text-green-700" : "text-gray-600"}`}>
+                    {isDragging ? "Suelta el archivo aquí" : "Arrastra y suelta tu archivo aquí"}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">o haz clic para seleccionar • PDF, MD, TXT • Máx {MAX_SIZE_MB}MB</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+                <FileText className="w-5 h-5 text-green-600 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-green-800 truncate">{file.name}</p>
+                  <p className="text-xs text-green-600">{(file.size / 1024).toFixed(1)} KB</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                  className="p-1.5 text-green-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                  title="Quitar archivo"
+                  disabled={isProcessing}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">O carga manual de texto</label>
