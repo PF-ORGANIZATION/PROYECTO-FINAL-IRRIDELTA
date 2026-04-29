@@ -3,7 +3,7 @@ import { supabase } from "../supabaseClient";
 // El sufijo ?worker es magia de Vite para empaquetarlo como proceso separado
 import EmbeddingWorker from './embeddingWorker.js?worker';
 import * as pdfjsLib from "pdfjs-dist";
-import { Trash2, Download, FileText, UploadCloud, X } from "lucide-react";
+import { Trash2, Download, FileText, UploadCloud, X, Eye, Layers, File, Calendar, HardDrive } from "lucide-react";
 // El "?url" al final es clave para que Vite lo trate como un archivo estático
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'; 
 
@@ -16,10 +16,13 @@ function AdminKB() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
   const [isDragging, setIsDragging] = useState(false);
+  const [preview, setPreview] = useState(null); // { file, meta, chunkCount, previewUrl, pageCount, textPreview }
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   
   const [filesList, setFilesList] = useState([]);
   const [isLoadingList, setIsLoadingList] = useState(false);
   const fileInputRef = useRef(null);
+  const previewCanvasRef = useRef(null);
   const PENDING_UPLOAD_KEY = "kb_pending_upload";
 
   // Validación de archivos
@@ -168,6 +171,88 @@ function AdminKB() {
     } else {
       return await file.text();
     }
+  };
+
+  // --- Vista previa / Detalle de archivo ---
+  const handlePreviewFile = async (f) => {
+    setIsLoadingPreview(true);
+    setPreview({ file: f });
+    try {
+      // Contar chunks asociados
+      const { count } = await supabase
+        .from("documentos_kb")
+        .select("*", { count: "exact", head: true })
+        .eq("archivo_id", f.id);
+
+      let fileSize = null;
+      let pageCount = null;
+      let previewUrl = null;
+      let textPreview = null;
+
+      if (f.storage_path) {
+        // Obtener URL firmada para descarga/preview
+        const { data: urlData } = await supabase.storage
+          .from("kb-files")
+          .createSignedUrl(f.storage_path, 120);
+
+        if (urlData?.signedUrl) {
+          // Obtener tamaño del archivo via HEAD request
+          try {
+            const headRes = await fetch(urlData.signedUrl, { method: "HEAD" });
+            const contentLength = headRes.headers.get("content-length");
+            if (contentLength) fileSize = parseInt(contentLength, 10);
+          } catch { /* ignorar si HEAD falla */ }
+
+          const ext = f.nombre.split(".").pop().toLowerCase();
+
+          if (ext === "pdf") {
+            // Para PDFs: obtener número de páginas y renderizar primera página
+            try {
+              const res = await fetch(urlData.signedUrl);
+              const arrayBuffer = await res.arrayBuffer();
+              const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+              pageCount = pdf.numPages;
+
+              // Renderizar primera página a un canvas offscreen y convertir a data URL
+              const page = await pdf.getPage(1);
+              const viewport = page.getViewport({ scale: 1.0 });
+              const canvas = document.createElement("canvas");
+              const maxWidth = 600;
+              const scale = maxWidth / viewport.width;
+              const scaledViewport = page.getViewport({ scale });
+              canvas.width = scaledViewport.width;
+              canvas.height = scaledViewport.height;
+              const ctx = canvas.getContext("2d");
+              await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+              previewUrl = canvas.toDataURL("image/png");
+            } catch (pdfErr) {
+              console.error("Error generando preview PDF:", pdfErr);
+            }
+          } else {
+            // Para TXT/MD: mostrar los primeros 2000 caracteres
+            try {
+              const res = await fetch(urlData.signedUrl);
+              const text = await res.text();
+              textPreview = text.slice(0, 2000);
+            } catch { /* ignorar */ }
+          }
+        }
+      }
+
+      setPreview({ file: f, chunkCount: count, fileSize, pageCount, previewUrl, textPreview });
+    } catch (err) {
+      console.error("Error cargando detalle:", err);
+      setPreview(null);
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return "Desconocido";
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(2) + " MB";
   };
 
   const handleProcess = async (e) => {
@@ -420,6 +505,13 @@ function AdminKB() {
                     </td>
                     <td className="py-3 px-4 flex justify-end gap-2">
                       <button
+                        onClick={() => handlePreviewFile(f)}
+                        className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition"
+                        title="Ver detalle"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => handleDownloadFile(f.storage_path)}
                         className={`p-2 rounded-lg transition ${f.storage_path ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-300 cursor-not-allowed'}`}
                         title={f.storage_path ? "Descargar documento" : "Carga manual sin archivo"}
@@ -442,6 +534,96 @@ function AdminKB() {
           </div>
         )}
       </div>
+
+      {/* --- MODAL DE DETALLE / VISTA PREVIA --- */}
+      {preview && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          onClick={() => setPreview(null)}
+        >
+          <div
+            className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 animate-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl">
+              <h3 className="text-lg font-bold text-gray-800 truncate pr-4">{preview.file.nombre}</h3>
+              <button
+                onClick={() => setPreview(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition flex-shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {isLoadingPreview ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <svg className="animate-spin h-8 w-8 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p className="text-sm text-gray-500">Cargando detalle del documento...</p>
+              </div>
+            ) : (
+              <div className="p-6 space-y-5">
+                {/* Metadata Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="flex flex-col items-center gap-1.5 rounded-xl bg-gray-50 border border-gray-100 p-3">
+                    <HardDrive className="w-5 h-5 text-green-600" />
+                    <span className="text-xs text-gray-500">Peso</span>
+                    <span className="text-sm font-semibold text-gray-800">{formatFileSize(preview.fileSize)}</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1.5 rounded-xl bg-gray-50 border border-gray-100 p-3">
+                    <File className="w-5 h-5 text-blue-600" />
+                    <span className="text-xs text-gray-500">Tipo</span>
+                    <span className="text-sm font-semibold text-gray-800 uppercase">{preview.file.nombre.split(".").pop()}</span>
+                  </div>
+                  {preview.pageCount != null && (
+                    <div className="flex flex-col items-center gap-1.5 rounded-xl bg-gray-50 border border-gray-100 p-3">
+                      <FileText className="w-5 h-5 text-purple-600" />
+                      <span className="text-xs text-gray-500">Páginas</span>
+                      <span className="text-sm font-semibold text-gray-800">{preview.pageCount}</span>
+                    </div>
+                  )}
+                  <div className="flex flex-col items-center gap-1.5 rounded-xl bg-gray-50 border border-gray-100 p-3">
+                    <Layers className="w-5 h-5 text-amber-600" />
+                    <span className="text-xs text-gray-500">Chunks</span>
+                    <span className="text-sm font-semibold text-gray-800">{preview.chunkCount ?? "—"}</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1.5 rounded-xl bg-gray-50 border border-gray-100 p-3 col-span-2 sm:col-span-4">
+                    <Calendar className="w-5 h-5 text-gray-500" />
+                    <span className="text-xs text-gray-500">Fecha de carga</span>
+                    <span className="text-sm font-semibold text-gray-800">{new Date(preview.file.created_at).toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* Preview */}
+                {preview.previewUrl && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Vista previa (página 1)</h4>
+                    <div className="rounded-xl border border-gray-200 overflow-hidden bg-gray-100">
+                      <img
+                        src={preview.previewUrl}
+                        alt="Vista previa del PDF"
+                        className="w-full h-auto"
+                      />
+                    </div>
+                  </div>
+                )}
+                {preview.textPreview && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Vista previa del contenido</h4>
+                    <pre className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-xs text-gray-700 whitespace-pre-wrap break-words max-h-64 overflow-y-auto font-mono">
+                      {preview.textPreview}
+                      {preview.textPreview.length >= 2000 && "\n\n... (contenido truncado)"}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
