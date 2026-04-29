@@ -22,7 +22,7 @@ function AdminKB() {
 
   // Validación de archivos
   const ALLOWED_EXTENSIONS = [".pdf", ".md", ".txt"];
-  const MAX_SIZE_MB = 10;
+  const MAX_SIZE_MB = 15;
 
   const validateAndSetFile = useCallback((selectedFile) => {
     if (!selectedFile) return;
