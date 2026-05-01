@@ -139,44 +139,53 @@ function Chatbot() {
         throw new Error("No se pudo conectar con la IA. Intenta de nuevo en unos segundos.");
       }
 
-      // 5. Leer el stream SSE token por token (con buffer para chunks parciales)
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
+      // 5. Leer el stream SSE token por token
       let fullReply = "";
       let sseBuffer = "";
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      // Usamos TextDecoderStream + async iterator en vez de reader.read()
+      // manual para evitar el RangeError "offset is out of bounds" que ocurre
+      // cuando el navegador no puede determinar content-length y falla al
+      // expandir el buffer interno de Uint8Array.
+      const textStream = response.body.pipeThrough(new TextDecoderStream());
+      const reader = textStream.getReader();
 
-        sseBuffer += decoder.decode(value, { stream: true });
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        // Procesar solo líneas completas (terminadas en \n)
-        const parts = sseBuffer.split("\n");
-        // La última parte puede estar incompleta, la guardamos para el próximo ciclo
-        sseBuffer = parts.pop() || "";
+          sseBuffer += value; // value ya es string, no Uint8Array
 
-        for (const line of parts) {
-          const trimmed = line.trim();
-          if (!trimmed.startsWith("data: ")) continue;
-          const data = trimmed.slice(6);
-          if (data === "[DONE]") continue;
+          // Procesar solo líneas completas (terminadas en \n)
+          const parts = sseBuffer.split("\n");
+          // La última parte puede estar incompleta, la guardamos para el próximo ciclo
+          sseBuffer = parts.pop() || "";
 
-          try {
-            const parsed = JSON.parse(data);
-            const token = parsed.choices?.[0]?.delta?.content;
-            if (token) {
-              fullReply += token;
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === botMsgId ? { ...msg, text: fullReply } : msg
-                )
-              );
+          for (const line of parts) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data: ")) continue;
+            const data = trimmed.slice(6);
+            if (data === "[DONE]") continue;
+
+            try {
+              const parsed = JSON.parse(data);
+              const token = parsed.choices?.[0]?.delta?.content;
+              if (token) {
+                fullReply += token;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botMsgId ? { ...msg, text: fullReply } : msg
+                  )
+                );
+              }
+            } catch {
+              // JSON incompleto, se procesará cuando llegue el resto
             }
-          } catch {
-            // JSON incompleto, se procesará cuando llegue el resto
           }
         }
+      } finally {
+        reader.releaseLock();
       }
 
       // 6. Guardar turno en el historial
