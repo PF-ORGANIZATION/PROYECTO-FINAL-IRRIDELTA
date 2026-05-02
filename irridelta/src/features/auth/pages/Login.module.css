@@ -1,0 +1,120 @@
+.pageWrapper {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-background, #f9fafb);
+  padding: var(--space-2xl) var(--space-md);
+}
+
+.authCard {
+  width: 100%;
+  max-width: 28rem; /* max-w-md */
+  border-radius: var(--radius-xl);
+  background-color: var(--color-surface, #ffffff);
+  padding: 2rem;
+  box-shadow: var(--shadow-xl);
+}
+
+.formHeader {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.formTitle {
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+  font-weight: 700;
+  color: var(--color-nav, #1f2937);
+}
+
+.formSubtitle {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.inputLabel {
+  display: block;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  color: var(--color-text, #111827);
+  margin-bottom: 0.25rem;
+}
+
+.alertWrapper {
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: #fecaca;
+  background-color: #fef2f2;
+  padding: 1rem;
+  color: #7f1d1d;
+  box-shadow: var(--shadow-sm);
+}
+
+.alertLayout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.alertIconBox {
+  margin-top: 0.125rem;
+  border-radius: 9999px;
+  background-color: #fee2e2;
+  padding: 0.5rem;
+}
+
+.alertTitle {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+}
+
+.alertText {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+  color: #991b1b;
+}
+
+.forgotPasswordButton {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  color: #b91c1c;
+  text-decoration-line: underline;
+  text-underline-offset: 2px;
+}
+
+.forgotPasswordLink {
+  width: 100%;
+  text-align: right;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--color-primary-hover, #15803d);
+  text-decoration-line: underline;
+}
+
+.footerText {
+  text-align: center;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.footerLink {
+  font-weight: 600;
+  color: var(--color-primary-hover, #15803d);
+  text-decoration-line: underline;
+}

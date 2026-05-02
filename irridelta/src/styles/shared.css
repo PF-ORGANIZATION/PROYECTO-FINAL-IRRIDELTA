@@ -1,0 +1,97 @@
+/* Botones */
+.btn-primary {
+  @apply inline-flex items-center justify-center font-semibold text-white shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed;
+  background: var(--color-primary);
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-lg);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.btn-danger {
+  @apply inline-flex items-center justify-center font-semibold text-white shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed;
+  background: var(--color-danger);
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-lg);
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--color-danger-hover);
+}
+
+.btn-danger-sm {
+  @apply p-2 transition rounded-lg;
+  color: var(--color-danger);
+}
+.btn-danger-sm:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+/* Inputs */
+.input-field {
+  @apply w-full focus:outline-none focus:ring-2;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-sm) var(--space-md);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+.input-field:focus {
+  border-color: var(--color-primary);
+  /* Tailwind equivalent for ring-green-200 */
+  --tw-ring-color: #bbf7d0;
+}
+
+/* Cards & Containers */
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.card-bordered {
+  @apply card;
+  border: 1px solid var(--color-border);
+}
+
+.modal-overlay {
+  @apply fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm;
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.modal-container {
+  @apply relative w-full max-w-2xl overflow-y-auto shadow-2xl;
+  max-height: 85vh;
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  /* ring-1 ring-black/5 */
+  box-shadow: var(--shadow-xl), 0 0 0 1px rgba(0,0,0,0.05);
+}
+
+/* Layout */
+.page-wrapper {
+  @apply min-h-[80vh] px-4 py-12 sm:px-6 lg:px-8;
+  background: var(--color-background);
+}
+
+.container-main {
+  @apply mx-auto px-4 sm:px-6 lg:px-8;
+  max-width: 80rem; /* 1280px */
+}
+
+/* Utils */
+.alert-error {
+  @apply border px-4 py-3;
+  border-color: #f87171;
+  background: #fef2f2;
+  color: #b91c1c;
+  border-radius: var(--radius-sm);
+}
+
+.admin-header {
+  @apply px-6 py-4 shadow-sm;
+  background: var(--color-primary);
+}
+.admin-header h1 {
+  @apply text-xl font-bold text-white;
+}

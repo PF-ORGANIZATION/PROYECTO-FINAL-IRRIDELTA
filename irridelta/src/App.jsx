@@ -3,26 +3,32 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { supabase } from "./supabaseClient";
 import { useSessionStore } from "./store/sessionStore";
 
-import { ProductProvider } from "./context/ProductContext";
+import { ProductProvider } from "./features/products/ProductContext";
 
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
-import Home from "./pages/Home";
-import About from "./pages/About";
-import Products from "./pages/Products";
-import Branches from "./pages/Branches";
-import Contact from "./pages/Contact";
-import Login from "./pages/Login";
-import AdminProducts from "./pages/AdminProducts";
-import Capacitaciones from "./pages/Capacitaciones";
-import Certificaciones from "./pages/Certificaciones";
-import CertificationExam from "./pages/CertificationExam";
-import AdminCapacitacionesList from "./pages/AdminCapacitacionesList";
-import AdminCapacitacionEditor from "./pages/AdminCapacitacionEditor";
-import AdminCertificaciones from "./pages/AdminCertificaciones";
-import AdminKB from "./pages/AdminKB";
-import { getDefaultPathByRole, USER_ROLES } from "./utils/authRoles";
-import Chatbot from "./pages/Chatbot";
+import Navbar from "./components/layout/Navbar";
+import Footer from "./components/layout/Footer";
+import Home from "./features/public/pages/Home";
+import About from "./features/public/pages/About";
+import Products from "./features/products/pages/Products";
+import Branches from "./features/public/pages/Branches";
+import Contact from "./features/public/pages/Contact";
+import Login from "./features/auth/pages/Login";
+import Register from "./features/auth/pages/Register";
+import ForgotPassword from "./features/auth/pages/ForgotPassword";
+import ResetPassword from "./features/auth/pages/ResetPassword";
+import AdminProducts from "./features/products/pages/AdminProducts";
+import Capacitaciones from "./features/learning/pages/Capacitaciones";
+import CapacitacionDetalle from "./features/learning/pages/CapacitacionDetalle";
+import CapacitacionModulo from "./features/learning/pages/CapacitacionModulo";
+import CapacitacionModuloExam from "./features/learning/pages/CapacitacionModuloExam";
+import Certificaciones from "./features/certifications/pages/Certificaciones";
+import CertificationExam from "./features/certifications/pages/CertificationExam";
+import AdminCapacitacionesList from "./features/learning/pages/AdminCapacitacionesList";
+import AdminCapacitacionEditor from "./features/learning/pages/AdminCapacitacionEditor";
+import AdminCertificaciones from "./features/certifications/pages/AdminCertificaciones";
+import AdminKB from "./features/kb/pages/AdminKB";
+import { getDefaultPathByRole, USER_ROLES } from "./features/auth/authRoles";
+import Chatbot from "./features/chatbot/pages/Chatbot";
 
 const WHATSAPP_NUMBER = "5491162856483";
 
@@ -118,11 +124,41 @@ function App() {
               <Route path="/sucursales" element={<Branches />} />
               <Route path="/contacto" element={<Contact />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/registro" element={<Register />} />
+              <Route path="/olvide-contrasena" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route
                 path="/capacitaciones"
                 element={
                   <ProtectedRoute
                     element={Capacitaciones}
+                    allowedRoles={[USER_ROLES.CLIENTE]}
+                  />
+                }
+              />
+              <Route
+                path="/capacitaciones/:capacitacionId"
+                element={
+                  <ProtectedRoute
+                    element={CapacitacionDetalle}
+                    allowedRoles={[USER_ROLES.CLIENTE]}
+                  />
+                }
+              />
+              <Route
+                path="/capacitaciones/:capacitacionId/modulos/:moduloIndex"
+                element={
+                  <ProtectedRoute
+                    element={CapacitacionModulo}
+                    allowedRoles={[USER_ROLES.CLIENTE]}
+                  />
+                }
+              />
+              <Route
+                path="/capacitaciones/:capacitacionId/modulos/:moduloIndex/examen"
+                element={
+                  <ProtectedRoute
+                    element={CapacitacionModuloExam}
                     allowedRoles={[USER_ROLES.CLIENTE]}
                   />
                 }

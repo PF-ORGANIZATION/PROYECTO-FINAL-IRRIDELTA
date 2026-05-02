@@ -196,3 +196,49 @@ Recommended policy shape:
 - Storage policies should allow authenticated users to read learning files when appropriate.
 
 Keep SQL policies versioned when possible so a new environment can be reproduced.
+
+
+## Progreso de Usuario (Learning Progress)
+
+This table tracks the progress of each authenticated user across learning resources inside capacitaciones.
+
+### Table: `progreso_recursos`
+
+Suggested columns:
+
+- `id`
+- `user_id`
+- `capacitacion_id`
+- `modulo_id`
+- `recurso_id`
+- `completado`
+- `completado_en`
+- `created_at`
+- `updated_at`
+
+Expected relationships:
+
+- `user_id` references `auth.users.id`
+- `capacitacion_id` references `capacitaciones.id`
+- `modulo_id` references `capacitacion_modulos.id`
+- `recurso_id` references `modulo_recursos.id`
+
+Business rules:
+
+- A record represents one user completing one resource.
+- A user cannot have duplicate progress records for the same resource.
+- A resource is considered completed when `completado = true`.
+- When all resources in a module are completed, the module is considered completed.
+- When all modules in a capacitacion are completed, the final certification becomes available.
+
+Security (RLS):
+
+- Users can only read their own progress.
+- Users can only insert/update their own progress.
+- Progress data must never be shared across users.
+
+Purpose:
+
+- Enable locked/unlocked resource flow in the frontend.
+- Support UX progression (sequential learning).
+- Allow enabling final certification only when all required content is completed.

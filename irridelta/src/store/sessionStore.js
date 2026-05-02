@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getUserRole } from "../utils/authRoles";
+import { getUserRole } from "../features/auth/authRoles";
 
 export const useSessionStore = create((set) => ({
   user: null,

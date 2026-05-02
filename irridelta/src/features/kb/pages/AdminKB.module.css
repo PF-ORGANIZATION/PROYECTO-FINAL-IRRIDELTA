@@ -1,0 +1,37 @@
+.dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  border-radius: 0.75rem;
+  border: 2px dashed;
+  padding: 2.5rem 1.5rem;
+  cursor: pointer;
+  transition: all 200ms ease-in-out;
+}
+
+.dropzoneIdle {
+  border-color: var(--color-gray-300, #d1d5db);
+  background-color: #ffffff;
+}
+
+.dropzoneIdle:hover {
+  border-color: var(--color-green-400, #4ade80);
+  background-color: rgba(240, 253, 244, 0.5);
+}
+
+.dropzoneDragging {
+  border-color: var(--color-green-500, #22c55e);
+  background-color: var(--color-green-50, #f0fdf4);
+  transform: scale(1.02);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+
+.dropzoneProcessing {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: var(--color-gray-200, #e5e7eb);
+  background-color: var(--color-gray-100, #f3f4f6);
+}
