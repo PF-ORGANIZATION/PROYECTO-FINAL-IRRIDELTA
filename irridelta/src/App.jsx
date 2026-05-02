@@ -19,6 +19,8 @@ import ResetPassword from "./features/auth/pages/ResetPassword";
 import AdminProducts from "./features/products/pages/AdminProducts";
 import Capacitaciones from "./features/learning/pages/Capacitaciones";
 import CapacitacionDetalle from "./features/learning/pages/CapacitacionDetalle";
+import CapacitacionModulo from "./features/learning/pages/CapacitacionModulo";
+import CapacitacionModuloExam from "./features/learning/pages/CapacitacionModuloExam";
 import Certificaciones from "./features/certifications/pages/Certificaciones";
 import CertificationExam from "./features/certifications/pages/CertificationExam";
 import AdminCapacitacionesList from "./features/learning/pages/AdminCapacitacionesList";
@@ -139,6 +141,24 @@ function App() {
                 element={
                   <ProtectedRoute
                     element={CapacitacionDetalle}
+                    allowedRoles={[USER_ROLES.CLIENTE]}
+                  />
+                }
+              />
+              <Route
+                path="/capacitaciones/:capacitacionId/modulos/:moduloIndex"
+                element={
+                  <ProtectedRoute
+                    element={CapacitacionModulo}
+                    allowedRoles={[USER_ROLES.CLIENTE]}
+                  />
+                }
+              />
+              <Route
+                path="/capacitaciones/:capacitacionId/modulos/:moduloIndex/examen"
+                element={
+                  <ProtectedRoute
+                    element={CapacitacionModuloExam}
                     allowedRoles={[USER_ROLES.CLIENTE]}
                   />
                 }

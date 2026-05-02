@@ -1,11 +1,19 @@
 import React from "react";
-import { Award, BookOpen, CalendarDays, ChevronRight } from "lucide-react";
+import {
+  Award,
+  BookOpen,
+  CalendarDays,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  PlayCircle,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import styles from "./LearningItemPreviewCard.module.css";
 
 function getShortDescription(description) {
   if (!description) {
-    return "Capacitacion disponible para clientes de IRRIDELTA.";
+    return "Capacitación disponible para clientes de IRRIDELTA.";
   }
 
   const normalizedDescription = description.trim();
@@ -39,29 +47,58 @@ function LearningItemPreviewCard({ item, progress, showPublishedDate = true }) {
   const isCompleted = progressData.status === "completado";
   const detailLabel =
     progressData.status === "completado"
-      ? "Revisar capacitacion"
+      ? "Revisar"
       : progressData.status === "en-progreso"
-        ? "Continuar"
-        : "Comenzar";
+      ? "Continuar"
+      : "Comenzar";
+  const StatusIcon =
+    progressData.status === "completado"
+      ? CheckCircle2
+      : progressData.status === "en-progreso"
+      ? PlayCircle
+      : Clock3;
 
   return (
     <article
       className={`${styles.card} ${isCompleted ? styles.cardCompleted : ""}`}
     >
+      <div className={styles.topRow}>
+        <span className={styles.eyebrow}>Capacitación técnica</span>
+        <span className={`${styles.statusBadge} ${styles[progressData.status]}`}>
+          <StatusIcon className={styles.statusIcon} aria-hidden="true" />
+          {STATUS_LABELS[progressData.status]}
+        </span>
+      </div>
+
       <div className={styles.content}>
         <h2 className={styles.title}>{item.titulo}</h2>
         <p className={styles.description}>{getShortDescription(item.descripcion)}</p>
       </div>
 
+      <div className={styles.summaryGrid}>
+        <div className={styles.summaryCard}>
+          <span className={styles.summaryLabel}>Avance</span>
+          <strong className={styles.summaryValue}>
+            {progressData.progressPercentage}%
+          </strong>
+        </div>
+        <div className={styles.summaryCard}>
+          <span className={styles.summaryLabel}>Módulos</span>
+          <strong className={styles.summaryValue}>{moduleCount}</strong>
+        </div>
+      </div>
+
       <div className={styles.metaList}>
         <span className={styles.metaItem}>
           <BookOpen className={styles.metaIcon} aria-hidden="true" />
-          {moduleCount === 1 ? "1 modulo" : `${moduleCount} modulos`}
+          {moduleCount === 1 ? "1 módulo" : `${moduleCount} módulos`}
         </span>
-        <span className={styles.metaItem}>
-          <Award className={styles.metaIcon} aria-hidden="true" />
-          {hasCertification ? "Con certificacion" : "Sin certificacion"}
-        </span>
+        {hasCertification && (
+          <span className={styles.metaItem}>
+            <Award className={styles.metaIcon} aria-hidden="true" />
+            Certificado disponible
+          </span>
+        )}
         {showPublishedDate && item.created_at && (
           <span className={styles.metaItem}>
             <CalendarDays className={styles.metaIcon} aria-hidden="true" />
@@ -73,15 +110,18 @@ function LearningItemPreviewCard({ item, progress, showPublishedDate = true }) {
       <div className={styles.progressBlock}>
         <div className={styles.progressHeader}>
           <span>
-            {progressData.completedModules}/{progressData.totalModules} modulos
-            completados
+            {progressData.completedModules}/{progressData.totalModules} módulos completados
           </span>
-          <span className={`${styles.statusBadge} ${styles[progressData.status]}`}>
-            {STATUS_LABELS[progressData.status]}
+          <span className={styles.progressValue}>
+            {progressData.progressPercentage}%
           </span>
         </div>
         <div
           className={styles.progressTrack}
+          role="progressbar"
+          aria-valuenow={progressData.progressPercentage}
+          aria-valuemin="0"
+          aria-valuemax="100"
           aria-label={`Progreso ${progressData.progressPercentage}%`}
         >
           <span

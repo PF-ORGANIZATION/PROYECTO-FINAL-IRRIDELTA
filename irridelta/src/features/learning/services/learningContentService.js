@@ -103,9 +103,29 @@ function normalizeCertificationQuestion(question, index) {
 }
 
 function mapCapacitacionItem(item) {
+  // Normalizar módulos para parsear preguntas si vienen como JSON string
+  const normalizedModulos = (item.modulos ?? []).map((module) => {
+    let preguntas = module.preguntas;
+    
+    // Si preguntas es un string JSON, parsearlo
+    if (typeof preguntas === "string") {
+      try {
+        preguntas = JSON.parse(preguntas);
+      } catch (e) {
+        console.error("Error parsing module questions for module", module.id, e);
+        preguntas = [];
+      }
+    }
+    
+    return {
+      ...module,
+      preguntas: Array.isArray(preguntas) ? preguntas : [],
+    };
+  });
+
   return {
     ...item,
-    modulos: item.modulos ?? [],
+    modulos: normalizedModulos,
     certificacion: item.certificacion ?? null,
     tipo: LEARNING_TYPES.CAPACITACION,
   };

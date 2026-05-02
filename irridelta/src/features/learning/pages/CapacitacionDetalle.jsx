@@ -1,140 +1,59 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useParams } from "react-router-dom";
 import {
+  ArrowRight,
   Award,
   BookOpen,
   CalendarDays,
+  CheckCircle2,
   ChevronLeft,
-  ExternalLink,
-  FileText,
+  Lock,
   PlayCircle,
 } from "lucide-react";
-import YouTubePlayer from "../components/YouTubePlayer";
 import {
-  fetchLearningItemById,
-  RESOURCE_TYPES,
-} from "../services/learningContentService";
-import {
-  fetchUserLearningProgress,
-  getCompletedResourceIds,
   isCapacitacionCompleted,
   isModuleUnlocked,
-  isResourceUnlocked,
-  markResourceAsCompleted,
 } from "../services/learningProgressService";
+import useCapacitacionProgress from "../hooks/useCapacitacionProgress";
+import {
+  getModuleRoute,
+  isModuleCompleted,
+} from "../utils/learningRuntime";
 import styles from "./CapacitacionDetalle.module.css";
-
-function getResourceHref(resource) {
-  if (resource.tipo === RESOURCE_TYPES.ARCHIVO) {
-    return resource.archivo_url;
-  }
-
-  if (resource.tipo === RESOURCE_TYPES.YOUTUBE) {
-    return resource.youtube_url;
-  }
-
-  return null;
-}
-
-function getResourceLabel(resource) {
-  if (resource.tipo === RESOURCE_TYPES.ARCHIVO) {
-    return resource.archivo_nombre || resource.titulo || "Abrir archivo";
-  }
-
-  return resource.titulo || "Ver YouTube";
-}
-
-function isModuleCompleted(module, completedResourceIds) {
-  const resources = module?.recursos ?? [];
-
-  return (
-    resources.length > 0 &&
-    resources.every((resource) => completedResourceIds.has(resource.id))
-  );
-}
 
 function CapacitacionDetalle() {
   const { capacitacionId } = useParams();
-  const [capacitacion, setCapacitacion] = useState(null);
-  const [progressItems, setProgressItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingProgress, setLoadingProgress] = useState(true);
-  const [error, setError] = useState("");
-  const [progressError, setProgressError] = useState("");
-  const [savingResourceId, setSavingResourceId] = useState(null);
-  const [automaticTrackingResourceIds, setAutomaticTrackingResourceIds] =
-    useState(() => new Set());
-
-  useEffect(() => {
-    let ignore = false;
-
-    const loadCapacitacion = async () => {
-      setLoading(true);
-      setError("");
-
-      try {
-        const data = await fetchLearningItemById(capacitacionId, {
-          onlyPublished: true,
-        });
-
-        if (!ignore) {
-          setCapacitacion(data);
-        }
-      } catch (loadError) {
-        if (!ignore) {
-          console.error("No se pudo cargar la capacitacion", loadError);
-          setError("No se pudo cargar la capacitacion solicitada.");
-        }
-      } finally {
-        if (!ignore) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadCapacitacion();
-
-    return () => {
-      ignore = true;
-    };
-  }, [capacitacionId]);
-
-  useEffect(() => {
-    let ignore = false;
-
-    const loadProgress = async () => {
-      setLoadingProgress(true);
-      setProgressError("");
-
-      try {
-        const data = await fetchUserLearningProgress(capacitacionId);
-
-        if (!ignore) {
-          setProgressItems(data);
-        }
-      } catch (loadError) {
-        if (!ignore) {
-          console.error("No se pudo cargar el progreso", loadError);
-          setProgressError("No se pudo cargar tu progreso.");
-        }
-      } finally {
-        if (!ignore) {
-          setLoadingProgress(false);
-        }
-      }
-    };
-
-    loadProgress();
-
-    return () => {
-      ignore = true;
-    };
-  }, [capacitacionId]);
+  const {
+    capacitacion,
+    completedResourceIds,
+    loading,
+    loadingProgress,
+    error,
+    progressError,
+  } = useCapacitacionProgress(capacitacionId, { onlyPublished: true });
 
   const modules = capacitacion?.modulos ?? [];
   const certification = capacitacion?.certificacion ?? null;
-  const completedResourceIds = getCompletedResourceIds(progressItems);
+  const completedModulesCount = modules.filter((module) =>
+    isModuleCompleted(module, completedResourceIds)
+  ).length;
+  const totalResources = modules.reduce(
+    (total, module) => total + (module?.recursos?.length ?? 0),
+    0
+  );
+  const completedResourcesCount = modules.reduce(
+    (total, module) =>
+      total +
+      (module?.recursos ?? []).filter((resource) =>
+        completedResourceIds.has(resource.id)
+      ).length,
+    0
+  );
+  const overallProgressPercentage =
+    totalResources > 0
+      ? Math.round((completedResourcesCount / totalResources) * 100)
+      : 0;
   const capacitacionCompleted = isCapacitacionCompleted(
     modules,
     completedResourceIds
@@ -142,56 +61,6 @@ function CapacitacionDetalle() {
   const pageTitle = capacitacion
     ? `${capacitacion.titulo} | Capacitaciones | IRRIDELTA`
     : "Detalle de capacitacion | IRRIDELTA";
-
-  const handleTrackingReadyChange = (resourceId, isReady) => {
-    setAutomaticTrackingResourceIds((currentIds) => {
-      const nextIds = new Set(currentIds);
-
-      if (isReady) {
-        nextIds.add(resourceId);
-      } else {
-        nextIds.delete(resourceId);
-      }
-
-      return nextIds;
-    });
-  };
-
-  const handleMarkResourceAsCompleted = async (module, resource) => {
-    if (completedResourceIds.has(resource.id) || savingResourceId === resource.id) {
-      return;
-    }
-
-    setSavingResourceId(resource.id);
-    setProgressError("");
-
-    try {
-      const savedProgress = await markResourceAsCompleted({
-        capacitacionId,
-        moduloId: module.id,
-        recursoId: resource.id,
-      });
-
-      setProgressItems((currentItems) => {
-        const existingItem = currentItems.find(
-          (item) => item.recurso_id === resource.id
-        );
-
-        if (existingItem) {
-          return currentItems.map((item) =>
-            item.recurso_id === resource.id ? savedProgress : item
-          );
-        }
-
-        return [...currentItems, savedProgress];
-      });
-    } catch (saveError) {
-      console.error("No se pudo marcar el recurso como visto", saveError);
-      setProgressError("No se pudo marcar el recurso como visto.");
-    } finally {
-      setSavingResourceId(null);
-    }
-  };
 
   return (
     <>
@@ -221,6 +90,12 @@ function CapacitacionDetalle() {
           {!loading && !error && capacitacion && (
             <>
               <article className={styles.hero}>
+                <div className={styles.heroTopRow}>
+                  <span className={styles.heroEyebrow}>Ruta de capacitacion</span>
+                  <span className={styles.heroStatus}>
+                    {capacitacionCompleted ? "Completada" : "Activa"}
+                  </span>
+                </div>
                 <h1 className={styles.title}>{capacitacion.titulo}</h1>
 
                 {capacitacion.descripcion && (
@@ -242,9 +117,7 @@ function CapacitacionDetalle() {
                     <span className={styles.badge}>
                       <CalendarDays size={16} aria-hidden="true" />
                       Publicado el{" "}
-                      {new Date(capacitacion.created_at).toLocaleDateString(
-                        "es-AR"
-                      )}
+                      {new Date(capacitacion.created_at).toLocaleDateString("es-AR")}
                     </span>
                   )}
 
@@ -254,12 +127,58 @@ function CapacitacionDetalle() {
                 </div>
               </article>
 
+              <section className={styles.summaryGrid}>
+                <article className={styles.summaryCard}>
+                  <p className={styles.summaryLabel}>Avance general</p>
+                  <div className={styles.summaryValueRow}>
+                    <strong className={styles.summaryValue}>
+                      {overallProgressPercentage}%
+                    </strong>
+                    <span className={styles.summaryHelper}>
+                      {completedResourcesCount}/{totalResources} recursos
+                    </span>
+                  </div>
+                </article>
+
+                <article className={styles.summaryCard}>
+                  <p className={styles.summaryLabel}>Modulos completados</p>
+                  <div className={styles.summaryValueRow}>
+                    <strong className={styles.summaryValue}>
+                      {completedModulesCount}/{modules.length}
+                    </strong>
+                    <span className={styles.summaryHelper}>
+                      Cada modulo se recorre en una pantalla dedicada.
+                    </span>
+                  </div>
+                </article>
+
+                <article className={styles.summaryCard}>
+                  <p className={styles.summaryLabel}>Certificacion final</p>
+                  <div className={styles.summaryValueRow}>
+                    <strong className={styles.summaryValue}>
+                      {certification ? "Disponible" : "No incluida"}
+                    </strong>
+                    <span className={styles.summaryHelper}>
+                      {certification
+                        ? "Se habilita al completar toda la capacitacion."
+                        : "Esta ruta no incluye examen final."}
+                    </span>
+                  </div>
+                </article>
+              </section>
+
               {progressError && (
                 <div className="alert-error mt-4">{progressError}</div>
               )}
 
               <section className={styles.section}>
-                <h2 className={styles.sectionTitle}>Modulos</h2>
+                <div className="mb-6 flex items-center justify-between border-b-2 border-gray-200 pb-4">
+                  <h2 className={styles.sectionTitle}>Modulos</h2>
+                  <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">
+                    <BookOpen size={16} />
+                    {modules.length} {modules.length === 1 ? "modulo" : "modulos"}
+                  </span>
+                </div>
 
                 {modules.length === 0 && (
                   <p className={styles.emptyText}>
@@ -268,7 +187,7 @@ function CapacitacionDetalle() {
                 )}
 
                 {modules.length > 0 && (
-                  <div className={styles.moduleList}>
+                  <div className="grid gap-5">
                     {modules.map((module, moduleIndex) => {
                       const moduleUnlocked = isModuleUnlocked(
                         moduleIndex,
@@ -279,181 +198,102 @@ function CapacitacionDetalle() {
                         module,
                         completedResourceIds
                       );
+                      const modulePath = getModuleRoute(capacitacion.id, moduleIndex);
+                      const resourceCount = module.recursos?.length ?? 0;
+                      const examReady = Array.isArray(module.preguntas)
+                        ? module.preguntas.length > 0
+                        : false;
 
                       return (
                         <article
-                          key={
-                            module.id ?? `${capacitacion.id}-module-${moduleIndex}`
-                          }
-                          className={`${styles.moduleCard} ${
-                            moduleCompleted ? styles.moduleCardCompleted : ""
+                          key={module.id ?? `${capacitacion.id}-${moduleIndex}`}
+                          className={`rounded-2xl border p-6 shadow-sm transition ${
+                            moduleCompleted
+                              ? "border-green-200 bg-green-50"
+                              : "border-gray-200 bg-white"
                           }`}
-                          style={moduleUnlocked ? undefined : { opacity: 0.65 }}
                         >
-                          <p className={styles.moduleEyebrow}>
-                            Modulo {moduleIndex + 1}{" "}
-                            {!moduleUnlocked && "(bloqueado)"}
-                          </p>
-                          <h3 className={styles.moduleTitle}>{module.titulo}</h3>
+                          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-700">
+                                  Modulo {moduleIndex + 1}
+                                </span>
 
-                          {module.descripcion && (
-                            <p className={styles.moduleDescription}>
-                              {module.descripcion}
-                            </p>
-                          )}
+                                {moduleCompleted && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                                    <CheckCircle2 size={12} />
+                                    Completo
+                                  </span>
+                                )}
 
-                          {module.recursos?.length > 0 ? (
-                            <div className={styles.resources}>
-                              {module.recursos.map((resource, resourceIndex) => {
-                                const href = getResourceHref(resource);
-                                const isFile =
-                                  resource.tipo === RESOURCE_TYPES.ARCHIVO;
-                                const resourceUnlocked = isResourceUnlocked(
-                                  moduleIndex,
-                                  resourceIndex,
-                                  modules,
-                                  completedResourceIds
-                                );
-                                const resourceCompleted =
-                                  completedResourceIds.has(resource.id);
-                                const hasAutomaticTracking =
-                                  automaticTrackingResourceIds.has(resource.id);
-                                const isYoutube =
-                                  resource.tipo === RESOURCE_TYPES.YOUTUBE;
+                                {!moduleCompleted && moduleUnlocked && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                                    <PlayCircle size={12} />
+                                    En curso
+                                  </span>
+                                )}
 
-                                if (!href) {
-                                  return null;
-                                }
+                                {!moduleUnlocked && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                                    <Lock size={12} />
+                                    Bloqueado
+                                  </span>
+                                )}
+                              </div>
 
-                                return (
-                                  <div
-                                    key={
-                                      resource.id ??
-                                      `${module.id ?? moduleIndex}-${resourceIndex}`
-                                    }
-                                    className="flex flex-wrap items-center gap-2"
-                                  >
-                                    {resourceUnlocked && isYoutube ? (
-                                      <div className="w-full">
-                                        <YouTubePlayer
-                                          youtubeUrl={href}
-                                          onComplete={() =>
-                                            handleMarkResourceAsCompleted(
-                                              module,
-                                              resource
-                                            )
-                                          }
-                                          onTrackingReady={(isReady) =>
-                                            handleTrackingReadyChange(
-                                              resource.id,
-                                              isReady
-                                            )
-                                          }
-                                        />
-                                        <p className="mt-2 text-sm font-semibold text-gray-700">
-                                          {getResourceLabel(resource)}
-                                        </p>
-                                      </div>
-                                    ) : resourceUnlocked ? (
-                                      <a
-                                        href={href}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className={`${styles.resourceLink} ${
-                                          isFile
-                                            ? styles.resourceFile
-                                            : styles.resourceYoutube
-                                        }`}
-                                      >
-                                        {isFile ? (
-                                          <FileText
-                                            size={17}
-                                            aria-hidden="true"
-                                          />
-                                        ) : (
-                                          <PlayCircle
-                                            size={17}
-                                            aria-hidden="true"
-                                          />
-                                        )}
-                                        {getResourceLabel(resource)}
-                                        <ExternalLink
-                                          size={15}
-                                          aria-hidden="true"
-                                        />
-                                      </a>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        disabled
-                                        className={`${styles.resourceLink} ${
-                                          isFile
-                                            ? styles.resourceFile
-                                            : styles.resourceYoutube
-                                        }`}
-                                        style={{
-                                          cursor: "not-allowed",
-                                          opacity: 0.6,
-                                        }}
-                                      >
-                                        {isFile ? (
-                                          <FileText
-                                            size={17}
-                                            aria-hidden="true"
-                                          />
-                                        ) : (
-                                          <PlayCircle
-                                            size={17}
-                                            aria-hidden="true"
-                                          />
-                                        )}
-                                        {getResourceLabel(resource)}
-                                      </button>
-                                    )}
+                              <h3 className="mt-3 text-2xl font-bold text-gray-900">
+                                {module.titulo}
+                              </h3>
 
-                                    {resourceUnlocked &&
-                                      !resourceCompleted &&
-                                      (!isYoutube || !hasAutomaticTracking) && (
-                                      <button
-                                        type="button"
-                                        className="btn-primary"
-                                        disabled={
-                                          savingResourceId === resource.id ||
-                                          loadingProgress
-                                        }
-                                        onClick={() =>
-                                          handleMarkResourceAsCompleted(
-                                            module,
-                                            resource
-                                          )
-                                        }
-                                      >
-                                        {savingResourceId === resource.id
-                                          ? "Guardando..."
-                                          : "Marcar como visto"}
-                                      </button>
-                                    )}
+                              {module.descripcion && (
+                                <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-600">
+                                  {module.descripcion}
+                                </p>
+                              )}
 
-                                    {resourceCompleted && (
-                                      <span className={styles.badge}>
-                                        Completado
-                                      </span>
-                                    )}
-
-                                    {!resourceUnlocked && (
-                                      <span className={styles.badge}>
-                                        Bloqueado
-                                      </span>
-                                    )}
-                                  </div>
-                                );
-                              })}
+                              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                                <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                                  <span className="font-semibold text-gray-900">
+                                    Recursos:
+                                  </span>{" "}
+                                  {resourceCount}
+                                </div>
+                                <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                                  <span className="font-semibold text-gray-900">
+                                    Examen:
+                                  </span>{" "}
+                                  {examReady ? "Disponible" : "Sin configurar"}
+                                </div>
+                                <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                                  <span className="font-semibold text-gray-900">
+                                    Estado:
+                                  </span>{" "}
+                                  {moduleCompleted
+                                    ? "Completado"
+                                    : moduleUnlocked
+                                    ? "Disponible"
+                                    : "Pendiente"}
+                                </div>
+                              </div>
                             </div>
-                          ) : (
-                            <p className={styles.emptyText}>
-                              Este modulo no tiene recursos publicados.
-                            </p>
-                          )}
+
+                            <div className="flex w-full flex-col gap-3 lg:w-auto">
+                              {moduleUnlocked ? (
+                                <Link
+                                  to={modulePath}
+                                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700"
+                                >
+                                  Abrir modulo
+                                  <ArrowRight size={16} />
+                                </Link>
+                              ) : (
+                                <div className="rounded-lg border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-500">
+                                  Completa el modulo anterior para continuar.
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </article>
                       );
                     })}
@@ -463,42 +303,50 @@ function CapacitacionDetalle() {
 
               <section className={styles.section}>
                 {certification ? (
-                  <div className={styles.certificationBox}>
-                    <div>
-                      <h2 className={styles.certificationTitle}>
-                        Certificacion asociada
-                      </h2>
-                      <p className={styles.certificationText}>
-                        Esta capacitacion tiene un examen final disponible para
-                        certificar tus conocimientos.{" "}
-                        {!capacitacionCompleted &&
-                          "Completa todos los recursos para habilitarlo."}
-                      </p>
-                    </div>
+                  <div className="rounded-2xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-white p-8 shadow-md">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 rounded-xl bg-green-500 p-3">
+                        <Award size={28} className="text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <h2 className="text-2xl font-bold text-gray-900">
+                          Certificacion disponible
+                        </h2>
+                        <p className="mt-2 leading-relaxed text-gray-700">
+                          Al completar todos los modulos, podras acceder al examen
+                          final para obtener tu certificado.
+                          {!capacitacionCompleted &&
+                            " Completa todos los recursos para habilitarlo."}
+                        </p>
 
-                    {capacitacionCompleted ? (
-                      <Link
-                        to={`/certificaciones/${certification.id}`}
-                        className={styles.certificationLink}
-                      >
-                        Ir al examen
-                        <ExternalLink size={17} aria-hidden="true" />
-                      </Link>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled
-                        className={styles.certificationLink}
-                        style={{ cursor: "not-allowed", opacity: 0.6 }}
-                      >
-                        Ir al examen (bloqueado)
-                      </button>
-                    )}
+                        <div className="mt-6">
+                          {capacitacionCompleted ? (
+                            <Link
+                              to={`/certificaciones/${certification.id}`}
+                              className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-6 py-3 font-bold text-white shadow-md transition-colors hover:bg-green-700"
+                            >
+                              <Award size={18} />
+                              Realizar examen final
+                            </Link>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-gray-300 px-6 py-3 font-bold text-gray-700"
+                            >
+                              <Lock size={18} />
+                              Examen bloqueado
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ) : (
-                  <div className={styles.infoBox}>
-                    Esta capacitacion no tiene certificacion asociada por el
-                    momento.
+                  <div className="rounded-2xl border-2 border-gray-200 bg-gray-50 p-8">
+                    <p className="text-center font-medium text-gray-600">
+                      Esta capacitacion no tiene certificacion asociada.
+                    </p>
                   </div>
                 )}
               </section>
