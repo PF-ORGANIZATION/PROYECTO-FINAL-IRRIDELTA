@@ -281,7 +281,7 @@ function Chatbot() {
           {/* Header */}
           <header className="bg-green-600 px-5 py-4 shadow-sm flex justify-between items-center">
             <div>
-              <h1 className="text-lg font-bold text-white">Asistente AI Irridelta</h1>
+              <h1 className="text-lg font-bold text-white">Asistente Irridelta</h1>
               <p className="text-xs text-green-100">Consultas sobre manuales y datos de empresa</p>
             </div>
             <div className="flex gap-3">
