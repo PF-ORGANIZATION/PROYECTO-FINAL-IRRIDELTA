@@ -1,58 +1,98 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import CapacitacionPreviewModal from "../components/CapacitacionPreviewModal";
 import {
-  LEARNING_TYPES,
   deleteLearningItem,
-  fetchLearningItems,
+  fetchLearningItemById,
 } from "../services/learningContentService";
+import {
+  LEARNING_FEED_VIEWS,
+  fetchLearningFeed,
+} from "../services/learningFeedService";
 
 function AdminCapacitacionesList() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [previewItem, setPreviewItem] = useState(null);
+  const [previewLoadingId, setPreviewLoadingId] = useState(null);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const loadMoreRef = useRef(null);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 350);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [search]);
+
+  const loadItems = useCallback(
+    async ({ cursor = null, append = false } = {}) => {
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+      setError("");
+
+      try {
+        const data = await fetchLearningFeed({
+          view: LEARNING_FEED_VIEWS.ADMIN_CAPACITACIONES,
+          cursor,
+          search: debouncedSearch,
+          status: statusFilter,
+        });
+
+        setItems((currentItems) =>
+          append ? [...currentItems, ...data.items] : data.items
+        );
+        setNextCursor(data.nextCursor);
+        setHasMore(data.hasMore);
+      } catch (loadError) {
+        console.error("No se pudieron cargar las capacitaciones", loadError);
+        setError(
+          "No se pudieron cargar las capacitaciones. Revisa la conexion con Supabase."
+        );
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [debouncedSearch, statusFilter]
+  );
 
   useEffect(() => {
     loadItems();
-  }, []);
+  }, [loadItems]);
 
-  const loadItems = async () => {
-    setLoading(true);
-    setError("");
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
 
-    try {
-      const data = await fetchLearningItems(LEARNING_TYPES.CAPACITACION);
-      setItems(data);
-    } catch (loadError) {
-      console.error("No se pudieron cargar las capacitaciones", loadError);
-      setError(
-        "No se pudieron cargar las capacitaciones. Revisa que el esquema este correcto en Supabase."
-      );
-    } finally {
-      setLoading(false);
+    if (!sentinel || !hasMore || loading || loadingMore) {
+      return undefined;
     }
-  };
 
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      const matchesSearch =
-        !search.trim() ||
-        item.titulo?.toLowerCase().includes(search.toLowerCase()) ||
-        item.descripcion?.toLowerCase().includes(search.toLowerCase());
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && nextCursor) {
+          loadItems({ cursor: nextCursor, append: true });
+        }
+      },
+      { rootMargin: "360px" }
+    );
 
-      const matchesStatus =
-        statusFilter === "todos" ||
-        (statusFilter === "publicadas" && item.publicada) ||
-        (statusFilter === "borradores" && !item.publicada);
+    observer.observe(sentinel);
 
-      return matchesSearch && matchesStatus;
-    });
-  }, [items, search, statusFilter]);
+    return () => observer.disconnect();
+  }, [hasMore, loadItems, loading, loadingMore, nextCursor]);
 
   const handleDelete = async (item) => {
     const confirmation = window.prompt(
@@ -72,15 +112,31 @@ function AdminCapacitacionesList() {
     }
   };
 
+  const handlePreview = async (item) => {
+    setPreviewLoadingId(item.id);
+    setError("");
+
+    try {
+      const fullItem = await fetchLearningItemById(item.id);
+      setPreviewItem(fullItem);
+    } catch (previewError) {
+      console.error("No se pudo cargar la vista previa", previewError);
+      setError("No se pudo cargar la vista previa de la capacitacion.");
+    } finally {
+      setPreviewLoadingId(null);
+    }
+  };
+
   return (
-    <section className="min-h-screen bg-gray-100 px-6 py-6 md:px-12 lg:px-24">
-      <header className="mb-8 border-b pb-4">
+    <section className="learning-page">
+      <div className="learning-container">
+      <header className="learning-header">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="learning-title">
               Panel de Capacitaciones
             </h1>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="learning-subtitle">
               Primero gestionas las capacitaciones. Luego entras a editar una puntual.
             </p>
           </div>
@@ -88,7 +144,7 @@ function AdminCapacitacionesList() {
           <button
             type="button"
             onClick={() => navigate("/admin/capacitaciones/nueva")}
-            className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700"
+            className="learning-button"
           >
             <Plus className="h-4 w-4" />
             Nueva capacitacion
@@ -102,7 +158,7 @@ function AdminCapacitacionesList() {
         </div>
       )}
 
-      <div className="mb-6 rounded-2xl bg-white p-5 shadow-md">
+      <div className="learning-card mb-6 p-5">
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
           <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
             <Search className="h-5 w-5 text-gray-400" />
@@ -128,23 +184,23 @@ function AdminCapacitacionesList() {
       </div>
 
       {loading && (
-        <div className="rounded-2xl bg-white p-8 text-center text-gray-600 shadow-md">
+        <div className="learning-empty">
           Cargando capacitaciones...
         </div>
       )}
 
-      {!loading && items.length === 0 && (
-        <div className="rounded-2xl bg-white p-12 text-center shadow-md">
-          <h2 className="text-2xl font-bold text-gray-900">
+      {!loading && !error && items.length === 0 && !debouncedSearch && statusFilter === "todos" && (
+        <div className="learning-empty">
+          <h2 className="learning-empty-title">
             Todavia no hay capacitaciones cargadas
           </h2>
-          <p className="mt-3 text-sm text-gray-600">
+          <p className="learning-empty-text">
             Empieza creando la primera capacitacion para construir el contenido y sus evaluaciones.
           </p>
           <button
             type="button"
             onClick={() => navigate("/admin/capacitaciones/nueva")}
-            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700"
+            className="learning-button mt-6"
           >
             <Plus className="h-4 w-4" />
             Crear primera capacitacion
@@ -152,18 +208,18 @@ function AdminCapacitacionesList() {
         </div>
       )}
 
-      {!loading && items.length > 0 && filteredItems.length === 0 && (
-        <div className="rounded-2xl bg-white p-8 text-center text-gray-600 shadow-md">
+      {!loading && !error && items.length === 0 && (debouncedSearch || statusFilter !== "todos") && (
+        <div className="learning-empty">
           No se encontraron capacitaciones con esos filtros.
         </div>
       )}
 
-      {!loading && filteredItems.length > 0 && (
+      {!loading && !error && items.length > 0 && (
         <div className="space-y-4">
-          {filteredItems.map((item) => (
+          {items.map((item) => (
             <article
               key={item.id}
-              className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+              className="learning-card"
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
@@ -193,10 +249,7 @@ function AdminCapacitacionesList() {
                     </div>
                     <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
                       <span className="font-semibold text-gray-900">Prueba final:</span>{" "}
-                      {Array.isArray(item.certificacion?.preguntas) &&
-                      item.certificacion.preguntas.length > 0
-                        ? "Configurado"
-                        : "Pendiente"}
+                      {item.certificacion ? "Configurado" : "Opcional"}
                     </div>
                     <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
                       <span className="font-semibold text-gray-900">Ultima actualizacion:</span>{" "}
@@ -210,22 +263,23 @@ function AdminCapacitacionesList() {
                 <div className="flex flex-col gap-2">
                   <button
                     type="button"
-                    onClick={() => setPreviewItem(item)}
-                    className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white"
+                    onClick={() => handlePreview(item)}
+                    disabled={previewLoadingId === item.id}
+                    className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-slate-800"
                   >
-                    Ver
+                    {previewLoadingId === item.id ? "Cargando..." : "Ver"}
                   </button>
                   <button
                     type="button"
                     onClick={() => navigate(`/admin/capacitaciones/${item.id}/editar`)}
-                    className="rounded-lg bg-yellow-500 px-4 py-2 text-sm font-semibold text-white"
+                    className="rounded-lg bg-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-yellow-600"
                   >
                     Editar
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDelete(item)}
-                    className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white"
+                    className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-red-600"
                   >
                     Eliminar
                   </button>
@@ -233,6 +287,18 @@ function AdminCapacitacionesList() {
               </div>
             </article>
           ))}
+          <div ref={loadMoreRef} className="grid justify-items-center py-6">
+            {loadingMore && <div className="learning-empty w-full">Cargando mas...</div>}
+            {!loadingMore && hasMore && (
+              <button
+                type="button"
+                className="learning-button-secondary"
+                onClick={() => loadItems({ cursor: nextCursor, append: true })}
+              >
+                Cargar mas
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -240,6 +306,7 @@ function AdminCapacitacionesList() {
         item={previewItem}
         onClose={() => setPreviewItem(null)}
       />
+      </div>
     </section>
   );
 }
