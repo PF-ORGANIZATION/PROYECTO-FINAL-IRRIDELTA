@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
+  Award,
   CheckCircle2,
   ChevronLeft,
   Clock3,
@@ -51,6 +52,7 @@ function CapacitacionModulo() {
   } = useCapacitacionProgress(capacitacionId, { onlyPublished });
 
   const modules = capacitacion?.modulos ?? [];
+  const certification = capacitacion?.certificacion ?? null;
   const module = moduleIndex >= 0 ? modules[moduleIndex] : null;
   const moduleUnlocked =
     moduleIndex >= 0
@@ -427,10 +429,28 @@ function CapacitacionModulo() {
                     <p className="text-sm text-gray-500">
                       El siguiente modulo se habilita cuando completes este.
                     </p>
+                  ) : certification ? (
+                    moduleResourcesCompleted ? (
+                      <Link
+                        to={`/certificaciones/${certification.id}`}
+                        className="learning-button inline-flex items-center gap-2"
+                      >
+                        Ir al examen final
+                        <Award size={16} />
+                      </Link>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        Completa este modulo para habilitar el examen final.
+                      </p>
+                    )
                   ) : (
-                    <p className="text-sm text-gray-500">
-                      Este es el ultimo modulo de la capacitacion.
-                    </p>
+                    <Link
+                      to="/capacitaciones"
+                      className="learning-button-secondary inline-flex items-center gap-2"
+                    >
+                      Volver a capacitaciones
+                      <ArrowRight size={16} />
+                    </Link>
                   )}
                 </div>
               </section>
