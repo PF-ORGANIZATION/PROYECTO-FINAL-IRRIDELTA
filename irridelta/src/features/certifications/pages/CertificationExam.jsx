@@ -682,15 +682,47 @@ function CertificationExam() {
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-3 text-sm text-gray-600 md:grid-cols-4">
-                  <p>Preguntas del examen: {examQuestionCount}</p>
-                  <p>Aprobacion minima: {passingScore}%</p>
-                  <p>Minimo correcto: {minimumCorrectAnswers}</p>
-                  <p>Duracion: {formatDurationLabel(durationMinutes)}</p>
-                </div>
-
-                <div className="mt-4 inline-flex rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">
-                  Respuestas guardadas: {answeredQuestions} / {examQuestionCount}
+                <div className="mt-5 grid gap-3 text-sm text-gray-600 md:grid-cols-5">
+                  <div className="rounded-xl bg-gray-50 px-4 py-3">
+                    <span className="block text-xs font-semibold uppercase text-gray-500">
+                      Preguntas
+                    </span>
+                    <strong className="mt-1 block text-gray-900">
+                      {examQuestionCount}
+                    </strong>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 px-4 py-3">
+                    <span className="block text-xs font-semibold uppercase text-gray-500">
+                      Aprobacion
+                    </span>
+                    <strong className="mt-1 block text-gray-900">
+                      {passingScore}%
+                    </strong>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 px-4 py-3">
+                    <span className="block text-xs font-semibold uppercase text-gray-500">
+                      Minimo correcto
+                    </span>
+                    <strong className="mt-1 block text-gray-900">
+                      {minimumCorrectAnswers}
+                    </strong>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 px-4 py-3">
+                    <span className="block text-xs font-semibold uppercase text-gray-500">
+                      Duracion
+                    </span>
+                    <strong className="mt-1 block text-gray-900">
+                      {formatDurationLabel(durationMinutes)}
+                    </strong>
+                  </div>
+                  <div className="rounded-xl bg-gray-100 px-4 py-3">
+                    <span className="block text-xs font-semibold uppercase text-gray-500">
+                      Guardadas
+                    </span>
+                    <strong className="mt-1 block text-gray-900">
+                      {answeredQuestions} / {examQuestionCount}
+                    </strong>
+                  </div>
                 </div>
               </header>
 
