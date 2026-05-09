@@ -1,16 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  BookOpen,
-  CheckCircle2,
-  Clock3,
-  Search,
-  Sparkles,
-} from "lucide-react";
+import { Search } from "lucide-react";
 import { fetchLearningItems } from "../services/learningContentService";
 import {
   fetchUserLearningProgress,
   getCompletedResourceIds,
+  isResourceCompleted,
 } from "../services/learningProgressService";
+import {
+  EXAM_ATTEMPT_STATUS,
+  EXAM_TYPES,
+  fetchExamAttempts,
+} from "../services/examAttemptsService";
 import LearningItemPreviewCard from "./LearningItemPreviewCard";
 import styles from "./LearningCatalog.module.css";
 
@@ -25,16 +25,29 @@ function getModuleResources(module) {
   return module?.recursos ?? [];
 }
 
-function getItemProgress(item, progressItems = []) {
+function getItemProgress(item, progressItems = [], examAttempts = []) {
   const modules = item?.modulos ?? [];
   const completedResourceIds = getCompletedResourceIds(progressItems);
+  const approvedModuleIds = new Set(
+    examAttempts
+      .filter(
+        (attempt) =>
+          attempt.estado === EXAM_ATTEMPT_STATUS.COMPLETED &&
+          attempt.aprobado &&
+          attempt.modulo_id
+      )
+      .map((attempt) => attempt.modulo_id)
+  );
   const completedModules = modules.filter((module) => {
     const resources = getModuleResources(module);
-
-    return (
+    const hasExam = Array.isArray(module?.preguntas) && module.preguntas.length > 0;
+    const resourcesCompleted =
       resources.length > 0 &&
-      resources.every((resource) => completedResourceIds.has(resource.id))
-    );
+      resources.every((resource) =>
+        isResourceCompleted(resource, completedResourceIds, module.id)
+      );
+
+    return resourcesCompleted && (!hasExam || approvedModuleIds.has(module.id));
   }).length;
   const totalModules = modules.length;
   const progressPercentage =
@@ -77,6 +90,7 @@ function matchesSearch(item, query) {
 function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
   const [items, setItems] = useState([]);
   const [progressByItemId, setProgressByItemId] = useState({});
+  const [attemptsByItemId, setAttemptsByItemId] = useState({});
   const [activeFilter, setActiveFilter] = useState(FILTERS.ALL);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -107,12 +121,32 @@ function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
               return [item.id, progress];
             })
           );
+          const attemptEntries = await Promise.all(
+            data.map(async (item) => {
+              try {
+                const attempts = await fetchExamAttempts({
+                  tipoExamen: EXAM_TYPES.MODULO,
+                  capacitacionId: item.id,
+                });
+
+                return [item.id, attempts];
+              } catch (attemptError) {
+                console.error(
+                  "No se pudieron cargar los intentos de modulo",
+                  attemptError
+                );
+                return [item.id, []];
+              }
+            })
+          );
 
           if (!ignore) {
             setProgressByItemId(Object.fromEntries(progressEntries));
+            setAttemptsByItemId(Object.fromEntries(attemptEntries));
           }
         } else if (!ignore) {
           setProgressByItemId({});
+          setAttemptsByItemId({});
         }
       } catch (loadError) {
         if (!ignore) {
@@ -140,77 +174,51 @@ function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
     () =>
       items.map((item) => ({
         item,
-        progress: getItemProgress(item, progressByItemId[item.id] ?? []),
+        progress: getItemProgress(
+          item,
+          progressByItemId[item.id] ?? [],
+          attemptsByItemId[item.id] ?? []
+        ),
       })),
-    [items, progressByItemId]
+    [attemptsByItemId, items, progressByItemId]
   );
 
   const searchQuery = search.trim().toLowerCase();
 
   const filteredItems = useMemo(
-    () =>
-      itemsWithProgress.filter(({ item, progress }) => {
+    () => {
+      const statusOrder = {
+        [FILTERS.IN_PROGRESS]: 0,
+        [FILTERS.PENDING]: 1,
+        [FILTERS.COMPLETED]: 2,
+      };
+
+      return itemsWithProgress
+        .filter(({ item, progress }) => {
         const matchesFilter =
           activeFilter === FILTERS.ALL || progress.status === activeFilter;
 
         return matchesFilter && matchesSearch(item, searchQuery);
-      }),
+        })
+        .sort(
+          (currentItem, nextItem) =>
+            statusOrder[currentItem.progress.status] -
+            statusOrder[nextItem.progress.status]
+        );
+    },
     [activeFilter, itemsWithProgress, searchQuery]
-  );
-
-  const catalogStats = useMemo(
-    () => ({
-      total: itemsWithProgress.length,
-      inProgress: itemsWithProgress.filter(
-        ({ progress }) => progress.status === FILTERS.IN_PROGRESS
-      ).length,
-      completed: itemsWithProgress.filter(
-        ({ progress }) => progress.status === FILTERS.COMPLETED
-      ).length,
-    }),
-    [itemsWithProgress]
   );
 
   return (
     <section className={styles.catalog}>
       <div className={styles.inner}>
         <header className={styles.header}>
-          <div className={styles.headerGlow} aria-hidden="true" />
           <div className={styles.headerContent}>
-            <div className={styles.heroIcon}>
-              <Sparkles size={28} />
-            </div>
-            <span className={styles.eyebrow}>Capacitaciones IRRIDELTA</span>
             <h1 className={styles.title}>{title}</h1>
             <p className={styles.subtitle}>
               Accede al material de formación y seguí tu avance en cada módulo.
             </p>
 
-            <div className={styles.statsGrid}>
-              <article className={styles.statCard}>
-                <BookOpen className={styles.statIcon} aria-hidden="true" />
-                <div>
-                  <p className={styles.statValue}>{catalogStats.total}</p>
-                  <p className={styles.statLabel}>Capacitaciones disponibles</p>
-                </div>
-              </article>
-
-              <article className={styles.statCard}>
-                <Clock3 className={styles.statIcon} aria-hidden="true" />
-                <div>
-                  <p className={styles.statValue}>{catalogStats.inProgress}</p>
-                  <p className={styles.statLabel}>En progreso</p>
-                </div>
-              </article>
-
-              <article className={styles.statCard}>
-                <CheckCircle2 className={styles.statIcon} aria-hidden="true" />
-                <div>
-                  <p className={styles.statValue}>{catalogStats.completed}</p>
-                  <p className={styles.statLabel}>Completadas</p>
-                </div>
-              </article>
-            </div>
           </div>
         </header>
 
@@ -250,59 +258,28 @@ function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
               </div>
 
               <div className={styles.filterBlock}>
-                <p className={styles.filterLabel}>Filtrar por estado</p>
-                <div
-                  className={styles.filters}
-                  role="group"
-                  aria-label="Filtrar capacitaciones"
+                <label htmlFor="learning-filter" className={styles.filterLabel}>
+                  Filtrar por estado
+                </label>
+                <select
+                  id="learning-filter"
+                  value={activeFilter}
+                  onChange={(event) => setActiveFilter(event.target.value)}
+                  className={styles.filterSelect}
                 >
-                  <button
-                    type="button"
-                    className={`${styles.filterButton} ${
-                      activeFilter === FILTERS.ALL ? styles.filterButtonActive : ""
-                    }`}
-                    onClick={() => setActiveFilter(FILTERS.ALL)}
-                    aria-pressed={activeFilter === FILTERS.ALL}
-                  >
+                  <option value={FILTERS.ALL}>
                     Todos
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.filterButton} ${
-                      activeFilter === FILTERS.PENDING
-                        ? styles.filterButtonActive
-                        : ""
-                    }`}
-                    onClick={() => setActiveFilter(FILTERS.PENDING)}
-                    aria-pressed={activeFilter === FILTERS.PENDING}
-                  >
+                  </option>
+                  <option value={FILTERS.PENDING}>
                     Pendientes
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.filterButton} ${
-                      activeFilter === FILTERS.IN_PROGRESS
-                        ? styles.filterButtonActive
-                        : ""
-                    }`}
-                    onClick={() => setActiveFilter(FILTERS.IN_PROGRESS)}
-                    aria-pressed={activeFilter === FILTERS.IN_PROGRESS}
-                  >
+                  </option>
+                  <option value={FILTERS.IN_PROGRESS}>
                     En progreso
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.filterButton} ${
-                      activeFilter === FILTERS.COMPLETED
-                        ? styles.filterButtonActive
-                        : ""
-                    }`}
-                    onClick={() => setActiveFilter(FILTERS.COMPLETED)}
-                    aria-pressed={activeFilter === FILTERS.COMPLETED}
-                  >
+                  </option>
+                  <option value={FILTERS.COMPLETED}>
                     Completados
-                  </button>
-                </div>
+                  </option>
+                </select>
               </div>
             </div>
 

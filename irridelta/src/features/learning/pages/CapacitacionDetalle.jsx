@@ -4,8 +4,6 @@ import { Link, useParams } from "react-router-dom";
 import {
   ArrowRight,
   Award,
-  BookOpen,
-  CalendarDays,
   CheckCircle2,
   ChevronLeft,
   Lock,
@@ -14,6 +12,7 @@ import {
 import {
   isCapacitacionCompleted,
   isModuleUnlocked,
+  isResourceCompleted,
 } from "../services/learningProgressService";
 import useCapacitacionProgress from "../hooks/useCapacitacionProgress";
 import {
@@ -22,42 +21,76 @@ import {
 } from "../utils/learningRuntime";
 import styles from "./CapacitacionDetalle.module.css";
 
+function getModuleResourceSummary(module) {
+  const resources = module?.recursos ?? [];
+  const videoCount = resources.filter((resource) => resource.tipo === "youtube").length;
+
+  if (resources.length === 0) {
+    return "Sin recursos";
+  }
+
+  if (videoCount > 0 && videoCount === resources.length) {
+    return videoCount === 1 ? "1 video" : `${videoCount} videos`;
+  }
+
+  return resources.length === 1 ? "1 recurso" : `${resources.length} recursos`;
+}
+
 function CapacitacionDetalle() {
   const { capacitacionId } = useParams();
   const {
     capacitacion,
     completedResourceIds,
+    approvedModuleIds,
     loading,
     loadingProgress,
+    loadingExamAttempts,
     error,
     progressError,
+    examAttemptsError,
   } = useCapacitacionProgress(capacitacionId, { onlyPublished: true });
 
   const modules = capacitacion?.modulos ?? [];
   const certification = capacitacion?.certificacion ?? null;
+  const learningStateReady = !loadingProgress && !loadingExamAttempts;
+  const totalModules = modules.length;
   const completedModulesCount = modules.filter((module) =>
-    isModuleCompleted(module, completedResourceIds)
+    isModuleCompleted(module, completedResourceIds, approvedModuleIds)
   ).length;
-  const totalResources = modules.reduce(
-    (total, module) => total + (module?.recursos?.length ?? 0),
-    0
-  );
-  const completedResourcesCount = modules.reduce(
-    (total, module) =>
-      total +
-      (module?.recursos ?? []).filter((resource) =>
-        completedResourceIds.has(resource.id)
-      ).length,
-    0
-  );
   const overallProgressPercentage =
-    totalResources > 0
-      ? Math.round((completedResourcesCount / totalResources) * 100)
+    learningStateReady && totalModules > 0
+      ? Math.round((completedModulesCount / totalModules) * 100)
       : 0;
   const capacitacionCompleted = isCapacitacionCompleted(
     modules,
-    completedResourceIds
+    completedResourceIds,
+    approvedModuleIds
   );
+  const orderedModules = modules
+    .map((module, moduleIndex) => {
+      const moduleCompleted = isModuleCompleted(
+        module,
+        completedResourceIds,
+        approvedModuleIds
+      );
+      const moduleStarted = (module.recursos ?? []).some((resource) =>
+        isResourceCompleted(resource, completedResourceIds, module.id)
+      );
+      const statusOrder = moduleCompleted ? 2 : moduleStarted ? 0 : 1;
+
+      return {
+        module,
+        moduleIndex,
+        statusOrder,
+      };
+    })
+    .sort((currentModule, nextModule) => {
+      if (currentModule.statusOrder !== nextModule.statusOrder) {
+        return currentModule.statusOrder - nextModule.statusOrder;
+      }
+
+      return currentModule.moduleIndex - nextModule.moduleIndex;
+    });
   const pageTitle = capacitacion
     ? `${capacitacion.titulo} | Capacitaciones | IRRIDELTA`
     : "Detalle de capacitacion | IRRIDELTA";
@@ -90,94 +123,44 @@ function CapacitacionDetalle() {
           {!loading && !error && capacitacion && (
             <>
               <article className={styles.hero}>
-                <div className={styles.heroTopRow}>
-                  <span className={styles.heroEyebrow}>Ruta de capacitacion</span>
-                  <span className={styles.heroStatus}>
-                    {capacitacionCompleted ? "Completada" : "Activa"}
-                  </span>
-                </div>
                 <h1 className={styles.title}>{capacitacion.titulo}</h1>
 
                 {capacitacion.descripcion && (
                   <p className={styles.description}>{capacitacion.descripcion}</p>
                 )}
 
-                <div className={styles.metaRow}>
-                  <span className={styles.badge}>
-                    <BookOpen size={16} aria-hidden="true" />
-                    {modules.length === 1 ? "1 modulo" : `${modules.length} modulos`}
-                  </span>
-
-                  <span className={styles.badge}>
-                    <Award size={16} aria-hidden="true" />
-                    {certification ? "Con certificacion" : "Sin certificacion"}
-                  </span>
-
-                  {capacitacion.created_at && (
-                    <span className={styles.badge}>
-                      <CalendarDays size={16} aria-hidden="true" />
-                      Publicado el{" "}
-                      {new Date(capacitacion.created_at).toLocaleDateString("es-AR")}
+                <div className={styles.progressPanel}>
+                  <div className={styles.progressPanelHeader}>
+                    <p>Progreso del curso: {overallProgressPercentage}% completado</p>
+                    <span>
+                      {completedModulesCount} de {totalModules} modulos completados
                     </span>
-                  )}
-
+                  </div>
+                  <div className={styles.progressTrack}>
+                    <span
+                      className={styles.progressBar}
+                      style={{ width: `${overallProgressPercentage}%` }}
+                    />
+                  </div>
                   {loadingProgress && (
-                    <span className={styles.badge}>Cargando progreso...</span>
+                    <p className={styles.progressLoading}>Cargando progreso...</p>
+                  )}
+                  {loadingExamAttempts && (
+                    <p className={styles.progressLoading}>Cargando evaluaciones...</p>
                   )}
                 </div>
               </article>
 
-              <section className={styles.summaryGrid}>
-                <article className={styles.summaryCard}>
-                  <p className={styles.summaryLabel}>Avance general</p>
-                  <div className={styles.summaryValueRow}>
-                    <strong className={styles.summaryValue}>
-                      {overallProgressPercentage}%
-                    </strong>
-                    <span className={styles.summaryHelper}>
-                      {completedResourcesCount}/{totalResources} recursos
-                    </span>
-                  </div>
-                </article>
-
-                <article className={styles.summaryCard}>
-                  <p className={styles.summaryLabel}>Modulos completados</p>
-                  <div className={styles.summaryValueRow}>
-                    <strong className={styles.summaryValue}>
-                      {completedModulesCount}/{modules.length}
-                    </strong>
-                    <span className={styles.summaryHelper}>
-                      Cada modulo se recorre en una pantalla dedicada.
-                    </span>
-                  </div>
-                </article>
-
-                <article className={styles.summaryCard}>
-                  <p className={styles.summaryLabel}>Certificacion final</p>
-                  <div className={styles.summaryValueRow}>
-                    <strong className={styles.summaryValue}>
-                      {certification ? "Disponible" : "No incluida"}
-                    </strong>
-                    <span className={styles.summaryHelper}>
-                      {certification
-                        ? "Se habilita al completar toda la capacitacion."
-                        : "Esta ruta no incluye examen final."}
-                    </span>
-                  </div>
-                </article>
-              </section>
-
               {progressError && (
                 <div className="alert-error mt-4">{progressError}</div>
               )}
+              {examAttemptsError && (
+                <div className="alert-error mt-4">{examAttemptsError}</div>
+              )}
 
               <section className={styles.section}>
-                <div className="mb-6 flex items-center justify-between border-b-2 border-gray-200 pb-4">
-                  <h2 className={styles.sectionTitle}>Modulos</h2>
-                  <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">
-                    <BookOpen size={16} />
-                    {modules.length} {modules.length === 1 ? "modulo" : "modulos"}
-                  </span>
+                <div className="mb-6 border-b-2 border-gray-200 pb-4">
+                  <h2 className={styles.sectionTitle}>Contenido del curso</h2>
                 </div>
 
                 {modules.length === 0 && (
@@ -186,20 +169,35 @@ function CapacitacionDetalle() {
                   </p>
                 )}
 
-                {modules.length > 0 && (
+                {modules.length > 0 && !learningStateReady && (
+                  <div className={styles.feedbackCard}>
+                    Cargando avance de modulos...
+                  </div>
+                )}
+
+                {modules.length > 0 && learningStateReady && (
                   <div className="grid gap-5">
-                    {modules.map((module, moduleIndex) => {
+                    {orderedModules.map(({ module, moduleIndex }) => {
                       const moduleUnlocked = isModuleUnlocked(
                         moduleIndex,
                         modules,
-                        completedResourceIds
+                        completedResourceIds,
+                        approvedModuleIds
                       );
                       const moduleCompleted = isModuleCompleted(
                         module,
-                        completedResourceIds
+                        completedResourceIds,
+                        approvedModuleIds
                       );
                       const modulePath = getModuleRoute(capacitacion.id, moduleIndex);
-                      const resourceCount = module.recursos?.length ?? 0;
+                      const moduleStarted = (module.recursos ?? []).some((resource) =>
+                        isResourceCompleted(resource, completedResourceIds, module.id)
+                      );
+                      const moduleActionLabel = moduleCompleted
+                        ? "Revisar"
+                        : moduleStarted
+                        ? "Continuar"
+                        : "Comenzar";
                       const examReady = Array.isArray(module.preguntas)
                         ? module.preguntas.length > 0
                         : false;
@@ -207,10 +205,12 @@ function CapacitacionDetalle() {
                       return (
                         <article
                           key={module.id ?? `${capacitacion.id}-${moduleIndex}`}
-                          className={`rounded-2xl border p-6 shadow-sm transition ${
+                          className={`rounded-2xl border p-6 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-md ${
                             moduleCompleted
-                              ? "border-green-200 bg-green-50"
-                              : "border-gray-200 bg-white"
+                              ? "border-green-300 bg-gray-50"
+                              : moduleUnlocked
+                              ? "border-gray-200 bg-white"
+                              : "border-gray-200 bg-gray-100"
                           }`}
                         >
                           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -223,14 +223,14 @@ function CapacitacionDetalle() {
                                 {moduleCompleted && (
                                   <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
                                     <CheckCircle2 size={12} />
-                                    Completo
+                                    Completado
                                   </span>
                                 )}
 
                                 {!moduleCompleted && moduleUnlocked && (
                                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
                                     <PlayCircle size={12} />
-                                    En curso
+                                    En progreso
                                   </span>
                                 )}
 
@@ -253,28 +253,10 @@ function CapacitacionDetalle() {
                               )}
 
                               <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                                <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
-                                  <span className="font-semibold text-gray-900">
-                                    Recursos:
-                                  </span>{" "}
-                                  {resourceCount}
-                                </div>
-                                <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
-                                  <span className="font-semibold text-gray-900">
-                                    Examen:
-                                  </span>{" "}
-                                  {examReady ? "Disponible" : "Sin configurar"}
-                                </div>
-                                <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
-                                  <span className="font-semibold text-gray-900">
-                                    Estado:
-                                  </span>{" "}
-                                  {moduleCompleted
-                                    ? "Completado"
-                                    : moduleUnlocked
-                                    ? "Disponible"
-                                    : "Pendiente"}
-                                </div>
+                                <p className="text-sm text-gray-600">
+                                  {getModuleResourceSummary(module)}
+                                  {examReady ? " + evaluacion" : ""}
+                                </p>
                               </div>
                             </div>
 
@@ -284,7 +266,7 @@ function CapacitacionDetalle() {
                                   to={modulePath}
                                   className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700"
                                 >
-                                  Abrir modulo
+                                  {moduleActionLabel}
                                   <ArrowRight size={16} />
                                 </Link>
                               ) : (
@@ -302,37 +284,57 @@ function CapacitacionDetalle() {
               </section>
 
               <section className={styles.section}>
-                {certification ? (
-                  <div className="rounded-2xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-white p-8 shadow-md">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0 rounded-xl bg-green-500 p-3">
-                        <Award size={28} className="text-white" />
+                {certification && !learningStateReady ? (
+                  <div className={styles.feedbackCard}>
+                    Cargando estado de certificacion...
+                  </div>
+                ) : certification ? (
+                  <div
+                    className={`${styles.finalCertificationCard} ${
+                      capacitacionCompleted
+                        ? styles.finalCertificationAvailable
+                        : styles.finalCertificationLocked
+                    }`}
+                  >
+                    <div className={styles.finalCertificationInner}>
+                      <div className={styles.finalCertificationIcon}>
+                        <Award size={30} aria-hidden="true" />
                       </div>
-                      <div className="flex-1">
-                        <h2 className="text-2xl font-bold text-gray-900">
-                          Certificacion disponible
+                      <div className={styles.finalCertificationContent}>
+                        <div className={styles.finalCertificationHeader}>
+                          <span className={styles.finalCertificationBadge}>
+                            {capacitacionCompleted
+                              ? "Certificacion disponible"
+                              : "Bloqueada"}
+                          </span>
+                        </div>
+
+                        <h2 className={styles.finalCertificationTitle}>
+                          {capacitacionCompleted
+                            ? "Certificacion final disponible"
+                            : "Certificacion final"}
                         </h2>
-                        <p className="mt-2 leading-relaxed text-gray-700">
-                          Al completar todos los modulos, podras acceder al examen
-                          final para obtener tu certificado.
-                          {!capacitacionCompleted &&
-                            " Completa todos los recursos para habilitarlo."}
+
+                        <p className={styles.finalCertificationText}>
+                          {capacitacionCompleted
+                            ? "Ya podes acceder al examen final para obtener tu certificado."
+                            : "Completa y aproba todos los modulos para habilitar el examen final."}
                         </p>
 
-                        <div className="mt-6">
+                        <div className={styles.finalCertificationActions}>
                           {capacitacionCompleted ? (
                             <Link
                               to={`/certificaciones/${certification.id}`}
-                              className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-6 py-3 font-bold text-white shadow-md transition-colors hover:bg-green-700"
+                              className={styles.finalCertificationButton}
                             >
                               <Award size={18} />
-                              Realizar examen final
+                              Ir al examen final
                             </Link>
                           ) : (
                             <button
                               type="button"
                               disabled
-                              className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-gray-300 px-6 py-3 font-bold text-gray-700"
+                              className={styles.finalCertificationButtonDisabled}
                             >
                               <Lock size={18} />
                               Examen bloqueado

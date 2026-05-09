@@ -20,6 +20,13 @@ import {
   getCertificationPassingScore,
   getMinimumCorrectAnswers,
 } from "../utils/certifications";
+import {
+  abandonExamAttempt,
+  completeExamAttempt,
+  EXAM_TYPES,
+  getAttemptSummary,
+  startExamAttempt,
+} from "../../learning/services/examAttemptsService";
 import styles from "./CertificationExam.module.css";
 
 function shuffleQuestions(items) {
@@ -72,6 +79,11 @@ function CertificationExam() {
   const [stage, setStage] = useState("exam");
   const [examStarted, setExamStarted] = useState(false);
   const [secondsRemaining, setSecondsRemaining] = useState(null);
+  const [attemptSummary, setAttemptSummary] = useState(null);
+  const [activeAttempt, setActiveAttempt] = useState(null);
+  const [attemptError, setAttemptError] = useState("");
+  const [loadingAttempts, setLoadingAttempts] = useState(true);
+  const [savingAttempt, setSavingAttempt] = useState(false);
 
   const examQuestionCount = examQuestions.length;
   const passingScore = getCertificationPassingScore(certification);
@@ -81,6 +93,21 @@ function CertificationExam() {
   );
   const answeredQuestions = countAnsweredQuestions(examQuestions, answers);
   const durationMinutes = getCertificationDurationMinutes(certification);
+  const remainingAttempts = attemptSummary?.remainingAttempts ?? 3;
+  const maxAttempts = attemptSummary?.maxAttempts ?? 3;
+  const canStartAttempt = !attemptSummary || attemptSummary.canStart;
+
+  const getFinalAttemptParams = () => {
+    if (!certification?.id || !certification?.capacitacion_id) {
+      return null;
+    }
+
+    return {
+      tipoExamen: EXAM_TYPES.FINAL,
+      capacitacionId: certification.capacitacion_id,
+      certificacionId: certification.id,
+    };
+  };
 
   function resetExamState(nextCertification) {
     const generatedExam = buildExam(nextCertification);
@@ -108,9 +135,22 @@ function CertificationExam() {
     setStage("exam");
     setExamStarted(false);
     setSecondsRemaining(null);
+    setActiveAttempt(null);
   }
 
-  function finishExam({ isTimeExpired = false } = {}) {
+  async function refreshAttemptSummary() {
+    const params = getFinalAttemptParams();
+
+    if (!params) {
+      setAttemptSummary(null);
+      return;
+    }
+
+    const summary = await getAttemptSummary(params);
+    setAttemptSummary(summary);
+  }
+
+  async function finishExam({ isTimeExpired = false } = {}) {
     if (!certification || examQuestions.length === 0) {
       return;
     }
@@ -128,7 +168,26 @@ function CertificationExam() {
         : 0;
 
     setUiError("");
+    setSavingAttempt(true);
+
+    try {
+      if (activeAttempt?.id) {
+        await completeExamAttempt(activeAttempt.id, {
+          porcentaje: percentage,
+          aprobado: correctAnswers >= minimumCorrectAnswers,
+        });
+        await refreshAttemptSummary();
+      }
+    } catch (error) {
+      console.error("No se pudo completar el intento final", error);
+      setAttemptError("No se pudo guardar el resultado del intento.");
+    } finally {
+      setSavingAttempt(false);
+    }
+
     setStage("result");
+    setExamStarted(false);
+    setActiveAttempt(null);
     setResult({
       correctAnswers,
       answeredQuestions: countAnsweredQuestions(examQuestions, answers),
@@ -175,6 +234,46 @@ function CertificationExam() {
       ignore = true;
     };
   }, [certificationId]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadAttemptSummary = async () => {
+      const params = getFinalAttemptParams();
+
+      if (!params) {
+        setAttemptSummary(null);
+        setLoadingAttempts(false);
+        return;
+      }
+
+      setLoadingAttempts(true);
+      setAttemptError("");
+
+      try {
+        const summary = await getAttemptSummary(params);
+
+        if (!ignore) {
+          setAttemptSummary(summary);
+        }
+      } catch (error) {
+        if (!ignore) {
+          console.error("No se pudieron cargar los intentos finales", error);
+          setAttemptError("No se pudieron cargar tus intentos.");
+        }
+      } finally {
+        if (!ignore) {
+          setLoadingAttempts(false);
+        }
+      }
+    };
+
+    loadAttemptSummary();
+
+    return () => {
+      ignore = true;
+    };
+  }, [certification?.id, certification?.capacitacion_id]);
 
   useEffect(() => {
     let ignore = false;
@@ -292,16 +391,45 @@ function CertificationExam() {
     setUiError("");
   };
 
-  const handleRestartExam = () => {
+  const handleRestartExam = async () => {
     if (!certification) {
       return;
+    }
+
+    if (examStarted && activeAttempt?.id) {
+      setSavingAttempt(true);
+
+      try {
+        await abandonExamAttempt(activeAttempt.id);
+        await refreshAttemptSummary();
+      } catch (error) {
+        console.error("No se pudo abandonar el intento final", error);
+        setAttemptError("No se pudo registrar el intento abandonado.");
+      } finally {
+        setSavingAttempt(false);
+      }
     }
 
     resetExamState(certification);
   };
 
-  const handleStartExam = () => {
+  const handleStartExam = async () => {
     const nextDurationMinutes = getCertificationDurationMinutes(certification);
+    const params = getFinalAttemptParams();
+
+    setAttemptError("");
+    setSavingAttempt(true);
+
+    try {
+      const attempt = params ? await startExamAttempt(params) : null;
+
+      setActiveAttempt(attempt);
+    } catch (error) {
+      console.error("No se pudo iniciar el intento final", error);
+      setAttemptError(error?.message || "No se pudo iniciar el intento.");
+      setSavingAttempt(false);
+      return;
+    }
 
     setStage("exam");
     setUiError("");
@@ -310,6 +438,25 @@ function CertificationExam() {
       nextDurationMinutes > 0 ? nextDurationMinutes * 60 : null
     );
     setExamStarted(true);
+    setSavingAttempt(false);
+  };
+
+  const handleGoBack = async () => {
+    if (examStarted && activeAttempt?.id) {
+      setSavingAttempt(true);
+
+      try {
+        await abandonExamAttempt(activeAttempt.id);
+        await refreshAttemptSummary();
+      } catch (error) {
+        console.error("No se pudo abandonar el intento final", error);
+        setAttemptError("No se pudo registrar el intento abandonado.");
+      } finally {
+        setSavingAttempt(false);
+      }
+    }
+
+    navigate("/certificaciones");
   };
 
   const handleSubmitCertificateRequest = async (event) => {
@@ -368,12 +515,13 @@ function CertificationExam() {
       <section className="min-h-[70vh] bg-gray-50 px-4 py-16">
         <div className="mx-auto max-w-5xl">
           <div className="mb-8">
-            <Link
-              to="/certificaciones"
+            <button
+              type="button"
+              onClick={handleGoBack}
               className="text-sm font-semibold text-blue-600 hover:text-blue-700"
             >
               Volver a certificaciones
-            </Link>
+            </button>
           </div>
 
           {loading && (
@@ -432,15 +580,29 @@ function CertificationExam() {
                       agota, el sistema enviara automaticamente lo que tengas
                       contestado hasta ese momento.
                     </p>
+                    <p>
+                      Intentos disponibles: {remainingAttempts} de {maxAttempts}.
+                    </p>
                   </div>
+
+                  {attemptError && (
+                    <p className={styles.disclaimerError}>{attemptError}</p>
+                  )}
+
+                  {!canStartAttempt && (
+                    <p className={styles.disclaimerError}>
+                      Ya usaste los {maxAttempts} intentos disponibles.
+                    </p>
+                  )}
 
                   <div className={styles.disclaimerActions}>
                     <button
                       type="button"
                       className={styles.disclaimerPrimary}
+                      disabled={loadingAttempts || savingAttempt || !canStartAttempt}
                       onClick={handleStartExam}
                     >
-                      Aceptar y comenzar
+                      {canStartAttempt ? "Aceptar y comenzar" : "Intentos agotados"}
                     </button>
                     <button
                       type="button"
@@ -553,6 +715,7 @@ function CertificationExam() {
                     <button
                       type="button"
                       onClick={handleRestartExam}
+                      disabled={savingAttempt}
                       className="rounded-lg bg-gray-500 px-6 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-gray-600"
                     >
                       Reiniciar
@@ -624,9 +787,10 @@ function CertificationExam() {
                     <button
                       type="button"
                       onClick={() => finishExam()}
+                      disabled={savingAttempt}
                       className="rounded-lg bg-green-600 px-6 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700"
                     >
-                      Enviar examen
+                      {savingAttempt ? "Guardando..." : "Enviar examen"}
                     </button>
                   </div>
                 </div>
@@ -665,13 +829,21 @@ function CertificationExam() {
                   )}
 
                   <div className="mt-5 flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={handleRestartExam}
-                      className="rounded-lg bg-gray-800 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-gray-900"
-                    >
-                      Rendir nuevamente
-                    </button>
+                    {result.percentage < 100 && canStartAttempt && (
+                      <button
+                        type="button"
+                        onClick={handleRestartExam}
+                        className="rounded-lg bg-gray-800 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-gray-900"
+                      >
+                        Rendir nuevamente
+                      </button>
+                    )}
+
+                    {result.percentage < 100 && !canStartAttempt && (
+                      <span className="rounded-lg bg-gray-100 px-5 py-3 text-sm font-semibold text-gray-600">
+                        Intentos agotados
+                      </span>
+                    )}
 
                     <Link
                       to="/certificaciones"

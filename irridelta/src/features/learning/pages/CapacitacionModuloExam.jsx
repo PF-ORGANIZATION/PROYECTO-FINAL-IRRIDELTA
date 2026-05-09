@@ -1,27 +1,55 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft, Lock } from "lucide-react";
 import ModuleExam from "../components/ModuleExam";
 import useCapacitacionProgress from "../hooks/useCapacitacionProgress";
 import { isModuleUnlocked } from "../services/learningProgressService";
-import { getModuleRoute, parseModuleIndex } from "../utils/learningRuntime";
+import { EXAM_TYPES } from "../services/examAttemptsService";
+import {
+  areModuleResourcesCompleted,
+  getModuleRoute,
+  parseModuleIndex,
+} from "../utils/learningRuntime";
 
 function CapacitacionModuloExam() {
   const { capacitacionId, moduloIndex: moduloIndexParam } = useParams();
   const navigate = useNavigate();
   const moduleIndex = parseModuleIndex(moduloIndexParam);
-  const { capacitacion, completedResourceIds, loading, error } =
+  const {
+    capacitacion,
+    completedResourceIds,
+    approvedModuleIds,
+    loading,
+    loadingProgress,
+    loadingExamAttempts,
+    error,
+  } =
     useCapacitacionProgress(capacitacionId, { onlyPublished: true });
 
   const modules = capacitacion?.modulos ?? [];
   const module = moduleIndex >= 0 ? modules[moduleIndex] : null;
   const moduleUnlocked =
     moduleIndex >= 0
-      ? isModuleUnlocked(moduleIndex, modules, completedResourceIds)
+      ? isModuleUnlocked(moduleIndex, modules, completedResourceIds, approvedModuleIds)
       : false;
+  const learningStateReady = !loadingProgress && !loadingExamAttempts;
+  const moduleResourcesCompleted =
+    learningStateReady && areModuleResourcesCompleted(module, completedResourceIds);
   const modulePath =
     moduleIndex >= 0 ? getModuleRoute(capacitacionId, moduleIndex) : null;
+  const capacitacionPath = `/capacitaciones/${capacitacionId}`;
+  const attemptParams = useMemo(
+    () =>
+      module?.id
+        ? {
+            tipoExamen: EXAM_TYPES.MODULO,
+            capacitacionId,
+            moduloId: module.id,
+          }
+        : null,
+    [capacitacionId, module?.id]
+  );
   const pageTitle = module
     ? `Examen | ${module.titulo} | IRRIDELTA`
     : "Examen de modulo | IRRIDELTA";
@@ -58,7 +86,13 @@ function CapacitacionModuloExam() {
             </div>
           )}
 
-          {!loading && !error && module && !moduleUnlocked && (
+          {!loading && !error && module && !learningStateReady && (
+            <div className="rounded-2xl bg-white p-8 text-center text-gray-600 shadow-md">
+              Cargando avance del modulo...
+            </div>
+          )}
+
+          {!loading && !error && module && learningStateReady && !moduleUnlocked && (
             <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center shadow-md">
               <div className="mx-auto mb-4 inline-flex rounded-full bg-gray-100 p-4">
                 <Lock size={30} className="text-gray-500" />
@@ -72,7 +106,21 @@ function CapacitacionModuloExam() {
             </div>
           )}
 
-          {!loading && !error && module && moduleUnlocked && (
+          {!loading && !error && module && learningStateReady && moduleUnlocked && !moduleResourcesCompleted && (
+            <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center shadow-md">
+              <div className="mx-auto mb-4 inline-flex rounded-full bg-gray-100 p-4">
+                <Lock size={30} className="text-gray-500" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Este examen todavia esta bloqueado
+              </h1>
+              <p className="mt-3 text-gray-600">
+                Completa todos los recursos del modulo para habilitar el examen.
+              </p>
+            </div>
+          )}
+
+          {!loading && !error && module && learningStateReady && moduleUnlocked && moduleResourcesCompleted && (
             <ModuleExam
               module={module}
               isUnlocked={moduleUnlocked}
@@ -81,6 +129,8 @@ function CapacitacionModuloExam() {
               variant="standalone"
               courseTitle={capacitacion?.titulo}
               onExit={() => navigate(modulePath)}
+              onResultExit={() => navigate(capacitacionPath)}
+              attemptParams={attemptParams}
             />
           )}
         </div>

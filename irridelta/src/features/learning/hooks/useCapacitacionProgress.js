@@ -3,8 +3,14 @@ import { fetchLearningItemById } from "../services/learningContentService";
 import {
   fetchUserLearningProgress,
   getCompletedResourceIds,
+  isResourceCompleted,
   markResourceAsCompleted as saveResourceProgress,
 } from "../services/learningProgressService";
+import {
+  EXAM_ATTEMPT_STATUS,
+  EXAM_TYPES,
+  fetchExamAttempts,
+} from "../services/examAttemptsService";
 
 function useCapacitacionProgress(capacitacionId, options = {}) {
   const { onlyPublished = true } = options;
@@ -14,6 +20,9 @@ function useCapacitacionProgress(capacitacionId, options = {}) {
   const [loadingProgress, setLoadingProgress] = useState(true);
   const [error, setError] = useState("");
   const [progressError, setProgressError] = useState("");
+  const [examAttempts, setExamAttempts] = useState([]);
+  const [loadingExamAttempts, setLoadingExamAttempts] = useState(true);
+  const [examAttemptsError, setExamAttemptsError] = useState("");
   const [savingResourceId, setSavingResourceId] = useState(null);
   const [automaticTrackingResourceIds, setAutomaticTrackingResourceIds] =
     useState(() => new Set());
@@ -84,9 +93,60 @@ function useCapacitacionProgress(capacitacionId, options = {}) {
     };
   }, [capacitacionId]);
 
+  useEffect(() => {
+    let ignore = false;
+
+    const loadExamAttempts = async () => {
+      setLoadingExamAttempts(true);
+      setExamAttemptsError("");
+
+      try {
+        const data = await fetchExamAttempts({
+          tipoExamen: EXAM_TYPES.MODULO,
+          capacitacionId,
+        });
+
+        if (!ignore) {
+          setExamAttempts(data);
+        }
+      } catch (loadError) {
+        if (!ignore) {
+          console.error("No se pudieron cargar los examenes de modulo", loadError);
+          setExamAttemptsError("No se pudo cargar el avance de evaluaciones.");
+        }
+      } finally {
+        if (!ignore) {
+          setLoadingExamAttempts(false);
+        }
+      }
+    };
+
+    loadExamAttempts();
+
+    return () => {
+      ignore = true;
+    };
+  }, [capacitacionId]);
+
   const completedResourceIds = useMemo(
     () => getCompletedResourceIds(progressItems),
     [progressItems]
+  );
+
+  const approvedModuleIds = useMemo(
+    () =>
+      new Set(
+        (examAttempts ?? [])
+          .filter(
+            (attempt) =>
+              attempt.tipo_examen === EXAM_TYPES.MODULO &&
+              attempt.estado === EXAM_ATTEMPT_STATUS.COMPLETED &&
+              attempt.aprobado &&
+              attempt.modulo_id
+          )
+          .map((attempt) => attempt.modulo_id)
+      ),
+    [examAttempts]
   );
 
   const setTrackingReady = (resourceId, isReady) => {
@@ -108,7 +168,15 @@ function useCapacitacionProgress(capacitacionId, options = {}) {
       return;
     }
 
-    if (completedResourceIds.has(resource.id) || savingResourceId === resource.id) {
+    if (!module?.id || !resource?.id) {
+      setProgressError("No se pudo identificar el recurso.");
+      return;
+    }
+
+    if (
+      isResourceCompleted(resource, completedResourceIds, module.id) ||
+      savingResourceId === resource.id
+    ) {
       return;
     }
 
@@ -124,12 +192,15 @@ function useCapacitacionProgress(capacitacionId, options = {}) {
 
       setProgressItems((currentItems) => {
         const existingItem = currentItems.find(
-          (item) => item.recurso_id === resource.id
+          (item) =>
+            item.modulo_id === module.id && item.recurso_id === resource.id
         );
 
         if (existingItem) {
           return currentItems.map((item) =>
-            item.recurso_id === resource.id ? savedProgress : item
+            item.modulo_id === module.id && item.recurso_id === resource.id
+              ? savedProgress
+              : item
           );
         }
 
@@ -146,11 +217,15 @@ function useCapacitacionProgress(capacitacionId, options = {}) {
   return {
     capacitacion,
     progressItems,
+    examAttempts,
     completedResourceIds,
+    approvedModuleIds,
     loading,
     loadingProgress,
+    loadingExamAttempts,
     error,
     progressError,
+    examAttemptsError,
     savingResourceId,
     automaticTrackingResourceIds,
     markResourceAsCompleted,
