@@ -14,6 +14,7 @@ import {
   isModuleUnlocked,
   isResourceCompleted,
 } from "../services/learningProgressService";
+import { generateSlug } from "../services/learningContentService";
 import useCapacitacionProgress from "../hooks/useCapacitacionProgress";
 import {
   getModuleRoute,
@@ -40,7 +41,7 @@ function getModuleResourceSummary(module) {
 }
 
 function CapacitacionDetalle() {
-  const { capacitacionId } = useParams();
+  const { capacitacionSlug } = useParams();
   const role = useSessionStore((state) => state.role);
   const onlyPublished = role !== USER_ROLES.ADMIN;
   const {
@@ -52,7 +53,7 @@ function CapacitacionDetalle() {
     error,
     progressError,
     examAttemptsError,
-  } = useCapacitacionProgress(capacitacionId, { onlyPublished });
+  } = useCapacitacionProgress(capacitacionSlug, { onlyPublished });
 
   const modules = capacitacion?.modulos ?? [];
   const certification = capacitacion?.certificacion ?? null;
@@ -190,7 +191,7 @@ function CapacitacionDetalle() {
                         module,
                         completedResourceIds
                       );
-                      const modulePath = getModuleRoute(capacitacion.id, moduleIndex);
+                      const modulePath = getModuleRoute(generateSlug(capacitacion.titulo), moduleIndex);
                       const moduleStarted = (module.recursos ?? []).some((resource) =>
                         isResourceCompleted(resource, completedResourceIds, module.id)
                       );

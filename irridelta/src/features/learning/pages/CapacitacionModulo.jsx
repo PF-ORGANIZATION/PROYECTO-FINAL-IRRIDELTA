@@ -29,11 +29,12 @@ import {
   isModuleCompleted,
   parseModuleIndex,
 } from "../utils/learningRuntime";
+import { generateSlug } from "../services/learningContentService";
 import { USER_ROLES } from "../../auth/authRoles";
 import { useSessionStore } from "../../../store/sessionStore";
 
 function CapacitacionModulo() {
-  const { capacitacionId, moduloIndex: moduloIndexParam } = useParams();
+  const { capacitacionSlug, moduloIndex: moduloIndexParam } = useParams();
   const moduleIndex = parseModuleIndex(moduloIndexParam);
   const role = useSessionStore((state) => state.role);
   const onlyPublished = role !== USER_ROLES.ADMIN;
@@ -49,7 +50,7 @@ function CapacitacionModulo() {
     savingResourceId,
     markResourceAsCompleted,
     setTrackingReady,
-  } = useCapacitacionProgress(capacitacionId, { onlyPublished });
+  } = useCapacitacionProgress(capacitacionSlug, { onlyPublished });
 
   const modules = capacitacion?.modulos ?? [];
   const certification = capacitacion?.certificacion ?? null;
@@ -62,14 +63,14 @@ function CapacitacionModulo() {
     ? isModuleCompleted(module, completedResourceIds)
     : false;
   const previousModulePath =
-    moduleIndex > 0 ? getModuleRoute(capacitacionId, moduleIndex - 1) : null;
+    moduleIndex > 0 ? getModuleRoute(generateSlug(capacitacion?.titulo), moduleIndex - 1) : null;
   const nextModuleIndex = moduleIndex + 1;
   const hasNextModule = nextModuleIndex < modules.length;
   const nextModuleUnlocked = hasNextModule
     ? isModuleUnlocked(nextModuleIndex, modules, completedResourceIds)
     : false;
   const nextModulePath = hasNextModule
-    ? getModuleRoute(capacitacionId, nextModuleIndex)
+    ? getModuleRoute(generateSlug(capacitacion?.titulo), nextModuleIndex)
     : null;
   const moduleResources = module?.recursos ?? [];
   const learningStateReady = !loadingProgress && !loadingExamAttempts;
@@ -118,7 +119,7 @@ function CapacitacionModulo() {
       <section className="learning-page">
         <div className="learning-container">
           <Link
-            to={`/capacitaciones/${capacitacionId}`}
+            to={`/capacitaciones/${generateSlug(capacitacion?.titulo)}`}
             className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-green-700 hover:text-green-600"
           >
             <ChevronLeft size={18} />
@@ -383,16 +384,17 @@ function CapacitacionModulo() {
                   </div>
 
                   {moduleResourcesCompleted ? (
-                    <ModuleExam
-                      module={module}
-                      isUnlocked={moduleResourcesCompleted}
-                      disabled={!moduleResourcesCompleted}
-                      variant="inline"
-                      courseTitle={capacitacion?.titulo}
-                    />
+                    <div className="text-center">
+                      <Link
+                        to={`/capacitaciones/${generateSlug(capacitacion?.titulo)}/modulos/${moduloIndexParam}/examen`}
+                        className="learning-button inline-flex items-center gap-2"
+                      >
+                        Realizar autoevaluacion
+                      </Link>
+                    </div>
                   ) : (
                     <div className="rounded-xl bg-gray-50 px-4 py-4 text-sm font-semibold text-gray-600">
-                      Completa los recursos del modulo para responder la
+                      Completa los recursos del modulo para acceder a la
                       autoevaluacion.
                     </div>
                   )}
