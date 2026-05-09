@@ -23,14 +23,11 @@ export function getResourceLabel(resource) {
 export function areModuleResourcesCompleted(module, completedResourceIds) {
   const resources = module?.recursos ?? [];
 
-  return (
-    resources.length > 0 &&
-    resources.every(
-      (resource) =>
-        Boolean(module?.id) &&
-        Boolean(resource?.id) &&
-        completedResourceIds.has(`${module.id}:${resource.id}`)
-    )
+  return resources.every(
+    (resource) =>
+      Boolean(module?.id) &&
+      Boolean(resource?.id) &&
+      completedResourceIds.has(`${module.id}:${resource.id}`)
   );
 }
 

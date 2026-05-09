@@ -41,11 +41,9 @@ function getItemProgress(item, progressItems = [], examAttempts = []) {
   const completedModules = modules.filter((module) => {
     const resources = getModuleResources(module);
     const hasExam = Array.isArray(module?.preguntas) && module.preguntas.length > 0;
-    const resourcesCompleted =
-      resources.length > 0 &&
-      resources.every((resource) =>
-        isResourceCompleted(resource, completedResourceIds, module.id)
-      );
+    const resourcesCompleted = resources.every((resource) =>
+      isResourceCompleted(resource, completedResourceIds, module.id)
+    );
 
     return resourcesCompleted && (!hasExam || approvedModuleIds.has(module.id));
   }).length;

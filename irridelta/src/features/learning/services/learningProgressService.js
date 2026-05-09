@@ -26,11 +26,9 @@ function getModuleResources(module) {
 function isModuleCompleted(module, completedResourceIds, approvedModuleIds = new Set()) {
   const resources = getModuleResources(module);
   const hasExam = Array.isArray(module?.preguntas) && module.preguntas.length > 0;
-  const resourcesCompleted =
-    resources.length > 0 &&
-    resources.every((resource) =>
-      isResourceCompleted(resource, completedResourceIds, module.id)
-    );
+  const resourcesCompleted = resources.every((resource) =>
+    isResourceCompleted(resource, completedResourceIds, module.id)
+  );
 
   if (!resourcesCompleted) {
     return false;
@@ -189,18 +187,18 @@ export function isCapacitacionCompleted(
   completedResourceIds,
   approvedModuleIds = new Set()
 ) {
-  const allResources = (modules ?? []).flatMap((module) =>
-    getModuleResources(module)
-  );
+  const moduleList = modules ?? [];
 
-  if (allResources.length === 0) {
+  if (moduleList.length === 0) {
     return false;
   }
 
-  const resourcesCompleted = allResources.every((resource) =>
-    isResourceCompleted(resource, completedResourceIds, resource.modulo_id)
+  const resourcesCompleted = moduleList.every((module) =>
+    getModuleResources(module).every((resource) =>
+      isResourceCompleted(resource, completedResourceIds, module.id)
+    )
   );
-  const moduleExamsApproved = (modules ?? []).every((module) => {
+  const moduleExamsApproved = moduleList.every((module) => {
     const hasExam = Array.isArray(module?.preguntas) && module.preguntas.length > 0;
 
     return !hasExam || approvedModuleIds.has(module.id);
