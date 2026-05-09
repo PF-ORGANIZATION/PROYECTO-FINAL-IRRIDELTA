@@ -1,6 +1,6 @@
 .card {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18rem;
   min-height: 100%;
   gap: 1.25rem;
   padding: 1.75rem;
@@ -37,9 +37,9 @@
 }
 
 .cardCompleted {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
-  box-shadow: var(--shadow-md);
+  border-color: #d1d5db;
+  background: #f3f4f6;
+  box-shadow: var(--shadow-sm);
 }
 
 .cardCompleted .title,
@@ -48,12 +48,12 @@
 }
 
 .cardCompleted:hover {
-  border-color: #86efac;
-  box-shadow: var(--shadow-lg);
+  border-color: #cbd5e1;
+  box-shadow: var(--shadow-md);
 }
 
 .cardCompleted .title {
-  color: #059669;
+  color: #4b5563;
 }
 
 .topRow {
@@ -61,6 +61,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  grid-column: 1;
 }
 
 .eyebrow {
@@ -72,6 +73,7 @@
 }
 
 .content {
+  grid-column: 1;
   flex: 1;
 }
 
@@ -96,6 +98,8 @@
   display: grid;
   gap: 0.75rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 
 .summaryCard {
@@ -127,6 +131,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  grid-column: 1;
 }
 
 .metaItem {
@@ -150,6 +155,7 @@
 .progressBlock {
   display: grid;
   gap: 0.75rem;
+  grid-column: 1;
 }
 
 .progressHeader {
@@ -186,9 +192,9 @@
 }
 
 .en-progreso {
-  background: #ecfdf5;
-  color: var(--color-primary-hover);
-  border: 1px solid #bbf7d0;
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fcd34d;
 }
 
 .completado {
@@ -223,7 +229,8 @@
   gap: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px solid #e5e7eb;
-  margin-top: auto;
+  grid-column: 2;
+  align-self: end;
 }
 
 .detailLink {
@@ -249,6 +256,18 @@
 
 .detailLink:active {
   transform: translateY(0);
+}
+
+@media (max-width: 900px) {
+  .card {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryGrid,
+  .footer {
+    grid-column: 1;
+    grid-row: auto;
+  }
 }
 
 @media (max-width: 640px) {

@@ -242,3 +242,56 @@ Purpose:
 - Enable locked/unlocked resource flow in the frontend.
 - Support UX progression (sequential learning).
 - Allow enabling final certification only when all required content is completed.
+
+## Exam Attempts
+
+Table: `exam_attempts`
+
+This table tracks user attempts for module exams and final certification exams.
+
+### Purpose
+
+- Limit number of attempts per user
+- Store results and scores
+- Track started, completed, or abandoned attempts
+- Enable UX logic such as remaining attempts and retry visibility
+
+### Important columns
+
+- `user_id`
+- `capacitacion_id`
+- `modulo_id`
+- `certificacion_id`
+- `tipo_examen`
+- `intento_numero`
+- `max_intentos`
+- `estado`
+- `porcentaje`
+- `aprobado`
+- `fecha_inicio`
+- `fecha_fin`
+
+### Business rules
+
+- `tipo_examen` can be `modulo` or `final`
+- Default maximum attempts is 3
+- `estado` can be:
+  - `iniciado`
+  - `completado`
+  - `abandonado`
+- Each attempt is uniquely identified per user and exam
+- If a user gets the maximum score, retries should be disabled in the frontend
+- Attempts must be recorded even if the user abandons the exam
+
+### Security (RLS)
+
+- Users can only read their own attempts
+- Users can only insert their own attempts
+- Users can only update their own attempts
+
+### UX impact
+
+- Show remaining attempts to the user
+- Block exam when attempts are exhausted
+- Hide "Intentar de nuevo" when the user reaches max score
+- Enable retry logic only when allowed
