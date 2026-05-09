@@ -19,6 +19,7 @@ supabase/setup.sql
 scripts/make-admin.mjs
 make-admin.mjs
 make-admin.js
+scripts
 
 
 

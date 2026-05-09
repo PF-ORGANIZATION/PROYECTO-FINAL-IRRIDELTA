@@ -138,6 +138,41 @@ function useCapacitacionProgress(capacitacionIdOrSlug, options = {}) {
     };
   }, [capacitacion?.id]);
 
+  useEffect(() => {
+    let ignore = false;
+
+    const loadExamAttempts = async () => {
+      setLoadingExamAttempts(true);
+      setExamAttemptsError("");
+
+      try {
+        const data = await fetchExamAttempts({
+          tipoExamen: EXAM_TYPES.MODULO,
+          capacitacionId,
+        });
+
+        if (!ignore) {
+          setExamAttempts(data);
+        }
+      } catch (loadError) {
+        if (!ignore) {
+          console.error("No se pudieron cargar los examenes de modulo", loadError);
+          setExamAttemptsError("No se pudo cargar el avance de evaluaciones.");
+        }
+      } finally {
+        if (!ignore) {
+          setLoadingExamAttempts(false);
+        }
+      }
+    };
+
+    loadExamAttempts();
+
+    return () => {
+      ignore = true;
+    };
+  }, [capacitacionId]);
+
   const completedResourceIds = useMemo(
     () => getCompletedResourceIds(progressItems),
     [progressItems]
