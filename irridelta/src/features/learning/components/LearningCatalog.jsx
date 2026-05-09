@@ -6,11 +6,6 @@ import {
   getCompletedResourceIds,
   isResourceCompleted,
 } from "../services/learningProgressService";
-import {
-  EXAM_ATTEMPT_STATUS,
-  EXAM_TYPES,
-  fetchExamAttempts,
-} from "../services/examAttemptsService";
 import LearningItemPreviewCard from "./LearningItemPreviewCard";
 import styles from "./LearningCatalog.module.css";
 
@@ -25,27 +20,14 @@ function getModuleResources(module) {
   return module?.recursos ?? [];
 }
 
-function getItemProgress(item, progressItems = [], examAttempts = []) {
+function getItemProgress(item, progressItems = []) {
   const modules = item?.modulos ?? [];
   const completedResourceIds = getCompletedResourceIds(progressItems);
-  const approvedModuleIds = new Set(
-    examAttempts
-      .filter(
-        (attempt) =>
-          attempt.estado === EXAM_ATTEMPT_STATUS.COMPLETED &&
-          attempt.aprobado &&
-          attempt.modulo_id
-      )
-      .map((attempt) => attempt.modulo_id)
-  );
   const completedModules = modules.filter((module) => {
     const resources = getModuleResources(module);
-    const hasExam = Array.isArray(module?.preguntas) && module.preguntas.length > 0;
-    const resourcesCompleted = resources.every((resource) =>
+    return resources.every((resource) =>
       isResourceCompleted(resource, completedResourceIds, module.id)
     );
-
-    return resourcesCompleted && (!hasExam || approvedModuleIds.has(module.id));
   }).length;
   const totalModules = modules.length;
   const progressPercentage =
@@ -88,7 +70,6 @@ function matchesSearch(item, query) {
 function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
   const [items, setItems] = useState([]);
   const [progressByItemId, setProgressByItemId] = useState({});
-  const [attemptsByItemId, setAttemptsByItemId] = useState({});
   const [activeFilter, setActiveFilter] = useState(FILTERS.ALL);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -119,32 +100,11 @@ function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
               return [item.id, progress];
             })
           );
-          const attemptEntries = await Promise.all(
-            data.map(async (item) => {
-              try {
-                const attempts = await fetchExamAttempts({
-                  tipoExamen: EXAM_TYPES.MODULO,
-                  capacitacionId: item.id,
-                });
-
-                return [item.id, attempts];
-              } catch (attemptError) {
-                console.error(
-                  "No se pudieron cargar los intentos de modulo",
-                  attemptError
-                );
-                return [item.id, []];
-              }
-            })
-          );
-
           if (!ignore) {
             setProgressByItemId(Object.fromEntries(progressEntries));
-            setAttemptsByItemId(Object.fromEntries(attemptEntries));
           }
         } else if (!ignore) {
           setProgressByItemId({});
-          setAttemptsByItemId({});
         }
       } catch (loadError) {
         if (!ignore) {
@@ -174,11 +134,10 @@ function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
         item,
         progress: getItemProgress(
           item,
-          progressByItemId[item.id] ?? [],
-          attemptsByItemId[item.id] ?? []
+          progressByItemId[item.id] ?? []
         ),
       })),
-    [attemptsByItemId, items, progressByItemId]
+    [items, progressByItemId]
   );
 
   const searchQuery = search.trim().toLowerCase();

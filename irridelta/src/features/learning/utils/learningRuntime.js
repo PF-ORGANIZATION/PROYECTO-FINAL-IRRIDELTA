@@ -31,15 +31,8 @@ export function areModuleResourcesCompleted(module, completedResourceIds) {
   );
 }
 
-export function isModuleCompleted(module, completedResourceIds, approvedModuleIds = new Set()) {
-  const hasExam = Array.isArray(module?.preguntas) && module.preguntas.length > 0;
-  const resourcesCompleted = areModuleResourcesCompleted(module, completedResourceIds);
-
-  if (!resourcesCompleted) {
-    return false;
-  }
-
-  return !hasExam || approvedModuleIds.has(module.id);
+export function isModuleCompleted(module, completedResourceIds) {
+  return areModuleResourcesCompleted(module, completedResourceIds);
 }
 
 export function parseModuleIndex(moduleIndexParam) {

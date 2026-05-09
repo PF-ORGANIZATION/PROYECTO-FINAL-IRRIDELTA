@@ -45,7 +45,6 @@ function CapacitacionDetalle() {
   const {
     capacitacion,
     completedResourceIds,
-    approvedModuleIds,
     loading,
     loadingProgress,
     loadingExamAttempts,
@@ -59,23 +58,18 @@ function CapacitacionDetalle() {
   const learningStateReady = !loadingProgress && !loadingExamAttempts;
   const totalModules = modules.length;
   const completedModulesCount = modules.filter((module) =>
-    isModuleCompleted(module, completedResourceIds, approvedModuleIds)
+    isModuleCompleted(module, completedResourceIds)
   ).length;
   const overallProgressPercentage =
     learningStateReady && totalModules > 0
       ? Math.round((completedModulesCount / totalModules) * 100)
       : 0;
-  const capacitacionCompleted = isCapacitacionCompleted(
-    modules,
-    completedResourceIds,
-    approvedModuleIds
-  );
+  const capacitacionCompleted = isCapacitacionCompleted(modules, completedResourceIds);
   const orderedModules = modules
     .map((module, moduleIndex) => {
       const moduleCompleted = isModuleCompleted(
         module,
-        completedResourceIds,
-        approvedModuleIds
+        completedResourceIds
       );
       const moduleStarted = (module.recursos ?? []).some((resource) =>
         isResourceCompleted(resource, completedResourceIds, module.id)
@@ -185,13 +179,11 @@ function CapacitacionDetalle() {
                       const moduleUnlocked = isModuleUnlocked(
                         moduleIndex,
                         modules,
-                        completedResourceIds,
-                        approvedModuleIds
+                        completedResourceIds
                       );
                       const moduleCompleted = isModuleCompleted(
                         module,
-                        completedResourceIds,
-                        approvedModuleIds
+                        completedResourceIds
                       );
                       const modulePath = getModuleRoute(capacitacion.id, moduleIndex);
                       const moduleStarted = (module.recursos ?? []).some((resource) =>
@@ -322,7 +314,7 @@ function CapacitacionDetalle() {
                         <p className={styles.finalCertificationText}>
                           {capacitacionCompleted
                             ? "Ya podes acceder al examen final para obtener tu certificado."
-                            : "Completa y aproba todos los modulos para habilitar el examen final."}
+                            : "Completa todos los modulos para habilitar el examen final."}
                         </p>
 
                         <div className={styles.finalCertificationActions}>
