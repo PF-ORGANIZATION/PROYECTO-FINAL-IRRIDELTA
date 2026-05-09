@@ -80,7 +80,7 @@ Business rules:
 - Allowed MVP file extensions: `pdf`, `docx`, `pptx`, `xlsx`, `jpg`, `png`, `mp4`.
 - No resource reuse is implemented.
 - No upload progress is implemented.
-- Certificate PDF generation is not implemented.
+- Certificate PNG and PDF generation are implemented in-browser from the certificate canvas.
 
 ## Current Implementation Notes
 
@@ -98,6 +98,14 @@ Current admin UX choices:
 - The editor warns about unsaved changes before leaving the page and on browser refresh or close.
 - Admin navigation is grouped under a single `Admin` dropdown in the top navbar instead of three separate top-level links.
 - For detailed implementation notes on this module, read `docs/LEARNING_MODULES.md` before changing capacitaciones admin behavior.
+
+Current certification review behavior:
+
+- Admin users can access the learning and certification routes, including unpublished capacitaciones, for validation.
+- Module and final exams persist answer detail and duration in `exam_attempts`.
+- Certificate requests keep `exam_attempt_id` so `/admin/certificaciones` can show the exact submitted exam.
+- The admin certification panel can open a modal with question-by-question answers before approving or rejecting.
+- The certificate request flow does not send email notifications.
 
 If this grows, consider moving multi-step database writes into a Supabase RPC or Postgres function so the database changes can be transactional. Storage uploads still need careful cleanup and rollback behavior because object storage and database writes are not one atomic operation.
 
