@@ -27,6 +27,8 @@ Esta aplicación ofrece:
 - Una web pública con páginas de Inicio, Productos, Nosotros, Sucursales y Contacto.
 - Integración con Supabase para cargar productos y categorías.
 - Un panel de administración protegido por login para crear, editar y eliminar productos y categorías.
+- Capacitaciones con modulos, recursos, examenes por modulo y evaluacion final.
+- Solicitudes de certificado con revision admin, descarga PNG/PDF y previsualizacion del examen rendido.
 - Enlace de contacto por WhatsApp desde la página de productos.
 
 ## 🧩 Tecnologías principales
@@ -125,7 +127,21 @@ La app usa join para mostrar la categoría asociada a cada producto.
 
 - Ruta de login: `/login`
 - Ruta admin protegida: `/admin/productos`
+- Ruta admin de capacitaciones: `/admin/capacitaciones`
+- Ruta admin de certificaciones: `/admin/certificaciones`
 - El login actual compara usuario y contraseña con las variables de entorno.
+
+## Capacitaciones y certificaciones
+
+- Los usuarios `cliente` y `admin` pueden navegar capacitaciones y certificaciones.
+- Los usuarios `admin` pueden ver tambien capacitaciones no publicadas desde las rutas de aprendizaje.
+- Los recursos de un modulo se marcan como completados y habilitan el examen del modulo.
+- Los modulos sin recursos pueden considerarse completos si el examen requerido esta aprobado.
+- Los intentos de examen guardan porcentaje, aprobacion, duracion y detalle de respuestas.
+- La solicitud de certificado queda vinculada al intento final aprobado mediante `exam_attempt_id`.
+- En `/admin/certificaciones`, el administrador puede revisar resultado, tiempo, respuestas correctas y detalle pregunta por pregunta antes de aprobar o rechazar.
+- El certificado aprobado se puede descargar como PNG o PDF desde el navegador.
+- No hay envio de email en el flujo actual de solicitudes de certificado.
 
 ## 📌 Notas adicionales
 

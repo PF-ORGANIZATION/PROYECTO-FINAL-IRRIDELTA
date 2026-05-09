@@ -15,6 +15,7 @@ Una `capacitacion` es un contenido de formacion armado desde el panel admin. Cad
 - Una prueba final obligatoria, guardada como certificacion asociada a la capacitacion.
 
 Del lado cliente, solo se muestran capacitaciones publicadas. Las certificaciones finales visibles tambien salen de capacitaciones publicadas.
+Del lado admin, las rutas de aprendizaje usan `onlyPublished = false` para cargar tambien borradores y capacitaciones no publicadas.
 
 ## Rutas Principales
 
@@ -27,6 +28,7 @@ Del lado cliente, solo se muestran capacitaciones publicadas. Las certificacione
 - `/admin/certificaciones`: solicitudes de certificados.
 
 El acceso admin esta protegido por `ProtectedRoute` en `src/App.jsx` y por `USER_ROLES.ADMIN`.
+Las rutas cliente de capacitaciones y certificaciones tambien aceptan `USER_ROLES.ADMIN`, para que administradores puedan revisar el flujo publicado o borradores sin cambiar de cuenta.
 
 ## Navegacion Admin
 
@@ -193,6 +195,22 @@ Campos importantes:
 
 `CertificationExam.jsx` usa `getCertificationExamQuestionCount(certification)` para decidir cuantas preguntas rendir y toma preguntas aleatorias con `shuffleQuestions(...).slice(0, totalQuestions)`.
 
+## Intentos Y Detalle De Examen
+
+Los examenes de modulo y la prueba final registran intentos en `exam_attempts`.
+
+Al completar un intento se guardan:
+
+- `porcentaje`: resultado final.
+- `aprobado`: booleano de aprobacion.
+- `fecha_fin`: cierre del intento.
+- `duracion_segundos`: diferencia entre `fecha_inicio` y el momento de entrega.
+- `respuestas_detalle`: snapshot JSON de preguntas, opciones mostradas, respuesta del usuario, respuesta correcta y si fue correcta.
+
+`ModuleExam.jsx` arma `respuestas_detalle` respetando las opciones mezcladas que vio el usuario. `CertificationExam.jsx` hace lo mismo para la evaluacion final y ademas expone `attemptId` en el resultado aprobado.
+
+Los modulos sin recursos ya no quedan bloqueados por falta de recursos: `areModuleResourcesCompleted`, `isModuleCompleted` e `isCapacitacionCompleted` consideran completa la parte de recursos si el array esta vacio. Si el modulo tiene examen, igual requiere intento aprobado.
+
 ## Importar Preguntas Desde Modulos
 
 La tab `Evaluacion final` permite importar preguntas listas desde modulos.
@@ -234,20 +252,23 @@ Flujo MVP:
 2. Si aprueba, ve `Obtener certificado`.
 3. Completa `Nombre y apellido`.
 4. `certificationRequestService.js` crea una fila en `certification_requests` con `status = pending`.
-5. El admin entra a `/admin/certificaciones`.
-6. Ve solicitudes pendientes, aprobadas y rechazadas.
-7. El admin puede aprobar.
-8. El admin puede rechazar con motivo.
-9. Si se rechaza, el cliente puede volver a solicitar.
-10. Si se aprueba, se puede descargar PNG o PDF.
+5. La solicitud guarda `exam_attempt_id` para vincularla con el intento final aprobado.
+6. El admin entra a `/admin/certificaciones`.
+7. Ve solicitudes pendientes, aprobadas y rechazadas.
+8. Puede abrir `Ver examen` para revisar resultado, duracion, cantidad de respuestas correctas y detalle pregunta por pregunta.
+9. El admin puede aprobar.
+10. El admin puede rechazar con motivo.
+11. Si se rechaza, el cliente puede volver a solicitar.
+12. Si se aprueba, se puede descargar PNG o PDF.
 
 Notas:
 
 - No hay envio de email en este MVP.
-- No hay historial persistido de intentos de examen.
+- Los intentos de examen se persisten en `exam_attempts`.
 - `certification_requests` denormaliza `certification_title` y `capacitacion_title`.
+- `certification_requests.exam_attempt_id` permite hidratar el detalle de examen en el panel admin.
 - PNG usa `canvas`.
-- PDF se genera en navegador sin dependencias externas.
+- PDF se genera en navegador sin dependencias externas renderizando el certificado a canvas y embebiendolo como imagen JPEG.
 - Una futura subtab cliente `Mis certificaciones` puede reutilizar `fetchUserCertificationRequest` y `certificateDownloads.js`.
 
 ## Eliminacion
@@ -271,6 +292,7 @@ Si se borra una certificacion o capacitacion, las solicitudes de certificado deb
 - Los archivos invalidos se rechazan antes de guardar.
 - Las certificaciones cliente solo aparecen para capacitaciones publicadas.
 - Las solicitudes de certificado se pueden aprobar/rechazar desde Admin Certificaciones.
+- Admin Certificaciones puede abrir el detalle del examen asociado a una solicitud.
 - Un certificado aprobado descarga PNG y PDF.
 
 ## No Hacer Salvo Que Se Pida
