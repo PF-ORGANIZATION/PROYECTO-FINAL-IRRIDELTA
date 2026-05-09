@@ -350,7 +350,7 @@ function AdminCertificaciones() {
                     type="button"
                     disabled={answerDetails.length === 0}
                     onClick={() => setSelectedExamRequest(request)}
-                    className="btn-dark h-full disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-full rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Ver examen
                   </button>
@@ -375,7 +375,7 @@ function AdminCertificaciones() {
                     <button
                       type="button"
                       onClick={() => handleApproveRequest(request)}
-                      className="learning-button h-full bg-green-600 hover:bg-green-700 text-white"
+                      className="h-full rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-green-700"
                     >
                       Aprobar
                     </button>
@@ -383,7 +383,7 @@ function AdminCertificaciones() {
                     <button
                       type="button"
                       onClick={() => downloadCertificatePng(getDownloadData(request))}
-                      className="btn-dark h-full"
+                      className="h-full rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-slate-800"
                     >
                       PNG
                     </button>
@@ -412,7 +412,7 @@ function AdminCertificaciones() {
                         setRejectingRequestId(request.id);
                         setRejectionReason("");
                       }}
-                      className="btn-danger-sm h-full"
+                      className="h-full rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white"
                     >
                       Rechazar
                     </button>
@@ -420,7 +420,7 @@ function AdminCertificaciones() {
                     <button
                       type="button"
                       onClick={() => downloadCertificatePdf(getDownloadData(request))}
-                      className="btn-info h-full"
+                      className="h-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-blue-700"
                     >
                       PDF
                     </button>
@@ -461,7 +461,7 @@ function AdminCertificaciones() {
                           setRejectingRequestId(null);
                           setRejectionReason("");
                         }}
-                        className="btn-dark"
+                        className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-slate-800"
                       >
                         Cancelar
                       </button>
