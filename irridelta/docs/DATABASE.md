@@ -145,6 +145,7 @@ Suggested important columns:
 - `status`
 - `rejection_reason`
 - `exam_percentage`
+- `exam_attempt_id`
 - `exam_approved_at`
 - `requested_at`
 - `reviewed_at`
@@ -157,6 +158,7 @@ Business rules:
 - Admins approve or reject requests inside the Admin Certificaciones panel.
 - Rejected requests should include `rejection_reason` so the client can correct the name and submit again.
 - Approved requests can generate certificate downloads as PNG and PDF from the browser.
+- `exam_attempt_id` links the request to the final approved attempt so admins can review the captured exam detail.
 - Email delivery is intentionally not implemented yet.
 
 Suggested SQL shape:
@@ -174,6 +176,7 @@ create table public.certification_requests (
     check (status in ('pending', 'approved', 'rejected')),
   rejection_reason text,
   exam_percentage numeric,
+  exam_attempt_id uuid references public.exam_attempts(id) on delete set null,
   exam_approved_at timestamptz,
   requested_at timestamptz not null default now(),
   reviewed_at timestamptz
@@ -268,6 +271,8 @@ This table tracks user attempts for module exams and final certification exams.
 - `estado`
 - `porcentaje`
 - `aprobado`
+- `respuestas_detalle`
+- `duracion_segundos`
 - `fecha_inicio`
 - `fecha_fin`
 
@@ -282,6 +287,10 @@ This table tracks user attempts for module exams and final certification exams.
 - Each attempt is uniquely identified per user and exam
 - If a user gets the maximum score, retries should be disabled in the frontend
 - Attempts must be recorded even if the user abandons the exam
+- Completed attempts store `duracion_segundos` for admin review and auditability
+- Completed attempts store `respuestas_detalle` as JSON with question text, displayed options, selected answer, correct answer, and correctness
+- Module exam answer detail must preserve the shuffled option order shown to the user
+- Final certification requests should store the approved final attempt id in `certification_requests.exam_attempt_id`
 
 ### Security (RLS)
 
@@ -295,3 +304,16 @@ This table tracks user attempts for module exams and final certification exams.
 - Block exam when attempts are exhausted
 - Hide "Intentar de nuevo" when the user reaches max score
 - Enable retry logic only when allowed
+- Let admins review the exact submitted exam from `/admin/certificaciones`
+
+Suggested SQL additions for existing environments:
+
+```sql
+alter table public.exam_attempts
+  add column if not exists respuestas_detalle jsonb not null default '[]'::jsonb,
+  add column if not exists duracion_segundos integer;
+
+alter table public.certification_requests
+  add column if not exists exam_attempt_id uuid
+    references public.exam_attempts(id) on delete set null;
+```

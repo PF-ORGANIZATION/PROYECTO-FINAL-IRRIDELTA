@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchLearningItemById } from "../services/learningContentService";
+import { fetchLearningItemById, fetchLearningItemBySlug } from "../services/learningContentService";
 import {
   fetchUserLearningProgress,
   getCompletedResourceIds,
@@ -12,7 +12,7 @@ import {
   fetchExamAttempts,
 } from "../services/examAttemptsService";
 
-function useCapacitacionProgress(capacitacionId, options = {}) {
+function useCapacitacionProgress(capacitacionIdOrSlug, options = {}) {
   const { onlyPublished = true } = options;
   const [capacitacion, setCapacitacion] = useState(null);
   const [progressItems, setProgressItems] = useState([]);
@@ -35,9 +35,11 @@ function useCapacitacionProgress(capacitacionId, options = {}) {
       setError("");
 
       try {
-        const data = await fetchLearningItemById(capacitacionId, {
-          onlyPublished,
-        });
+        // Check if it's a UUID (ID) or a slug
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89abAB][0-9a-f]{3}-[0-9a-f]{12}$/i.test(capacitacionIdOrSlug);
+        const data = isUuid
+          ? await fetchLearningItemById(capacitacionIdOrSlug, { onlyPublished })
+          : await fetchLearningItemBySlug(capacitacionIdOrSlug, { onlyPublished });
 
         if (!ignore) {
           setCapacitacion(data);
@@ -59,17 +61,21 @@ function useCapacitacionProgress(capacitacionId, options = {}) {
     return () => {
       ignore = true;
     };
-  }, [capacitacionId, onlyPublished]);
+  }, [capacitacionIdOrSlug, onlyPublished]);
 
   useEffect(() => {
     let ignore = false;
 
     const loadProgress = async () => {
+      if (!capacitacion?.id) {
+        return;
+      }
+
       setLoadingProgress(true);
       setProgressError("");
 
       try {
-        const data = await fetchUserLearningProgress(capacitacionId);
+        const data = await fetchUserLearningProgress(capacitacion.id);
 
         if (!ignore) {
           setProgressItems(data);
@@ -91,19 +97,23 @@ function useCapacitacionProgress(capacitacionId, options = {}) {
     return () => {
       ignore = true;
     };
-  }, [capacitacionId]);
+  }, [capacitacion?.id]);
 
   useEffect(() => {
     let ignore = false;
 
     const loadExamAttempts = async () => {
+      if (!capacitacion?.id) {
+        return;
+      }
+
       setLoadingExamAttempts(true);
       setExamAttemptsError("");
 
       try {
         const data = await fetchExamAttempts({
           tipoExamen: EXAM_TYPES.MODULO,
-          capacitacionId,
+          capacitacionId: capacitacion.id,
         });
 
         if (!ignore) {
@@ -126,7 +136,7 @@ function useCapacitacionProgress(capacitacionId, options = {}) {
     return () => {
       ignore = true;
     };
-  }, [capacitacionId]);
+  }, [capacitacion?.id]);
 
   const completedResourceIds = useMemo(
     () => getCompletedResourceIds(progressItems),
@@ -164,7 +174,7 @@ function useCapacitacionProgress(capacitacionId, options = {}) {
   };
 
   const markResourceAsCompleted = async (module, resource) => {
-    if (!capacitacionId) {
+    if (!capacitacion?.id) {
       return;
     }
 
@@ -185,7 +195,7 @@ function useCapacitacionProgress(capacitacionId, options = {}) {
 
     try {
       const savedProgress = await saveResourceProgress({
-        capacitacionId,
+        capacitacionId: capacitacion.id,
         moduloId: module.id,
         recursoId: resource.id,
       });

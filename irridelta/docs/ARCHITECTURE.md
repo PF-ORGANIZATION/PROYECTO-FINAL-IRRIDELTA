@@ -10,7 +10,7 @@ Main route groups:
 
 - Public routes: home, products, about, branches, contact.
 - Auth route: login.
-- Client routes: capacitaciones, certificaciones, certification exam.
+- Client routes: capacitaciones, certificaciones, certification exam. Admin users can also access these routes for review.
 - Admin routes: products, capacitaciones, certificaciones.
 - Admin knowledge base route: KB management.
 
@@ -58,6 +58,18 @@ Learning admin:
 - `src/components/LearningItemPreviewCard.jsx` is the shared presentational card for capacitacion content.
 - `src/pages/Certificaciones.jsx` lists final certifications for published capacitaciones only.
 - `src/pages/CertificationExam.jsx` handles the exam experience.
+- `src/services/examAttemptsService.js` persists module and final exam attempts, including answer detail and duration.
+- `src/services/certificationRequestService.js` loads certificate requests and hydrates their linked exam attempt for admin review.
+- `src/utils/certificateDownloads.js` generates PNG and PDF certificates in the browser from the same canvas rendering.
+
+## Certification Review Flow
+
+- Module exams and final certification exams save `respuestas_detalle` and `duracion_segundos` into `exam_attempts` when completed.
+- Final certification requests store `exam_attempt_id`, linking the requested certificate with the approved final attempt.
+- `/admin/certificaciones` shows request status, exam percentage, elapsed time and answer counts.
+- The `Ver examen` modal lets admins inspect each question, the submitted answer, the correct answer and correctness before approving or rejecting.
+- Certificate PDF generation embeds the canvas-rendered certificate as a JPEG image, so PDF output matches the PNG visual design and supports the same text rendering.
+- Email notification is intentionally out of the current flow.
 
 ## Design Tradeoffs
 
@@ -83,3 +95,5 @@ Current admin UX choices worth preserving unless intentionally redesigned:
 - Admin preview uses a modal instead of route navigation so editors keep their place in the panel.
 - The editor warns before leaving when there are unsaved changes.
 - Capacitaciones and certifications shown to client users are filtered by `publicada = true`.
+- Admin users can enter the learning/certification client routes and load unpublished capacitaciones for validation.
+- Modules without resources can still progress when their required exam is approved.

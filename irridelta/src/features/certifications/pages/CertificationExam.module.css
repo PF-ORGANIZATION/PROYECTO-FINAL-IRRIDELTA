@@ -30,7 +30,7 @@
 }
 
 .disclaimerEyebrow {
-  color: var(--color-info);
+  color: var(--color-primary-hover);
   font-size: 0.8125rem;
   font-weight: 800;
   letter-spacing: 0.2em;
@@ -152,9 +152,9 @@
 }
 
 .timerBadgeNormal {
-  border-color: var(--color-blue-200, #bfdbfe);
-  background-color: var(--color-blue-50, #eff6ff);
-  color: var(--color-blue-700, #1d4ed8);
+  border-color: #bbf7d0;
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-hover);
 }
 
 .timerBadgeWarning {

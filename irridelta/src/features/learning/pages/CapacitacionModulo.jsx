@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
+  Award,
   CheckCircle2,
   ChevronLeft,
   Clock3,
@@ -13,6 +14,7 @@ import {
   PlayCircle,
 } from "lucide-react";
 import YouTubePlayer from "../components/YouTubePlayer";
+import ModuleExam from "../components/ModuleExam";
 import useCapacitacionProgress from "../hooks/useCapacitacionProgress";
 import {
   isModuleUnlocked,
@@ -21,22 +23,25 @@ import {
 } from "../services/learningProgressService";
 import {
   areModuleResourcesCompleted,
-  getModuleExamRoute,
   getModuleRoute,
   getResourceHref,
   getResourceLabel,
   isModuleCompleted,
   parseModuleIndex,
 } from "../utils/learningRuntime";
+import { generateSlug } from "../services/learningContentService";
+import { USER_ROLES } from "../../auth/authRoles";
+import { useSessionStore } from "../../../store/sessionStore";
 
 function CapacitacionModulo() {
-  const { capacitacionId, moduloIndex: moduloIndexParam } = useParams();
+  const { capacitacionSlug, moduloIndex: moduloIndexParam } = useParams();
   const moduleIndex = parseModuleIndex(moduloIndexParam);
+  const role = useSessionStore((state) => state.role);
+  const onlyPublished = role !== USER_ROLES.ADMIN;
   const [openResourceKeys, setOpenResourceKeys] = useState(() => new Set());
   const {
     capacitacion,
     completedResourceIds,
-    approvedModuleIds,
     loading,
     loadingProgress,
     loadingExamAttempts,
@@ -45,35 +50,37 @@ function CapacitacionModulo() {
     savingResourceId,
     markResourceAsCompleted,
     setTrackingReady,
-  } = useCapacitacionProgress(capacitacionId, { onlyPublished: true });
+  } = useCapacitacionProgress(capacitacionSlug, { onlyPublished });
 
   const modules = capacitacion?.modulos ?? [];
+  const certification = capacitacion?.certificacion ?? null;
   const module = moduleIndex >= 0 ? modules[moduleIndex] : null;
   const moduleUnlocked =
     moduleIndex >= 0
-      ? isModuleUnlocked(moduleIndex, modules, completedResourceIds, approvedModuleIds)
+      ? isModuleUnlocked(moduleIndex, modules, completedResourceIds)
       : false;
   const moduleCompleted = module
-    ? isModuleCompleted(module, completedResourceIds, approvedModuleIds)
+    ? isModuleCompleted(module, completedResourceIds)
     : false;
+  const capacitacionTitleSlug = capacitacion?.titulo ? generateSlug(capacitacion.titulo) : "";
   const previousModulePath =
-    moduleIndex > 0 ? getModuleRoute(capacitacionId, moduleIndex - 1) : null;
+    moduleIndex > 0 && capacitacionTitleSlug
+      ? getModuleRoute(capacitacionTitleSlug, moduleIndex - 1)
+      : null;
   const nextModuleIndex = moduleIndex + 1;
   const hasNextModule = nextModuleIndex < modules.length;
   const nextModuleUnlocked = hasNextModule
-    ? isModuleUnlocked(nextModuleIndex, modules, completedResourceIds, approvedModuleIds)
+    ? isModuleUnlocked(nextModuleIndex, modules, completedResourceIds)
     : false;
-  const nextModulePath = hasNextModule
-    ? getModuleRoute(capacitacionId, nextModuleIndex)
+  const nextModulePath = hasNextModule && capacitacionTitleSlug
+    ? getModuleRoute(capacitacionTitleSlug, nextModuleIndex)
     : null;
-  const moduleExamPath =
-    module && Array.isArray(module.preguntas) && module.preguntas.length > 0
-      ? getModuleExamRoute(capacitacionId, moduleIndex)
-      : null;
   const moduleResources = module?.recursos ?? [];
   const learningStateReady = !loadingProgress && !loadingExamAttempts;
-  const canStartModuleExam =
+  const moduleResourcesCompleted =
     learningStateReady && areModuleResourcesCompleted(module, completedResourceIds);
+  const moduleHasAssessment =
+    module && Array.isArray(module.preguntas) && module.preguntas.length > 0;
   const videoCount = moduleResources.filter(
     (resource) => resource.tipo === "youtube"
   ).length;
@@ -112,10 +119,10 @@ function CapacitacionModulo() {
         <title>{pageTitle}</title>
       </Helmet>
 
-      <section className="min-h-[70vh] bg-gray-50 px-4 py-12">
-        <div className="mx-auto max-w-6xl">
+      <section className="learning-page">
+        <div className="learning-container">
           <Link
-            to={`/capacitaciones/${capacitacionId}`}
+            to={`/capacitaciones/${capacitacionTitleSlug}`}
             className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-green-700 hover:text-green-600"
           >
             <ChevronLeft size={18} />
@@ -123,7 +130,7 @@ function CapacitacionModulo() {
           </Link>
 
           {loading && (
-            <div className="rounded-2xl bg-white p-8 text-center text-gray-600 shadow-md">
+            <div className="learning-empty">
               Cargando modulo...
             </div>
           )}
@@ -131,19 +138,19 @@ function CapacitacionModulo() {
           {!loading && error && <div className="alert-error">{error}</div>}
 
           {!loading && !error && !module && (
-            <div className="rounded-2xl bg-white p-8 text-center text-gray-600 shadow-md">
+            <div className="learning-empty">
               No encontramos el modulo solicitado.
             </div>
           )}
 
           {!loading && !error && module && !learningStateReady && (
-            <div className="rounded-2xl bg-white p-8 text-center text-gray-600 shadow-md">
+            <div className="learning-empty">
               Cargando avance del modulo...
             </div>
           )}
 
           {!loading && !error && module && learningStateReady && !moduleUnlocked && (
-            <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center shadow-md">
+            <div className="learning-empty">
               <div className="mx-auto mb-4 inline-flex rounded-full bg-gray-100 p-4">
                 <Lock size={30} className="text-gray-500" />
               </div>
@@ -158,7 +165,7 @@ function CapacitacionModulo() {
 
           {!loading && !error && module && learningStateReady && moduleUnlocked && (
             <>
-              <article className="rounded-2xl border border-gray-200 bg-white p-8 shadow-md">
+              <article className="learning-card">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -202,10 +209,10 @@ function CapacitacionModulo() {
                 <div className="alert-error mt-6">{progressError}</div>
               )}
 
-              <section className="mt-8 rounded-2xl border border-gray-200 bg-white p-8 shadow-md">
+              <section className="learning-card mt-8">
                 <div className="mb-6 flex flex-col gap-3 border-b border-gray-200 pb-4 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">
+                    <h2 className="learning-section-title">
                       Contenido del modulo
                     </h2>
                     <p className="mt-2 text-sm font-semibold text-gray-500">
@@ -236,8 +243,7 @@ function CapacitacionModulo() {
                         moduleIndex,
                         resourceIndex,
                         modules,
-                        completedResourceIds,
-                        approvedModuleIds
+                        completedResourceIds
                       );
                       const resourceCompleted = isResourceCompleted(
                         resource,
@@ -278,7 +284,7 @@ function CapacitacionModulo() {
                                 Bloqueado
                               </span>
                             ) : resourceOpened ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
                                 <PlayCircle size={12} />
                                 En curso
                               </span>
@@ -368,43 +374,16 @@ function CapacitacionModulo() {
                 )}
               </section>
 
-              <section className="mt-8 rounded-2xl border border-gray-200 bg-white p-8 shadow-md">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">
-                      Examen del modulo
-                    </h2>
-                  </div>
-
-                  {moduleExamPath && canStartModuleExam ? (
-                    <Link
-                      to={moduleExamPath}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700"
-                    >
-                      Ir al examen
-                      <ArrowRight size={16} />
-                    </Link>
-                  ) : moduleExamPath ? (
-                    <div className="flex flex-col items-start gap-2 lg:items-end">
-                      <button
-                        type="button"
-                        disabled
-                        className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-gray-300 px-5 py-3 text-sm font-semibold text-gray-600"
-                      >
-                        Ir al examen
-                        <Lock size={16} />
-                      </button>
-                      <p className="max-w-sm text-sm font-semibold text-gray-500 lg:text-right">
-                        Completa todos los recursos del modulo para habilitar el examen.
-                      </p>
-                    </div>
-                  ) : (
-                    <span className="rounded-lg bg-gray-100 px-4 py-3 text-sm font-semibold text-gray-600">
-                      Este modulo no tiene examen configurado.
-                    </span>
-                  )}
-                </div>
-              </section>
+              {moduleHasAssessment && moduleResourcesCompleted && (
+                <section className="learning-card mt-8">
+                  <ModuleExam
+                    module={module}
+                    isUnlocked={moduleResourcesCompleted}
+                    variant="inline"
+                    courseTitle={capacitacion?.titulo}
+                  />
+                </section>
+              )}
 
               <section className="mt-8 flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -436,10 +415,28 @@ function CapacitacionModulo() {
                     <p className="text-sm text-gray-500">
                       El siguiente modulo se habilita cuando completes este.
                     </p>
+                  ) : certification ? (
+                    moduleResourcesCompleted ? (
+                      <Link
+                        to={`/certificaciones/${certification.id}`}
+                        className="learning-button inline-flex items-center gap-2"
+                      >
+                        Ir al examen final
+                        <Award size={16} />
+                      </Link>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        Completa este modulo para habilitar el examen final.
+                      </p>
+                    )
                   ) : (
-                    <p className="text-sm text-gray-500">
-                      Este es el ultimo modulo de la capacitacion.
-                    </p>
+                    <Link
+                      to="/capacitaciones"
+                      className="learning-button-secondary inline-flex items-center gap-2"
+                    >
+                      Volver a capacitaciones
+                      <ArrowRight size={16} />
+                    </Link>
                   )}
                 </div>
               </section>

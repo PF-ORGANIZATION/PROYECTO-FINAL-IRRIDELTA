@@ -101,7 +101,7 @@ function Navbar() {
             <Link to="/">
               <img
                 className="logo-irridelta"
-                src="../logo-irridelta-nav.png"
+                src="/logo-irridelta-nav.png"
                 alt="Logo Irridelta"
               />
             </Link>

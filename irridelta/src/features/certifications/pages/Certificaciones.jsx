@@ -1,59 +1,80 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
+import { Clock3 } from "lucide-react";
 import {
-  LEARNING_TYPES,
-  fetchLearningItems,
-} from "../../learning/services/learningContentService";
+  LEARNING_FEED_VIEWS,
+  fetchLearningFeed,
+} from "../../learning/services/learningFeedService";
 import {
-  formatDurationLabel,
   getCertificationDurationMinutes,
-  getCertificationExamQuestionCount,
-  getCertificationPassingScore,
-  getMinimumCorrectAnswers,
 } from "../utils/certifications";
+import catalogStyles from "../../learning/components/LearningCatalog.module.css";
 
 function Certificaciones() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const loadMoreRef = useRef(null);
+
+  const loadItems = useCallback(async ({ cursor = null, append = false } = {}) => {
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
+    setError("");
+
+    try {
+      const data = await fetchLearningFeed({
+        view: LEARNING_FEED_VIEWS.USER_CERTIFICACIONES,
+        cursor,
+      });
+
+      setItems((currentItems) =>
+        append ? [...currentItems, ...data.items] : data.items
+      );
+      setNextCursor(data.nextCursor);
+      setHasMore(data.hasMore);
+    } catch (loadError) {
+      console.error("No se pudieron cargar las certificaciones", loadError);
+      setError(
+        "No se pudieron cargar las certificaciones. Revisa la conexion con Supabase."
+      );
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let ignore = false;
-
-    const loadItems = async () => {
-      setLoading(true);
-      setError("");
-
-      try {
-        const data = await fetchLearningItems(LEARNING_TYPES.CERTIFICACION, {
-          onlyPublished: true,
-        });
-
-        if (!ignore) {
-          setItems(data);
-        }
-      } catch (loadError) {
-        if (!ignore) {
-          console.error("No se pudieron cargar las certificaciones", loadError);
-          setError(
-            "No se pudieron cargar las certificaciones. Revisa que el esquema nuevo este creado en Supabase."
-          );
-        }
-      } finally {
-        if (!ignore) {
-          setLoading(false);
-        }
-      }
-    };
-
     loadItems();
+  }, [loadItems]);
 
-    return () => {
-      ignore = true;
-    };
-  }, []);
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
+
+    if (!sentinel || !hasMore || loading || loadingMore) {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && nextCursor) {
+          loadItems({ cursor: nextCursor, append: true });
+        }
+      },
+      { rootMargin: "360px" }
+    );
+
+    observer.observe(sentinel);
+
+    return () => observer.disconnect();
+  }, [hasMore, loadItems, loading, loadingMore, nextCursor]);
 
   return (
     <>
@@ -61,17 +82,19 @@ function Certificaciones() {
         <title>Certificaciones | IRRIDELTA</title>
       </Helmet>
 
-      <section className="min-h-[70vh] bg-gray-50 px-4 py-16">
-        <div className="mx-auto max-w-6xl">
-          <header className="mb-10 text-center">
-            <h1 className="text-4xl font-extrabold tracking-wide text-gray-900 md:text-6xl">
-              &iexcl;CERTIFICACIONES!
-            </h1>
+      <section className="learning-page">
+        <div className="learning-container">
+          <header className="learning-header">
+            <h1 className="learning-title normal-case">Certificaciones</h1>
+            <p className="learning-subtitle">
+              Accede a los examenes finales habilitados por tus capacitaciones completadas.
+            </p>
           </header>
 
           {loading && (
-            <div className="rounded-xl bg-white p-8 text-center text-gray-600 shadow">
-              Cargando certificaciones...
+            <div className={catalogStyles.skeletonGrid} aria-label="Cargando certificaciones">
+              <div className={catalogStyles.skeletonCard} />
+              <div className={catalogStyles.skeletonCard} />
             </div>
           )}
 
@@ -82,63 +105,81 @@ function Certificaciones() {
           )}
 
           {!loading && !error && items.length === 0 && (
-            <div className="rounded-xl bg-white p-8 text-center text-gray-600 shadow">
-              Todavia no hay certificaciones publicadas.
+            <div className="learning-empty">
+              <h2 className="learning-empty-title">
+                Todavia no tenes certificaciones disponibles.
+              </h2>
+              <p className="learning-empty-text">
+                Completa una capacitacion con certificado para habilitar su
+                examen final.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate("/capacitaciones")}
+                className="learning-button mt-6"
+              >
+                Ir a capacitaciones
+              </button>
             </div>
           )}
 
           {!loading && !error && items.length > 0 && (
-            <div className="grid gap-6 md:grid-cols-2">
-              {items.map((item) => {
-                const examQuestionCount = getCertificationExamQuestionCount(item);
-                const passingScore = getCertificationPassingScore(item);
-                const minimumCorrectAnswers = getMinimumCorrectAnswers(
-                  examQuestionCount,
-                  passingScore
-                );
-                const durationMinutes = getCertificationDurationMinutes(item);
+            <>
+              <div className="learning-grid-2">
+                {items.map((item) => {
+                  const durationMinutes = getCertificationDurationMinutes(item);
 
-                return (
-                  <article
-                    key={item.id}
-                    className="rounded-2xl bg-white p-6 shadow-md transition duration-200 hover:shadow-lg"
+                  return (
+                    <article
+                      key={item.id}
+                      className="learning-card"
+                    >
+                      <h2 className="learning-section-title">
+                        {item.titulo}
+                      </h2>
+
+                      {item.descripcion && (
+                        <p className="learning-muted mt-3">
+                          {item.descripcion}
+                        </p>
+                      )}
+
+                      <div className="learning-pill mt-5">
+                        <Clock3 size={16} aria-hidden="true" />
+                        {durationMinutes}
+                      </div>
+
+                      <div className="mt-6">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/certificaciones/${item.id}`)}
+                          className="learning-button"
+                        >
+                          Realizar certificacion
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+              <div ref={loadMoreRef} className={catalogStyles.loadMoreSentinel}>
+                {loadingMore && (
+                  <div className={catalogStyles.skeletonGrid} aria-hidden="true">
+                    <div className={catalogStyles.skeletonCard} />
+                    <div className={catalogStyles.skeletonCard} />
+                  </div>
+                )}
+                {!loadingMore && hasMore && (
+                  <button
+                    type="button"
+                    className="learning-button-secondary"
+                    onClick={() => loadItems({ cursor: nextCursor, append: true })}
                   >
-                    <h2 className="text-2xl font-bold text-gray-900">
-                      {item.titulo}
-                    </h2>
-
-                    {item.descripcion && (
-                      <p className="mt-3 text-sm leading-6 text-gray-600">
-                        {item.descripcion}
-                      </p>
-                    )}
-
-                    <div className="mt-5 grid gap-2 text-sm text-gray-500">
-                      <p>
-                        Preguntas disponibles:{" "}
-                        {Array.isArray(item.preguntas) ? item.preguntas.length : 0}
-                      </p>
-                      <p>Preguntas del examen: {examQuestionCount}</p>
-                      <p>
-                        Minimo de respuestas correctas: {minimumCorrectAnswers}
-                      </p>
-                      <p>Aprobacion: {passingScore}%</p>
-                      <p>Tiempo maximo: {formatDurationLabel(durationMinutes)}</p>
-                    </div>
-
-                    <div className="mt-6">
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/certificaciones/${item.id}`)}
-                        className="inline-flex rounded-lg bg-blue-500 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-blue-600"
-                      >
-                        Realizar certificacion
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+                    Cargar mas
+                  </button>
+                )}
+              </div>
+            </>
           )}
         </div>
       </section>

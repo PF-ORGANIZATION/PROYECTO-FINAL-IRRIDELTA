@@ -9,6 +9,12 @@ import {
   PlayCircle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import {
+  LEARNING_PROGRESS_ACTION_LABELS,
+  LEARNING_PROGRESS_LABELS,
+  LEARNING_PROGRESS_STATUS,
+} from "../utils/learningProgressStatus";
+import { generateSlug } from "../services/learningContentService";
 import styles from "./LearningItemPreviewCard.module.css";
 
 function getShortDescription(description) {
@@ -25,13 +31,12 @@ function getShortDescription(description) {
   return `${normalizedDescription.slice(0, 177).trim()}...`;
 }
 
-const STATUS_LABELS = {
-  pendiente: "Pendiente",
-  "en-progreso": "En progreso",
-  completado: "Completado",
-};
-
-function LearningItemPreviewCard({ item, progress, showPublishedDate = true }) {
+function LearningItemPreviewCard({
+  item,
+  progress,
+  showPublishedDate = true,
+  onDetailClick = null,
+}) {
   if (!item) {
     return null;
   }
@@ -42,19 +47,16 @@ function LearningItemPreviewCard({ item, progress, showPublishedDate = true }) {
     completedModules: 0,
     totalModules: moduleCount,
     progressPercentage: 0,
-    status: "pendiente",
+    status: LEARNING_PROGRESS_STATUS.PENDING,
   };
-  const isCompleted = progressData.status === "completado";
+  const isCompleted = progressData.status === LEARNING_PROGRESS_STATUS.COMPLETED;
   const detailLabel =
-    progressData.status === "completado"
-      ? "Revisar"
-      : progressData.status === "en-progreso"
-      ? "Continuar"
-      : "Comenzar";
+    LEARNING_PROGRESS_ACTION_LABELS[progressData.status] ??
+    LEARNING_PROGRESS_ACTION_LABELS[LEARNING_PROGRESS_STATUS.PENDING];
   const StatusIcon =
-    progressData.status === "completado"
+    progressData.status === LEARNING_PROGRESS_STATUS.COMPLETED
       ? CheckCircle2
-      : progressData.status === "en-progreso"
+      : progressData.status === LEARNING_PROGRESS_STATUS.IN_PROGRESS
       ? PlayCircle
       : Clock3;
 
@@ -66,7 +68,7 @@ function LearningItemPreviewCard({ item, progress, showPublishedDate = true }) {
         <span className={styles.eyebrow}>Capacitación técnica</span>
         <span className={`${styles.statusBadge} ${styles[progressData.status]}`}>
           <StatusIcon className={styles.statusIcon} aria-hidden="true" />
-          {STATUS_LABELS[progressData.status]}
+          {LEARNING_PROGRESS_LABELS[progressData.status]}
         </span>
       </div>
 
@@ -132,10 +134,21 @@ function LearningItemPreviewCard({ item, progress, showPublishedDate = true }) {
       </div>
 
       <footer className={styles.footer}>
-        <Link to={`/capacitaciones/${item.id}`} className={styles.detailLink}>
-          {detailLabel}
-          <ChevronRight size={18} aria-hidden="true" />
-        </Link>
+        {onDetailClick ? (
+          <button
+            type="button"
+            onClick={onDetailClick}
+            className={styles.detailLink}
+          >
+            {detailLabel}
+            <ChevronRight size={18} aria-hidden="true" />
+          </button>
+        ) : (
+          <Link to={`/capacitaciones/${generateSlug(item.titulo)}`} className={styles.detailLink}>
+            {detailLabel}
+            <ChevronRight size={18} aria-hidden="true" />
+          </Link>
+        )}
       </footer>
     </article>
   );
