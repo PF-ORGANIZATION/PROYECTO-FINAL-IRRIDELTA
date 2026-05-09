@@ -62,15 +62,18 @@ function CapacitacionModulo() {
   const moduleCompleted = module
     ? isModuleCompleted(module, completedResourceIds)
     : false;
+  const capacitacionTitleSlug = capacitacion?.titulo ? generateSlug(capacitacion.titulo) : "";
   const previousModulePath =
-    moduleIndex > 0 ? getModuleRoute(generateSlug(capacitacion?.titulo), moduleIndex - 1) : null;
+    moduleIndex > 0 && capacitacionTitleSlug
+      ? getModuleRoute(capacitacionTitleSlug, moduleIndex - 1)
+      : null;
   const nextModuleIndex = moduleIndex + 1;
   const hasNextModule = nextModuleIndex < modules.length;
   const nextModuleUnlocked = hasNextModule
     ? isModuleUnlocked(nextModuleIndex, modules, completedResourceIds)
     : false;
-  const nextModulePath = hasNextModule
-    ? getModuleRoute(generateSlug(capacitacion?.titulo), nextModuleIndex)
+  const nextModulePath = hasNextModule && capacitacionTitleSlug
+    ? getModuleRoute(capacitacionTitleSlug, nextModuleIndex)
     : null;
   const moduleResources = module?.recursos ?? [];
   const learningStateReady = !loadingProgress && !loadingExamAttempts;
@@ -119,7 +122,7 @@ function CapacitacionModulo() {
       <section className="learning-page">
         <div className="learning-container">
           <Link
-            to={`/capacitaciones/${generateSlug(capacitacion?.titulo)}`}
+            to={`/capacitaciones/${capacitacionTitleSlug}`}
             className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-green-700 hover:text-green-600"
           >
             <ChevronLeft size={18} />
@@ -386,7 +389,7 @@ function CapacitacionModulo() {
                   {moduleResourcesCompleted ? (
                     <div className="text-center">
                       <Link
-                        to={`/capacitaciones/${generateSlug(capacitacion?.titulo)}/modulos/${moduloIndexParam}/examen`}
+                        to={`/capacitaciones/${capacitacionTitleSlug}/modulos/${moduloIndexParam}/examen`}
                         className="learning-button inline-flex items-center gap-2"
                       >
                         Realizar autoevaluacion

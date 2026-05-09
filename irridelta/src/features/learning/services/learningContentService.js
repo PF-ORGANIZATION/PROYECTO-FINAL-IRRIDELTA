@@ -34,7 +34,9 @@ export const LEARNING_TYPES = {
 export const CERTIFICATION_QUESTION_TYPES = QUESTION_TYPES;
 
 function generateSlug(text) {
-  return text
+  const normalizedText = String(text ?? "");
+
+  return normalizedText
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "") // Remove accents
