@@ -374,33 +374,14 @@ function CapacitacionModulo() {
                 )}
               </section>
 
-              {moduleHasAssessment && (
+              {moduleHasAssessment && moduleResourcesCompleted && (
                 <section className="learning-card mt-8">
-                  <div className="mb-5 border-b border-gray-200 pb-4">
-                    <h2 className="learning-section-title">
-                      Autoevaluacion del modulo
-                    </h2>
-                    <p className="learning-muted mt-2 max-w-3xl">
-                      Estas preguntas son de practica y no bloquean el avance al
-                      siguiente modulo.
-                    </p>
-                  </div>
-
-                  {moduleResourcesCompleted ? (
-                    <div className="text-center">
-                      <Link
-                        to={`/capacitaciones/${capacitacionTitleSlug}/modulos/${moduloIndexParam}/examen`}
-                        className="learning-button inline-flex items-center gap-2"
-                      >
-                        Realizar autoevaluacion
-                      </Link>
-                    </div>
-                  ) : (
-                    <div className="rounded-xl bg-gray-50 px-4 py-4 text-sm font-semibold text-gray-600">
-                      Completa los recursos del modulo para acceder a la
-                      autoevaluacion.
-                    </div>
-                  )}
+                  <ModuleExam
+                    module={module}
+                    isUnlocked={moduleResourcesCompleted}
+                    variant="inline"
+                    courseTitle={capacitacion?.titulo}
+                  />
                 </section>
               )}
 
