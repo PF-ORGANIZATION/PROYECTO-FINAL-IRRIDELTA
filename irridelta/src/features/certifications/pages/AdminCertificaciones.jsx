@@ -350,7 +350,7 @@ function AdminCertificaciones() {
                     type="button"
                     disabled={answerDetails.length === 0}
                     onClick={() => setSelectedExamRequest(request)}
-                    className="learning-button-secondary h-full disabled:cursor-not-allowed disabled:opacity-60"
+                    className="btn-dark h-full disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Ver examen
                   </button>
@@ -375,7 +375,7 @@ function AdminCertificaciones() {
                     <button
                       type="button"
                       onClick={() => handleApproveRequest(request)}
-                      className="learning-button h-full"
+                      className="learning-button h-full bg-green-600 hover:bg-green-700 text-white"
                     >
                       Aprobar
                     </button>
@@ -383,7 +383,7 @@ function AdminCertificaciones() {
                     <button
                       type="button"
                       onClick={() => downloadCertificatePng(getDownloadData(request))}
-                      className="learning-button-secondary h-full"
+                      className="btn-dark h-full"
                     >
                       PNG
                     </button>
@@ -412,7 +412,7 @@ function AdminCertificaciones() {
                         setRejectingRequestId(request.id);
                         setRejectionReason("");
                       }}
-                      className="h-full rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white"
+                      className="btn-danger-sm h-full"
                     >
                       Rechazar
                     </button>
@@ -420,7 +420,7 @@ function AdminCertificaciones() {
                     <button
                       type="button"
                       onClick={() => downloadCertificatePdf(getDownloadData(request))}
-                      className="learning-button-secondary h-full"
+                      className="btn-info h-full"
                     >
                       PDF
                     </button>
@@ -461,7 +461,7 @@ function AdminCertificaciones() {
                           setRejectingRequestId(null);
                           setRejectionReason("");
                         }}
-                        className="learning-button-secondary"
+                        className="btn-dark"
                       >
                         Cancelar
                       </button>
