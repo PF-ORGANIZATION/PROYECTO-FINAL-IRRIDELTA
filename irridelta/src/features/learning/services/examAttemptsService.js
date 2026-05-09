@@ -137,7 +137,10 @@ export async function startExamAttempt(params) {
   return data;
 }
 
-export async function completeExamAttempt(attemptId, { porcentaje, aprobado }) {
+export async function completeExamAttempt(
+  attemptId,
+  { porcentaje, aprobado, respuestasDetalle = [], duracionSegundos = null }
+) {
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from(EXAM_ATTEMPTS_TABLE)
@@ -145,6 +148,8 @@ export async function completeExamAttempt(attemptId, { porcentaje, aprobado }) {
       estado: EXAM_ATTEMPT_STATUS.COMPLETED,
       porcentaje,
       aprobado,
+      respuestas_detalle: respuestasDetalle,
+      duracion_segundos: duracionSegundos,
       fecha_fin: now,
     })
     .eq("id", attemptId)
