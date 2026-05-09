@@ -146,7 +146,7 @@
 }
 
 .disclaimerEyebrow {
-  color: var(--color-info);
+  color: var(--color-primary-hover);
   font-size: 0.8125rem;
   font-weight: 800;
   letter-spacing: 0.2em;

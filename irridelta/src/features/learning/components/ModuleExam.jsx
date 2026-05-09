@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   CheckCircle,
@@ -43,6 +43,57 @@ function shuffleArray(array) {
   return copy;
 }
 
+function getAttemptDurationSeconds(attempt, finishedAt = new Date()) {
+  const startedAt = attempt?.fecha_inicio
+    ? new Date(attempt.fecha_inicio).getTime()
+    : null;
+
+  if (!startedAt || Number.isNaN(startedAt)) {
+    return null;
+  }
+
+  return Math.max(Math.round((finishedAt.getTime() - startedAt) / 1000), 0);
+}
+
+function buildAnswerDetails(examQuestions, answers) {
+  return examQuestions.map((question, questionIndex) => {
+    const userAnswerIndex = answers[question.id];
+    const displayedOptions = question.opciones_shuffled ?? question.opciones ?? [];
+    const originalOptions = question.opciones ?? [];
+    const correctAnswer = originalOptions[question.respuesta_correcta] ?? null;
+    const correctAnswerIndex = displayedOptions.findIndex(
+      (option) => option === correctAnswer
+    );
+
+    return {
+      question_id: question.id,
+      question_number: questionIndex + 1,
+      enunciado: question.enunciado,
+      tipo: question.tipo ?? null,
+      opciones: displayedOptions,
+      respuesta_usuario_index:
+        userAnswerIndex === undefined ? null : Number(userAnswerIndex),
+      respuesta_usuario:
+        userAnswerIndex === undefined ? null : displayedOptions[userAnswerIndex] ?? null,
+      respuesta_correcta_index: correctAnswerIndex,
+      respuesta_correcta: correctAnswer,
+      correcta: Number(userAnswerIndex) === correctAnswerIndex,
+    };
+  });
+}
+
+function buildSelectedQuestions(questions, questionCount) {
+  return shuffleArray(questions)
+    .slice(0, questionCount)
+    .map((question) => ({
+      ...question,
+      opciones_shuffled:
+        question.tipo === QUESTION_TYPES.TRUE_FALSE
+          ? question.opciones
+          : shuffleArray(question.opciones ?? []),
+    }));
+}
+
 function ModuleExam({
   module,
   isUnlocked = false,
@@ -56,14 +107,14 @@ function ModuleExam({
   attemptParams = null,
 }) {
   const isStandalone = variant === "standalone";
-  const [isExpanded, setIsExpanded] = useState(isStandalone);
+  const isInline = variant === "inline";
+  const [isExpanded, setIsExpanded] = useState(isStandalone || isInline);
   const [answers, setAnswers] = useState({});
   const [examStarted, setExamStarted] = useState(false);
   const [result, setResult] = useState(null);
   const [examQuestions, setExamQuestions] = useState([]);
   const [secondsRemaining, setSecondsRemaining] = useState(null);
   const [timerStarted, setTimerStarted] = useState(false);
-  const [showStartModal, setShowStartModal] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
   const [attemptSummary, setAttemptSummary] = useState(null);
   const [activeAttempt, setActiveAttempt] = useState(null);
@@ -76,7 +127,10 @@ function ModuleExam({
   const [showCooldownModal, setShowCooldownModal] = useState(false);
 
   const assessment = module ?? {};
-  const questions = assessment.preguntas ?? [];
+  const questions = useMemo(
+    () => assessment.preguntas ?? [],
+    [assessment.preguntas]
+  );
   const hasQuestions = questions.length > 0;
   const passingScore = Number(assessment.porcentaje_aprobacion ?? 70);
   const durationMinutes = Number(assessment.duracion_maxima_minutos ?? 30);
@@ -87,11 +141,12 @@ function ModuleExam({
   const minimumCorrectAnswers = Math.ceil((questionCount * passingScore) / 100);
   const showIntro = !examStarted && !result && isUnlocked && (isStandalone || isExpanded);
   const canShowHeaderToggle =
-    !isStandalone && !examStarted && !result && isUnlocked && !isCompleted;
+    !isStandalone && !isInline && !examStarted && !result && isUnlocked && !isCompleted;
   const wrapperClass = isStandalone
-    ? "rounded-2xl border border-gray-200 bg-white shadow-md"
-    : "mt-6 rounded-xl border border-gray-200 bg-white shadow-sm";
-  const remainingAttempts = attemptSummary?.remainingAttempts ?? 3;
+    ? "learning-card"
+    : isInline
+    ? "rounded-xl bg-white"
+    : "learning-card mt-6";
   const maxAttempts = attemptSummary?.maxAttempts ?? 3;
   const cooldownUnlocked = Boolean(cooldownUntil && cooldownSeconds <= 0);
   const cooldownActive = Boolean(cooldownUntil && cooldownSeconds > 0);
@@ -122,6 +177,35 @@ function ModuleExam({
 
     return () => window.clearTimeout(timer);
   }, [secondsRemaining, timerStarted]);
+
+  useEffect(() => {
+    if (
+      !isInline ||
+      !hasQuestions ||
+      !isUnlocked ||
+      result ||
+      examStarted ||
+      examQuestions.length > 0
+    ) {
+      return;
+    }
+
+    setExamQuestions(buildSelectedQuestions(questions, questionCount));
+    setAnswers({});
+    setResult(null);
+    setSecondsRemaining(null);
+    setTimerStarted(false);
+    setExamStarted(true);
+  }, [
+    examQuestions.length,
+    examStarted,
+    hasQuestions,
+    isInline,
+    isUnlocked,
+    questionCount,
+    questions,
+    result,
+  ]);
 
   useEffect(() => {
     let ignore = false;
@@ -241,8 +325,8 @@ function ModuleExam({
 
   if (!hasQuestions) {
     return isStandalone ? (
-      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-gray-600 shadow-md">
-        Este modulo no tiene examen configurado.
+      <div className="learning-empty">
+        Este modulo no tiene autoevaluacion configurada.
       </div>
     ) : null;
   }
@@ -276,19 +360,10 @@ function ModuleExam({
       console.error("No se pudo iniciar el intento", error);
       setAttemptError(error?.message || "No se pudo iniciar el intento.");
       setSavingAttempt(false);
-      setShowStartModal(false);
       return;
     }
 
-    const selectedQuestions = shuffleArray(questions)
-      .slice(0, questionCount)
-      .map((question) => ({
-        ...question,
-        opciones_shuffled:
-          question.tipo === QUESTION_TYPES.TRUE_FALSE
-            ? question.opciones
-            : shuffleArray(question.opciones ?? []),
-      }));
+    const selectedQuestions = buildSelectedQuestions(questions, questionCount);
 
     setExamQuestions(selectedQuestions);
     setAnswers({});
@@ -296,7 +371,6 @@ function ModuleExam({
     setSecondsRemaining(durationMinutes * 60);
     setExamStarted(true);
     setTimerStarted(true);
-    setShowStartModal(false);
     setSavingAttempt(false);
   }
 
@@ -318,11 +392,18 @@ function ModuleExam({
     setTimerStarted(false);
     setSavingAttempt(true);
 
+    const completedAttempt = activeAttempt;
+    const finishedAt = new Date();
+    const answerDetails = buildAnswerDetails(examQuestions, answers);
+    const durationSeconds = getAttemptDurationSeconds(completedAttempt, finishedAt);
+
     try {
-      if (activeAttempt?.id) {
-        await completeExamAttempt(activeAttempt.id, {
+      if (completedAttempt?.id) {
+        await completeExamAttempt(completedAttempt.id, {
           porcentaje: percentage,
           aprobado: passed,
+          respuestasDetalle: answerDetails,
+          duracionSegundos: durationSeconds,
         });
         await refreshAttemptSummary();
       }
@@ -342,6 +423,8 @@ function ModuleExam({
       passingScore,
       minimumCorrectAnswers,
       isTimeExpired,
+      attemptId: completedAttempt?.id ?? null,
+      durationSeconds,
     });
     setExamStarted(false);
     setActiveAttempt(null);
@@ -387,7 +470,9 @@ function ModuleExam({
 
     setCooldownUntil(nextCooldownUntil);
     setCooldownSeconds(RETRY_COOLDOWN_SECONDS);
-    setShowCooldownModal(true);
+    if (!isInline) {
+      setShowCooldownModal(true);
+    }
   }
 
   function handleExit() {
@@ -460,7 +545,7 @@ function ModuleExam({
 
           </div>
         </div>
-      ) : (
+      ) : isInline ? null : (
         <button
           type="button"
           onClick={() => !examStarted && !result && setIsExpanded(!isExpanded)}
@@ -469,7 +554,9 @@ function ModuleExam({
           style={disabled || examStarted || result ? { opacity: 0.7 } : {}}
         >
           <div className="flex items-center gap-3">
-            <span className="font-semibold text-gray-900">Examen del modulo</span>
+            <span className="font-semibold text-gray-900">
+              Autoevaluacion del modulo
+            </span>
             {isCompleted && (
               <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">
                 <CheckCircle size={14} />
@@ -492,7 +579,15 @@ function ModuleExam({
       )}
 
       {showIntro && (
-        <div className={isStandalone ? "px-6 py-6" : "border-t border-gray-200 px-6 py-4"}>
+        <div
+          className={
+            isStandalone
+              ? "px-6 py-6"
+              : isInline
+              ? ""
+              : "border-t border-gray-200 px-6 py-4"
+          }
+        >
           {attemptError && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
               {attemptError}
@@ -525,7 +620,7 @@ function ModuleExam({
             ) : (
               <button
                 type="button"
-                onClick={() => setShowStartModal(true)}
+                onClick={startExam}
                 disabled={
                   loadingAttempts ||
                   savingAttempt ||
@@ -536,7 +631,7 @@ function ModuleExam({
               >
                 {cooldownActive
                   ? `Podras volver a intentar en ${formatCooldown(cooldownSeconds)}`
-                  : "Iniciar examen"}
+                  : "Responder preguntas"}
               </button>
             )}
           </div>
@@ -555,10 +650,18 @@ function ModuleExam({
       )}
 
       {examStarted && (
-        <div className={isStandalone ? "px-6 py-6" : "border-t border-gray-200 px-6 py-4"}>
+        <div
+          className={
+            isStandalone
+              ? "px-6 py-6"
+              : isInline
+              ? ""
+              : "border-t border-gray-200 px-6 py-4"
+          }
+        >
           <div className="mb-6 space-y-6">
             {examQuestions.map((question, questionIndex) => (
-              <div key={question.id} className="rounded-lg border border-gray-200 p-4">
+              <div key={question.id} className="learning-card-compact">
                 <p className="mb-3 font-semibold text-gray-900">
                   {questionIndex + 1}. {question.enunciado}
                 </p>
@@ -591,9 +694,9 @@ function ModuleExam({
               disabled={savingAttempt}
               className={styles.finishAction}
             >
-              {savingAttempt ? "Guardando..." : "Finalizar examen"}
+              {savingAttempt ? "Guardando..." : "Finalizar autoevaluacion"}
             </button>
-            {isStandalone && onExit ? (
+            {isInline ? null : isStandalone && onExit ? (
               <button
                 type="button"
                 onClick={handleExit}
@@ -605,70 +708,12 @@ function ModuleExam({
               <button
                 type="button"
                 onClick={() => setExamStarted(false)}
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-2 font-semibold text-gray-700 transition hover:bg-gray-50"
+                className="learning-button-secondary flex-1"
               >
                 Pausar
               </button>
             )}
           </div>
-        </div>
-      )}
-
-      {showStartModal && (
-        <div className={styles.modalOverlay}>
-          <section className={styles.examDisclaimerModal}>
-            <p className={styles.disclaimerEyebrow}>Condiciones del examen</p>
-            <h2 className={styles.disclaimerTitle}>{module.titulo}</h2>
-            <p className={styles.disclaimerText}>
-              Antes de iniciar, revisa las condiciones del examen del modulo.
-            </p>
-
-            <div className={styles.disclaimerGrid}>
-              <div className={styles.disclaimerItem}>
-                <span>Cantidad de preguntas</span>
-                <strong>{questionCount}</strong>
-              </div>
-              <div className={styles.disclaimerItem}>
-                <span>Minimo correcto</span>
-                <strong>{minimumCorrectAnswers} respuestas</strong>
-              </div>
-              <div className={styles.disclaimerItem}>
-                <span>Porcentaje para aprobar</span>
-                <strong>{passingScore}%</strong>
-              </div>
-              <div className={styles.disclaimerItem}>
-                <span>Tiempo maximo</span>
-                <strong>{durationMinutes} min</strong>
-              </div>
-            </div>
-
-            <div className={styles.disclaimerNotice}>
-              <p>
-                El tiempo comienza cuando presiones Comenzar examen. No se puede
-                abandonar y retomar luego. Si salis antes de finalizar, el
-                intento se considera utilizado.
-              </p>
-              <p>Intentos disponibles: {remainingAttempts} de {maxAttempts}.</p>
-            </div>
-
-            <div className={styles.disclaimerActions}>
-              <button
-                type="button"
-                className={styles.disclaimerSecondary}
-                onClick={() => setShowStartModal(false)}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className={styles.disclaimerPrimary}
-                disabled={savingAttempt || !canStartAttempt}
-                onClick={startExam}
-              >
-                {savingAttempt ? "Iniciando..." : "Comenzar examen"}
-              </button>
-            </div>
-          </section>
         </div>
       )}
 
@@ -725,7 +770,15 @@ function ModuleExam({
       )}
 
       {result && (
-        <div className={isStandalone ? "px-6 py-6" : "border-t border-gray-200 px-6 py-4"}>
+        <div
+          className={
+            isStandalone
+              ? "px-6 py-6"
+              : isInline
+              ? ""
+              : "border-t border-gray-200 px-6 py-4"
+          }
+        >
           <div
             className={`mb-4 rounded-lg px-4 py-3 text-center ${
               result.passed ? "bg-green-100" : "bg-red-100"
@@ -785,7 +838,7 @@ function ModuleExam({
               <button
                 type="button"
                 onClick={resetExam}
-                className={`${isStandalone ? "flex-1" : "w-full"} rounded-lg border border-gray-300 px-4 py-2 font-semibold text-gray-700 transition hover:bg-gray-50`}
+                className={`${isStandalone ? "flex-1" : "w-full"} learning-button-secondary`}
               >
                 Intentar de nuevo
               </button>
@@ -795,7 +848,7 @@ function ModuleExam({
               <button
                 type="button"
                 onClick={requestAttemptUnlock}
-                className={`${isStandalone ? "flex-1" : "w-full"} rounded-lg border border-gray-300 px-4 py-2 font-semibold text-gray-700 transition hover:bg-gray-50`}
+                className={`${isStandalone ? "flex-1" : "w-full"} learning-button-secondary`}
               >
                 Solicitar desbloqueo de intentos
               </button>
@@ -805,7 +858,7 @@ function ModuleExam({
               <button
                 type="button"
                 onClick={onResultExit ?? onExit}
-                className="flex-1 rounded-lg bg-green-600 px-4 py-2 font-semibold text-white transition hover:bg-green-700"
+                className="learning-button flex-1"
               >
                 Volver al modulo
               </button>
