@@ -138,41 +138,6 @@ function useCapacitacionProgress(capacitacionIdOrSlug, options = {}) {
     };
   }, [capacitacion?.id]);
 
-  useEffect(() => {
-    let ignore = false;
-
-    const loadExamAttempts = async () => {
-      setLoadingExamAttempts(true);
-      setExamAttemptsError("");
-
-      try {
-        const data = await fetchExamAttempts({
-          tipoExamen: EXAM_TYPES.MODULO,
-          capacitacionId,
-        });
-
-        if (!ignore) {
-          setExamAttempts(data);
-        }
-      } catch (loadError) {
-        if (!ignore) {
-          console.error("No se pudieron cargar los examenes de modulo", loadError);
-          setExamAttemptsError("No se pudo cargar el avance de evaluaciones.");
-        }
-      } finally {
-        if (!ignore) {
-          setLoadingExamAttempts(false);
-        }
-      }
-    };
-
-    loadExamAttempts();
-
-    return () => {
-      ignore = true;
-    };
-  }, [capacitacionId]);
-
   const completedResourceIds = useMemo(
     () => getCompletedResourceIds(progressItems),
     [progressItems]
@@ -209,7 +174,7 @@ function useCapacitacionProgress(capacitacionIdOrSlug, options = {}) {
   };
 
   const markResourceAsCompleted = async (module, resource) => {
-    if (!capacitacionId) {
+    if (!capacitacion?.id) {
       return;
     }
 
@@ -230,7 +195,7 @@ function useCapacitacionProgress(capacitacionIdOrSlug, options = {}) {
 
     try {
       const savedProgress = await saveResourceProgress({
-        capacitacionId,
+        capacitacionId: capacitacion.id,
         moduloId: module.id,
         recursoId: resource.id,
       });
