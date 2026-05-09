@@ -383,7 +383,7 @@ function AdminCertificaciones() {
                     <button
                       type="button"
                       onClick={() => downloadCertificatePng(getDownloadData(request))}
-                      className="btn-secondary h-full"
+                      className="btn-dark h-full"
                     >
                       PNG
                     </button>
@@ -412,7 +412,7 @@ function AdminCertificaciones() {
                         setRejectingRequestId(request.id);
                         setRejectionReason("");
                       }}
-                      className="h-full rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white"
+                      className="btn-danger h-full"
                     >
                       Rechazar
                     </button>
@@ -420,7 +420,7 @@ function AdminCertificaciones() {
                     <button
                       type="button"
                       onClick={() => downloadCertificatePdf(getDownloadData(request))}
-                      className="btn-secondary h-full"
+                      className="btn-info h-full"
                     >
                       PDF
                     </button>
