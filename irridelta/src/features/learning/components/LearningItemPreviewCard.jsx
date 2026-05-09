@@ -14,6 +14,7 @@ import {
   LEARNING_PROGRESS_LABELS,
   LEARNING_PROGRESS_STATUS,
 } from "../utils/learningProgressStatus";
+import { generateSlug } from "../services/learningContentService";
 import styles from "./LearningItemPreviewCard.module.css";
 
 function getShortDescription(description) {
@@ -143,7 +144,7 @@ function LearningItemPreviewCard({
             <ChevronRight size={18} aria-hidden="true" />
           </button>
         ) : (
-          <Link to={`/capacitaciones/${item.id}`} className={styles.detailLink}>
+          <Link to={`/capacitaciones/${generateSlug(item.titulo)}`} className={styles.detailLink}>
             {detailLabel}
             <ChevronRight size={18} aria-hidden="true" />
           </Link>
