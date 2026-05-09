@@ -167,6 +167,41 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+.loadMoreSentinel {
+  display: grid;
+  justify-items: center;
+  margin-top: 2rem;
+  min-height: 4rem;
+}
+
+.skeletonGrid {
+  display: grid;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.skeletonCard {
+  min-height: 15rem;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-xl);
+  background:
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent),
+    linear-gradient(135deg, #f3f4f6, #ffffff);
+  background-size: 220% 100%, 100% 100%;
+  box-shadow: var(--shadow-md);
+  animation: learningSkeleton 1.4s ease-in-out infinite;
+}
+
+@keyframes learningSkeleton {
+  0% {
+    background-position: 180% 0, 0 0;
+  }
+
+  100% {
+    background-position: -80% 0, 0 0;
+  }
+}
+
 @media (max-width: 900px) {
   .controlPanel {
     grid-template-columns: 1fr;

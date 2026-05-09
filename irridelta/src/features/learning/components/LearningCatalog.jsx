@@ -1,15 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
-import { fetchLearningItems } from "../services/learningContentService";
 import {
-  fetchUserLearningProgress,
-  getCompletedResourceIds,
-  isResourceCompleted,
-} from "../services/learningProgressService";
-import {
-  LEARNING_PROGRESS_STATUS_ORDER,
-  getLearningProgressStatus,
-} from "../utils/learningProgressStatus";
+  LEARNING_FEED_VIEWS,
+  fetchLearningFeed,
+} from "../services/learningFeedService";
 import LearningItemPreviewCard from "./LearningItemPreviewCard";
 import styles from "./LearningCatalog.module.css";
 
@@ -20,153 +14,87 @@ const FILTERS = {
   COMPLETED: "completado",
 };
 
-function getModuleResources(module) {
-  return module?.recursos ?? [];
-}
-
-function getItemProgress(item, progressItems = []) {
-  const modules = item?.modulos ?? [];
-  const completedResourceIds = getCompletedResourceIds(progressItems);
-  const startedModules = modules.filter((module) =>
-    getModuleResources(module).some((resource) =>
-      isResourceCompleted(resource, completedResourceIds, module.id)
-    )
-  ).length;
-  const completedModules = modules.filter((module) => {
-    const resources = getModuleResources(module);
-    return resources.every((resource) =>
-      isResourceCompleted(resource, completedResourceIds, module.id)
-    );
-  }).length;
-  const totalModules = modules.length;
-  const progressPercentage =
-    totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
-  const status = getLearningProgressStatus({
-    completedModules,
-    totalModules,
-    startedModules,
-  });
-
-  return {
-    completedModules,
-    totalModules,
-    progressPercentage,
-    status,
-  };
-}
-
-function matchesSearch(item, query) {
-  if (!query) {
-    return true;
-  }
-
-  const haystack = [
-    item?.titulo,
-    item?.descripcion,
-    ...(item?.modulos ?? []).flatMap((module) => [
-      module?.titulo,
-      module?.descripcion,
-    ]),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  return haystack.includes(query);
-}
-
-function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
+function LearningCatalog({ title, emptyMessage }) {
   const [items, setItems] = useState([]);
-  const [progressByItemId, setProgressByItemId] = useState({});
   const [activeFilter, setActiveFilter] = useState(FILTERS.ALL);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [loadingProgress, setLoadingProgress] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState(0);
+  const loadMoreRef = useRef(null);
 
   useEffect(() => {
-    let ignore = false;
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 350);
 
-    const loadItems = async () => {
-      setLoading(true);
+    return () => window.clearTimeout(timeoutId);
+  }, [search]);
+
+  const loadItems = useCallback(
+    async ({ cursor = null, append = false } = {}) => {
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
       setError("");
 
       try {
-        const data = await fetchLearningItems(type, { onlyPublished });
+        const data = await fetchLearningFeed({
+          view: LEARNING_FEED_VIEWS.USER_CAPACITACIONES,
+          cursor,
+          search: debouncedSearch,
+          status: activeFilter,
+        });
 
-        if (!ignore) {
-          setItems(data);
-        }
-
-        if (data.length > 0) {
-          setLoadingProgress(true);
-
-          const progressEntries = await Promise.all(
-            data.map(async (item) => {
-              const progress = await fetchUserLearningProgress(item.id);
-
-              return [item.id, progress];
-            })
-          );
-          if (!ignore) {
-            setProgressByItemId(Object.fromEntries(progressEntries));
-          }
-        } else if (!ignore) {
-          setProgressByItemId({});
-        }
-      } catch (loadError) {
-        if (!ignore) {
-          console.error("No se pudo cargar el contenido formativo", loadError);
-          setError(
-            "No se pudo cargar el contenido. Revisa que las tablas estén creadas en Supabase."
-          );
-        }
-      } finally {
-        if (!ignore) {
-          setLoading(false);
-          setLoadingProgress(false);
-        }
-      }
-    };
-
-    loadItems();
-
-    return () => {
-      ignore = true;
-    };
-  }, [onlyPublished, type]);
-
-  const itemsWithProgress = useMemo(
-    () =>
-      items.map((item) => ({
-        item,
-        progress: getItemProgress(
-          item,
-          progressByItemId[item.id] ?? []
-        ),
-      })),
-    [items, progressByItemId]
-  );
-
-  const searchQuery = search.trim().toLowerCase();
-
-  const filteredItems = useMemo(
-    () => {
-      return itemsWithProgress
-        .filter(({ item, progress }) => {
-        const matchesFilter =
-          activeFilter === FILTERS.ALL || progress.status === activeFilter;
-
-        return matchesFilter && matchesSearch(item, searchQuery);
-        })
-        .sort(
-          (currentItem, nextItem) =>
-            LEARNING_PROGRESS_STATUS_ORDER[currentItem.progress.status] -
-            LEARNING_PROGRESS_STATUS_ORDER[nextItem.progress.status]
+        setItems((currentItems) =>
+          append ? [...currentItems, ...data.items] : data.items
         );
+        setNextCursor(data.nextCursor);
+        setHasMore(data.hasMore);
+        setTotal(data.total);
+      } catch (loadError) {
+        console.error("No se pudo cargar el contenido formativo", loadError);
+        setError(
+          "No se pudo cargar el contenido. Revisa que la funcion learning-feed este publicada en Supabase."
+        );
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
     },
-    [activeFilter, itemsWithProgress, searchQuery]
+    [activeFilter, debouncedSearch]
   );
+
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
+
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
+
+    if (!sentinel || !hasMore || loading || loadingMore) {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && nextCursor) {
+          loadItems({ cursor: nextCursor, append: true });
+        }
+      },
+      { rootMargin: "360px" }
+    );
+
+    observer.observe(sentinel);
+
+    return () => observer.disconnect();
+  }, [hasMore, loadItems, loading, loadingMore, nextCursor]);
 
   return (
     <section className="learning-page">
@@ -175,13 +103,18 @@ function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
           <div>
             <h1 className="learning-title">{title}</h1>
             <p className="learning-subtitle">
-              Accede al material de formación y seguí tu avance en cada módulo.
+              Accede al material de formacion y segui tu avance en cada modulo.
             </p>
-
           </div>
         </header>
 
-        {loading && <div className="learning-empty">Cargando contenido...</div>}
+        {loading && (
+          <div className={styles.skeletonGrid} aria-label="Cargando contenido">
+            <div className={styles.skeletonCard} />
+            <div className={styles.skeletonCard} />
+            <div className={styles.skeletonCard} />
+          </div>
+        )}
 
         {!loading && error && (
           <div className="rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700">
@@ -189,11 +122,11 @@ function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
           </div>
         )}
 
-        {!loading && !error && items.length === 0 && (
+        {!loading && !error && items.length === 0 && activeFilter === FILTERS.ALL && !debouncedSearch && (
           <div className="learning-empty">{emptyMessage}</div>
         )}
 
-        {!loading && !error && items.length > 0 && (
+        {!loading && !error && (items.length > 0 || activeFilter !== FILTERS.ALL || debouncedSearch) && (
           <>
             <div className={styles.controlPanel}>
               <div className={styles.searchBlock}>
@@ -205,14 +138,14 @@ function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
                   <input
                     id="learning-search"
                     type="text"
-                    placeholder="Buscar por título, descripción o módulo"
+                    placeholder="Buscar por titulo o descripcion"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     className={styles.searchInput}
                   />
                 </div>
                 <p className={styles.resultsHint}>
-                  Mostrando {filteredItems.length} de {items.length} capacitaciones.
+                  Mostrando {items.length} de {total} capacitaciones.
                 </p>
               </div>
 
@@ -226,40 +159,48 @@ function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
                   onChange={(event) => setActiveFilter(event.target.value)}
                   className={styles.filterSelect}
                 >
-                  <option value={FILTERS.ALL}>
-                    Todos
-                  </option>
-                  <option value={FILTERS.PENDING}>
-                    Pendientes
-                  </option>
-                  <option value={FILTERS.IN_PROGRESS}>
-                    En progreso
-                  </option>
-                  <option value={FILTERS.COMPLETED}>
-                    Completados
-                  </option>
+                  <option value={FILTERS.ALL}>Todos</option>
+                  <option value={FILTERS.PENDING}>Pendientes</option>
+                  <option value={FILTERS.IN_PROGRESS}>En progreso</option>
+                  <option value={FILTERS.COMPLETED}>Completados</option>
                 </select>
               </div>
             </div>
 
-            {loadingProgress && (
-              <p className={styles.progressLoading}>Actualizando progreso...</p>
-            )}
-
-            {filteredItems.length === 0 ? (
+            {items.length === 0 ? (
               <div className="learning-empty">
                 No se encontraron capacitaciones con ese criterio.
               </div>
             ) : (
-              <div className={styles.grid}>
-                {filteredItems.map(({ item, progress }) => (
-                  <LearningItemPreviewCard
-                    key={item.id}
-                    item={item}
-                    progress={progress}
-                  />
-                ))}
-              </div>
+              <>
+                <div className={styles.grid}>
+                  {items.map((item) => (
+                    <LearningItemPreviewCard
+                      key={item.id}
+                      item={item}
+                      progress={item.progress}
+                    />
+                  ))}
+                </div>
+
+                <div ref={loadMoreRef} className={styles.loadMoreSentinel}>
+                  {loadingMore && (
+                    <div className={styles.skeletonGrid} aria-hidden="true">
+                      <div className={styles.skeletonCard} />
+                      <div className={styles.skeletonCard} />
+                    </div>
+                  )}
+                  {!loadingMore && hasMore && (
+                    <button
+                      type="button"
+                      className="learning-button-secondary"
+                      onClick={() => loadItems({ cursor: nextCursor, append: true })}
+                    >
+                      Cargar mas
+                    </button>
+                  )}
+                </div>
+              </>
             )}
           </>
         )}
