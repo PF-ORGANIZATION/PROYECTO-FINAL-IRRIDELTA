@@ -155,7 +155,7 @@ function App() {
                 }
               />
               <Route
-                path="/capacitaciones/:capacitacionId/modulos/:moduloIndex/examen"
+                path="/capacitaciones/:capacitacionSlug/modulos/:moduloIndex/examen"
                 element={
                   <ProtectedRoute
                     element={CapacitacionModuloExamen}
