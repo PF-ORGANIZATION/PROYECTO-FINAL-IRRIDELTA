@@ -434,8 +434,8 @@ function AdminKB() {
       <div className="container-main max-w-4xl space-y-8">
         <div className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
           <header className="bg-green-600 px-6 py-4 shadow-sm">
-          <h1 className="text-xl font-bold text-white">Panel de Conocimiento (RAG)</h1>
-          <p className="text-sm text-green-100">Carga documentos y genera embeddings localmente</p>
+          <h1 className="text-xl font-bold text-white">Panel de Conocimiento</h1>
+          <p className="text-sm text-green-100">Carga documentos</p>
         </header>
 
         <form onSubmit={handleProcess} className="p-6 space-y-6 bg-gray-50 flex-1 overflow-y-auto">

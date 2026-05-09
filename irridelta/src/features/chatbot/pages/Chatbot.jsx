@@ -57,8 +57,25 @@ function Chatbot() {
     setIsLoading(true);
 
     try {
-      // 1. Vectorizar la pregunta del usuario y buscar en la KB
-      const queryEmbedding = await embed(userMsg);
+      // 1. Detectar si es un follow-up corto y enriquecer la query para el embedding
+      const tieneHistorial = conversationHistory.current.length > 0;
+      const esFollowUp = tieneHistorial && userMsg.split(/\s+/).length <= 5;
+
+      let queryParaEmbedding = userMsg;
+      if (esFollowUp) {
+        // Usar el último intercambio como contexto para mejorar la búsqueda vectorial
+        const lastAssistant = [...conversationHistory.current]
+          .reverse()
+          .find((m) => m.role === "assistant");
+        if (lastAssistant) {
+          // Tomar las primeras 200 chars de la última respuesta como contexto
+          const resumenPrevio = lastAssistant.content.slice(0, 200);
+          queryParaEmbedding = `${resumenPrevio} ${userMsg}`;
+        }
+      }
+
+      // 2. Vectorizar y buscar en la KB
+      const queryEmbedding = await embed(queryParaEmbedding);
       const { data: documentos, error: searchErr } = await supabase.rpc('buscar_contexto_kb', {
         query_embedding: queryEmbedding,
         match_threshold: MATCH_THRESHOLD,
@@ -69,7 +86,7 @@ function Chatbot() {
         throw searchErr;
       }
 
-      // 2. Preparar el contexto y extraer fuentes
+      // 3. Preparar el contexto y extraer fuentes
       let contexto = "";
       let fuentesUnicas = [];
       if (documentos && documentos.length > 0) {
@@ -77,13 +94,18 @@ function Chatbot() {
         fuentesUnicas = [...new Set(documentos.map(doc => doc.metadata?.source).filter(Boolean))];
       }
 
-      // 2b. FILTRO DE RELEVANCIA: bloquear queries fuera de tema sin gastar tokens
+      // 3b. FILTRO DE RELEVANCIA: bloquear queries fuera de tema sin gastar tokens
+      //     NUNCA bloquear si hay historial — el LLM maneja follow-ups con el system prompt
       const queryLower = userMsg.toLowerCase();
       const tieneContexto = contexto.length > 0;
-      const tieneHistorial = conversationHistory.current.length > 0;
       const esRelevante = KEYWORDS_IRRIDELTA.some((kw) => queryLower.includes(kw));
 
       if (!tieneContexto && !tieneHistorial && !esRelevante) {
+        // Guardar el intento del usuario en el historial para que futuros follow-ups tengan contexto
+        conversationHistory.current.push(
+          { role: "user", content: userMsg },
+          { role: "assistant", content: OFF_TOPIC_RESPONSE }
+        );
         setMessages((prev) => [
           ...prev,
           { id: Date.now() + 1, sender: "bot", text: OFF_TOPIC_RESPONSE },
@@ -91,7 +113,7 @@ function Chatbot() {
         return;
       }
 
-      // 3. Armar mensajes para el LLM
+      // 4. Armar mensajes para el LLM
       const systemPrompt = buildSystemPrompt(contexto);
       const llmMessages = [
         { role: "system", content: systemPrompt },
@@ -99,7 +121,7 @@ function Chatbot() {
         { role: "user", content: userMsg },
       ];
 
-      // 4. Llamada a la Edge Function con streaming
+      // 5. Llamada a la Edge Function con streaming
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
       const botMsgId = Date.now() + 1;
@@ -139,7 +161,7 @@ function Chatbot() {
         throw new Error("No se pudo conectar con la IA. Intenta de nuevo en unos segundos.");
       }
 
-      // 5. Leer el stream SSE token por token (con buffer para chunks parciales)
+      // 6. Leer el stream SSE token por token (con buffer para chunks parciales)
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let fullReply = "";
@@ -179,18 +201,19 @@ function Chatbot() {
         }
       }
 
-      // 6. Guardar turno en el historial
+      // 7. Computar respuesta final (fallback si el stream no devolvió nada)
+      const finalReply = fullReply.trim() || "Lo siento, hubo un problema al generar la respuesta. Por favor intenta reformular tu consulta o contactarnos directamente.";
+
+      // 8. Guardar turno en el historial con la respuesta final (no fullReply que puede ser "")
       conversationHistory.current.push(
         { role: "user", content: userMsg },
-        { role: "assistant", content: fullReply }
+        { role: "assistant", content: finalReply }
       );
       if (conversationHistory.current.length > MAX_HISTORY_TURNS * 2) {
         conversationHistory.current = conversationHistory.current.slice(-MAX_HISTORY_TURNS * 2);
       }
 
-      // Limpiar flag de streaming y asegurar que no quede el placeholder
-      const finalReply = fullReply.trim() || "Lo siento, hubo un problema al generar la respuesta. Por favor intenta reformular tu consulta o contactarnos directamente.";
-
+      // Limpiar flag de streaming
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === botMsgId ? { ...msg, text: finalReply, isStreaming: false } : msg
@@ -258,7 +281,7 @@ function Chatbot() {
           {/* Header */}
           <header className="bg-green-600 px-5 py-4 shadow-sm flex justify-between items-center">
             <div>
-              <h1 className="text-lg font-bold text-white">Asistente AI Irridelta</h1>
+              <h1 className="text-lg font-bold text-white">Asistente Irridelta</h1>
               <p className="text-xs text-green-100">Consultas sobre manuales y datos de empresa</p>
             </div>
             <div className="flex gap-3">
