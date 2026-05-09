@@ -23,20 +23,11 @@ function getModuleResources(module) {
   return module?.recursos ?? [];
 }
 
-function isModuleCompleted(module, completedResourceIds, approvedModuleIds = new Set()) {
+function isModuleCompleted(module, completedResourceIds) {
   const resources = getModuleResources(module);
-  const hasExam = Array.isArray(module?.preguntas) && module.preguntas.length > 0;
-  const resourcesCompleted =
-    resources.length > 0 &&
-    resources.every((resource) =>
-      isResourceCompleted(resource, completedResourceIds, module.id)
-    );
-
-  if (!resourcesCompleted) {
-    return false;
-  }
-
-  return !hasExam || approvedModuleIds.has(module.id);
+  return resources.every((resource) =>
+    isResourceCompleted(resource, completedResourceIds, module.id)
+  );
 }
 
 export async function fetchUserLearningProgress(capacitacionId) {
@@ -151,8 +142,7 @@ export function isResourceCompleted(resource, completedResourceIds, moduloId) {
 export function isModuleUnlocked(
   moduleIndex,
   modules,
-  completedResourceIds,
-  approvedModuleIds = new Set()
+  completedResourceIds
 ) {
   if (moduleIndex === 0) {
     return true;
@@ -161,7 +151,7 @@ export function isModuleUnlocked(
   const previousModules = (modules ?? []).slice(0, moduleIndex);
 
   return previousModules.every((module) =>
-    isModuleCompleted(module, completedResourceIds, approvedModuleIds)
+    isModuleCompleted(module, completedResourceIds)
   );
 }
 
@@ -169,10 +159,9 @@ export function isResourceUnlocked(
   moduleIndex,
   resourceIndex,
   modules,
-  completedResourceIds,
-  approvedModuleIds = new Set()
+  completedResourceIds
 ) {
-  if (!isModuleUnlocked(moduleIndex, modules, completedResourceIds, approvedModuleIds)) {
+  if (!isModuleUnlocked(moduleIndex, modules, completedResourceIds)) {
     return false;
   }
 
@@ -186,25 +175,17 @@ export function isResourceUnlocked(
 
 export function isCapacitacionCompleted(
   modules,
-  completedResourceIds,
-  approvedModuleIds = new Set()
+  completedResourceIds
 ) {
-  const allResources = (modules ?? []).flatMap((module) =>
-    getModuleResources(module)
-  );
+  const moduleList = modules ?? [];
 
-  if (allResources.length === 0) {
+  if (moduleList.length === 0) {
     return false;
   }
 
-  const resourcesCompleted = allResources.every((resource) =>
-    isResourceCompleted(resource, completedResourceIds, resource.modulo_id)
+  return moduleList.every((module) =>
+    getModuleResources(module).every((resource) =>
+      isResourceCompleted(resource, completedResourceIds, module.id)
+    )
   );
-  const moduleExamsApproved = (modules ?? []).every((module) => {
-    const hasExam = Array.isArray(module?.preguntas) && module.preguntas.length > 0;
-
-    return !hasExam || approvedModuleIds.has(module.id);
-  });
-
-  return resourcesCompleted && moduleExamsApproved;
 }
