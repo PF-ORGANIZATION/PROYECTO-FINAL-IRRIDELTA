@@ -33,6 +33,19 @@ export const LEARNING_TYPES = {
 
 export const CERTIFICATION_QUESTION_TYPES = QUESTION_TYPES;
 
+function generateSlug(text) {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove accents
+    .replace(/[^a-z0-9\s-]/g, "") // Remove special chars except spaces and hyphens
+    .trim()
+    .replace(/\s+/g, "-") // Replace spaces with hyphens
+    .replace(/-+/g, "-"); // Replace multiple hyphens with single
+}
+
+export { generateSlug };
+
 function normalizeText(value) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
@@ -227,6 +240,36 @@ export async function fetchLearningItemById(id, options = {}) {
   }
 
   const hydratedItems = await hydrateCapacitaciones([data]);
+
+  return hydratedItems[0] ?? null;
+}
+
+export async function fetchLearningItemBySlug(slug, options = {}) {
+  let query = supabase
+    .from(CAPACITACIONES_TABLE)
+    .select("*");
+
+  if (options.onlyPublished) {
+    query = query.eq("publicada", true);
+  }
+
+  const { data: capacitaciones, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  // Find the capacitacion that matches the slug
+  const matchingCapacitacion = capacitaciones?.find((capacitacion) => {
+    const generatedSlug = generateSlug(capacitacion.titulo || "");
+    return generatedSlug === slug;
+  });
+
+  if (!matchingCapacitacion) {
+    return null;
+  }
+
+  const hydratedItems = await hydrateCapacitaciones([matchingCapacitacion]);
 
   return hydratedItems[0] ?? null;
 }
