@@ -86,16 +86,17 @@ function Certificaciones() {
         <title>Certificaciones | IRRIDELTA</title>
       </Helmet>
 
-      <section className="min-h-[70vh] bg-gray-50 px-4 py-16">
-        <div className="mx-auto max-w-6xl">
-          <header className="mb-10 text-center">
-            <h1 className="text-4xl font-extrabold tracking-wide text-gray-900 md:text-6xl">
-              &iexcl;CERTIFICACIONES!
-            </h1>
+      <section className="learning-page">
+        <div className="learning-container">
+          <header className="learning-header">
+            <h1 className="learning-title normal-case">Certificaciones</h1>
+            <p className="learning-subtitle">
+              Accede a los examenes finales habilitados por tus capacitaciones completadas.
+            </p>
           </header>
 
           {loading && (
-            <div className="rounded-xl bg-white p-8 text-center text-gray-600 shadow">
+            <div className="learning-empty">
               Cargando certificaciones...
             </div>
           )}
@@ -107,18 +108,18 @@ function Certificaciones() {
           )}
 
           {!loading && !error && items.length === 0 && (
-            <div className="rounded-xl bg-white p-8 text-center text-gray-600 shadow">
-              <h2 className="text-2xl font-bold text-gray-900">
+            <div className="learning-empty">
+              <h2 className="learning-empty-title">
                 Todavia no tenes certificaciones disponibles.
               </h2>
-              <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-gray-600">
+              <p className="learning-empty-text">
                 Completa una capacitacion con certificado para habilitar su
                 examen final.
               </p>
               <button
                 type="button"
                 onClick={() => navigate("/capacitaciones")}
-                className="mt-6 inline-flex rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700"
+                className="learning-button mt-6"
               >
                 Ir a capacitaciones
               </button>
@@ -126,26 +127,26 @@ function Certificaciones() {
           )}
 
           {!loading && !error && items.length > 0 && (
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="learning-grid-2">
               {items.map((item) => {
                 const durationMinutes = getCertificationDurationMinutes(item);
 
                 return (
                   <article
                     key={item.id}
-                    className="rounded-2xl bg-white p-6 shadow-md transition duration-200 hover:shadow-lg"
+                    className="learning-card"
                   >
-                    <h2 className="text-2xl font-bold text-gray-900">
+                    <h2 className="learning-section-title">
                       {item.titulo}
                     </h2>
 
                     {item.descripcion && (
-                      <p className="mt-3 text-sm leading-6 text-gray-600">
+                      <p className="learning-muted mt-3">
                         {item.descripcion}
                       </p>
                     )}
 
-                    <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700">
+                    <div className="learning-pill mt-5">
                       <Clock3 size={16} aria-hidden="true" />
                       {durationMinutes}
                     </div>
@@ -154,7 +155,7 @@ function Certificaciones() {
                       <button
                         type="button"
                         onClick={() => navigate(`/certificaciones/${item.id}`)}
-                        className="inline-flex rounded-lg bg-blue-500 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-blue-600"
+                        className="learning-button"
                       >
                         Realizar certificacion
                       </button>
