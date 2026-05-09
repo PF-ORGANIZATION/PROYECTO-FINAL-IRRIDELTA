@@ -61,7 +61,7 @@ function LearningCatalog({ title, emptyMessage }) {
       } catch (loadError) {
         console.error("No se pudo cargar el contenido formativo", loadError);
         setError(
-          "No se pudo cargar el contenido. Revisa que la funcion learning-feed este publicada en Supabase."
+          "No se pudo cargar el contenido. Revisa la conexion con Supabase."
         );
       } finally {
         setLoading(false);

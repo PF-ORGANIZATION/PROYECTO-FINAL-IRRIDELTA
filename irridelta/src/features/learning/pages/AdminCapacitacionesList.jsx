@@ -59,7 +59,7 @@ function AdminCapacitacionesList() {
       } catch (loadError) {
         console.error("No se pudieron cargar las capacitaciones", loadError);
         setError(
-          "No se pudieron cargar las capacitaciones. Revisa que la funcion learning-feed este publicada en Supabase."
+          "No se pudieron cargar las capacitaciones. Revisa la conexion con Supabase."
         );
       } finally {
         setLoading(false);

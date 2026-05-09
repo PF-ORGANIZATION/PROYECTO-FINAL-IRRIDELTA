@@ -43,7 +43,7 @@ function Certificaciones() {
     } catch (loadError) {
       console.error("No se pudieron cargar las certificaciones", loadError);
       setError(
-        "No se pudieron cargar las certificaciones. Revisa que la funcion learning-feed este publicada en Supabase."
+        "No se pudieron cargar las certificaciones. Revisa la conexion con Supabase."
       );
     } finally {
       setLoading(false);
