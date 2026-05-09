@@ -1,16 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
+import { Clock3 } from "lucide-react";
 import {
   LEARNING_TYPES,
   fetchLearningItems,
 } from "../../learning/services/learningContentService";
 import {
-  formatDurationLabel,
   getCertificationDurationMinutes,
-  getCertificationExamQuestionCount,
-  getCertificationPassingScore,
-  getMinimumCorrectAnswers,
 } from "../utils/certifications";
 
 function Certificaciones() {
@@ -90,12 +87,6 @@ function Certificaciones() {
           {!loading && !error && items.length > 0 && (
             <div className="grid gap-6 md:grid-cols-2">
               {items.map((item) => {
-                const examQuestionCount = getCertificationExamQuestionCount(item);
-                const passingScore = getCertificationPassingScore(item);
-                const minimumCorrectAnswers = getMinimumCorrectAnswers(
-                  examQuestionCount,
-                  passingScore
-                );
                 const durationMinutes = getCertificationDurationMinutes(item);
 
                 return (
@@ -113,17 +104,9 @@ function Certificaciones() {
                       </p>
                     )}
 
-                    <div className="mt-5 grid gap-2 text-sm text-gray-500">
-                      <p>
-                        Preguntas disponibles:{" "}
-                        {Array.isArray(item.preguntas) ? item.preguntas.length : 0}
-                      </p>
-                      <p>Preguntas del examen: {examQuestionCount}</p>
-                      <p>
-                        Minimo de respuestas correctas: {minimumCorrectAnswers}
-                      </p>
-                      <p>Aprobacion: {passingScore}%</p>
-                      <p>Tiempo maximo: {formatDurationLabel(durationMinutes)}</p>
+                    <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700">
+                      <Clock3 size={16} aria-hidden="true" />
+                      {durationMinutes}
                     </div>
 
                     <div className="mt-6">
