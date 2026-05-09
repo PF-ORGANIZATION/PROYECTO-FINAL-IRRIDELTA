@@ -25,7 +25,30 @@ export async function fetchCertificationRequests() {
     throw error;
   }
 
-  return (data ?? []).map(normalizeRequest);
+  const requests = (data ?? []).map(normalizeRequest);
+  const attemptIds = [
+    ...new Set(requests.map((request) => request.exam_attempt_id).filter(Boolean)),
+  ];
+
+  if (attemptIds.length === 0) {
+    return requests;
+  }
+
+  const { data: attempts, error: attemptsError } = await supabase
+    .from("exam_attempts")
+    .select("*")
+    .in("id", attemptIds);
+
+  if (attemptsError) {
+    throw attemptsError;
+  }
+
+  const attemptsById = new Map((attempts ?? []).map((attempt) => [attempt.id, attempt]));
+
+  return requests.map((request) => ({
+    ...request,
+    exam_attempt: attemptsById.get(request.exam_attempt_id) ?? null,
+  }));
 }
 
 export async function fetchUserCertificationRequest(certificationId, userId) {
@@ -76,6 +99,7 @@ export async function createCertificationRequest({
     status: CERTIFICATION_REQUEST_STATUS.PENDING,
     rejection_reason: null,
     exam_percentage: Number(examResult?.percentage ?? 0),
+    exam_attempt_id: examResult?.attemptId ?? null,
     exam_approved_at: now,
     requested_at: now,
     reviewed_at: null,

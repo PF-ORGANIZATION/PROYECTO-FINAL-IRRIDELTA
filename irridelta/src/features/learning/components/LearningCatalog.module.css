@@ -20,26 +20,27 @@
 .headerContent {
   border-radius: var(--radius-xl);
   background: var(--color-surface);
-  padding: 2rem;
+  padding: 1.75rem 2rem;
   box-shadow: var(--shadow-md);
   text-align: left;
 }
 
 .title {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
   color: #1f2937;
-  font-size: clamp(2rem, 4vw, 2.8rem);
-  font-weight: 800;
-  line-height: 1.1;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid #e5e7eb;
+  font-size: clamp(1.85rem, 3vw, 2.35rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid #d1d5db;
 }
 
 .subtitle {
   max-width: 42rem;
   color: #6b7280;
-  font-size: 1rem;
-  line-height: 1.7;
+  font-size: 0.96rem;
+  line-height: 1.6;
 }
 
 .feedbackCard {
@@ -166,6 +167,41 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+.loadMoreSentinel {
+  display: grid;
+  justify-items: center;
+  margin-top: 2rem;
+  min-height: 4rem;
+}
+
+.skeletonGrid {
+  display: grid;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.skeletonCard {
+  min-height: 15rem;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-xl);
+  background:
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent),
+    linear-gradient(135deg, #f3f4f6, #ffffff);
+  background-size: 220% 100%, 100% 100%;
+  box-shadow: var(--shadow-md);
+  animation: learningSkeleton 1.4s ease-in-out infinite;
+}
+
+@keyframes learningSkeleton {
+  0% {
+    background-position: 180% 0, 0 0;
+  }
+
+  100% {
+    background-position: -80% 0, 0 0;
+  }
+}
+
 @media (max-width: 900px) {
   .controlPanel {
     grid-template-columns: 1fr;
@@ -183,7 +219,7 @@
   }
 
   .title {
-    font-size: 2rem;
+    font-size: 1.75rem;
   }
 
   .controlPanel {

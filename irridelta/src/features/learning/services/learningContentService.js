@@ -33,6 +33,21 @@ export const LEARNING_TYPES = {
 
 export const CERTIFICATION_QUESTION_TYPES = QUESTION_TYPES;
 
+function generateSlug(text) {
+  const normalizedText = String(text ?? "");
+
+  return normalizedText
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove accents
+    .replace(/[^a-z0-9\s-]/g, "") // Remove special chars except spaces and hyphens
+    .trim()
+    .replace(/\s+/g, "-") // Replace spaces with hyphens
+    .replace(/-+/g, "-"); // Replace multiple hyphens with single
+}
+
+export { generateSlug };
+
 function normalizeText(value) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
@@ -100,6 +115,16 @@ function normalizeCertificationQuestion(question, index) {
       : CERTIFICATION_QUESTION_TYPES.MULTIPLE_CHOICE;
 
   return sanitizeQuestionForSave({ ...question, tipo: type }, index);
+}
+
+function isFinalCertificationComplete(certification) {
+  return (
+    Boolean(certification?.titulo?.trim()) &&
+    validateAssessment(certification, {
+      includeQuestionCount: true,
+      questionCountKey: "cantidad_preguntas_examen",
+    }) === ""
+  );
 }
 
 function mapCapacitacionItem(item) {
@@ -217,6 +242,36 @@ export async function fetchLearningItemById(id, options = {}) {
   }
 
   const hydratedItems = await hydrateCapacitaciones([data]);
+
+  return hydratedItems[0] ?? null;
+}
+
+export async function fetchLearningItemBySlug(slug, options = {}) {
+  let query = supabase
+    .from(CAPACITACIONES_TABLE)
+    .select("*");
+
+  if (options.onlyPublished) {
+    query = query.eq("publicada", true);
+  }
+
+  const { data: capacitaciones, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  // Find the capacitacion that matches the slug
+  const matchingCapacitacion = capacitaciones?.find((capacitacion) => {
+    const generatedSlug = generateSlug(capacitacion.titulo || "");
+    return generatedSlug === slug;
+  });
+
+  if (!matchingCapacitacion) {
+    return null;
+  }
+
+  const hydratedItems = await hydrateCapacitaciones([matchingCapacitacion]);
 
   return hydratedItems[0] ?? null;
 }
@@ -622,6 +677,17 @@ async function upsertFinalCertification(capacitacionId, certification) {
   }
 }
 
+async function deleteFinalCertification(capacitacionId) {
+  const { error } = await supabase
+    .from(CERTIFICACIONES_TABLE)
+    .delete()
+    .eq("capacitacion_id", capacitacionId);
+
+  if (error) {
+    throw error;
+  }
+}
+
 export async function saveLearningItem(item) {
   const now = new Date().toISOString();
   const payload = {
@@ -632,10 +698,7 @@ export async function saveLearningItem(item) {
   };
   const modules = item.modulos ?? [];
   validateLearningModules(modules);
-
-  if (!item.certificacion) {
-    throw new Error("La capacitacion debe tener un test final configurado.");
-  }
+  const hasFinalCertification = isFinalCertificationComplete(item.certificacion);
 
   if (item.id) {
     const { data, error } = await supabase
@@ -650,7 +713,11 @@ export async function saveLearningItem(item) {
     }
 
     await replaceCapacitacionModules(data.id, modules);
-    await upsertFinalCertification(data.id, item.certificacion);
+    if (hasFinalCertification) {
+      await upsertFinalCertification(data.id, item.certificacion);
+    } else {
+      await deleteFinalCertification(data.id);
+    }
     return (await hydrateCapacitaciones([data]))[0];
   }
 
@@ -665,7 +732,9 @@ export async function saveLearningItem(item) {
   }
 
   await replaceCapacitacionModules(data.id, modules);
-  await upsertFinalCertification(data.id, item.certificacion);
+  if (hasFinalCertification) {
+    await upsertFinalCertification(data.id, item.certificacion);
+  }
   return (await hydrateCapacitaciones([data]))[0];
 }
 

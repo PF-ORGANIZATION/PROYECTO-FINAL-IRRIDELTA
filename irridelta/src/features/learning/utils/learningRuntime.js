@@ -23,26 +23,16 @@ export function getResourceLabel(resource) {
 export function areModuleResourcesCompleted(module, completedResourceIds) {
   const resources = module?.recursos ?? [];
 
-  return (
-    resources.length > 0 &&
-    resources.every(
-      (resource) =>
-        Boolean(module?.id) &&
-        Boolean(resource?.id) &&
-        completedResourceIds.has(`${module.id}:${resource.id}`)
-    )
+  return resources.every(
+    (resource) =>
+      Boolean(module?.id) &&
+      Boolean(resource?.id) &&
+      completedResourceIds.has(`${module.id}:${resource.id}`)
   );
 }
 
-export function isModuleCompleted(module, completedResourceIds, approvedModuleIds = new Set()) {
-  const hasExam = Array.isArray(module?.preguntas) && module.preguntas.length > 0;
-  const resourcesCompleted = areModuleResourcesCompleted(module, completedResourceIds);
-
-  if (!resourcesCompleted) {
-    return false;
-  }
-
-  return !hasExam || approvedModuleIds.has(module.id);
+export function isModuleCompleted(module, completedResourceIds) {
+  return areModuleResourcesCompleted(module, completedResourceIds);
 }
 
 export function parseModuleIndex(moduleIndexParam) {
@@ -55,10 +45,7 @@ export function parseModuleIndex(moduleIndexParam) {
   return moduleIndex - 1;
 }
 
-export function getModuleRoute(capacitacionId, moduleIndex) {
-  return `/capacitaciones/${capacitacionId}/modulos/${moduleIndex + 1}`;
+export function getModuleRoute(capacitacionIdOrSlug, moduleIndex) {
+  return `/capacitaciones/${capacitacionIdOrSlug}/modulos/${moduleIndex + 1}`;
 }
 
-export function getModuleExamRoute(capacitacionId, moduleIndex) {
-  return `/capacitaciones/${capacitacionId}/modulos/${moduleIndex + 1}/examen`;
-}
