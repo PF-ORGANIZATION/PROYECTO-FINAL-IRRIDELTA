@@ -20,6 +20,7 @@ import AdminProducts from "./features/products/pages/AdminProducts";
 import Capacitaciones from "./features/learning/pages/Capacitaciones";
 import CapacitacionDetalle from "./features/learning/pages/CapacitacionDetalle";
 import CapacitacionModulo from "./features/learning/pages/CapacitacionModulo";
+import CapacitacionModuloExamen from "./features/learning/pages/CapacitacionModuloExamen";
 import Certificaciones from "./features/certifications/pages/Certificaciones";
 import CertificationExam from "./features/certifications/pages/CertificationExam";
 import AdminCapacitacionesList from "./features/learning/pages/AdminCapacitacionesList";
@@ -28,6 +29,7 @@ import AdminCertificaciones from "./features/certifications/pages/AdminCertifica
 import AdminKB from "./features/kb/pages/AdminKB";
 import { getDefaultPathByRole, USER_ROLES } from "./features/auth/authRoles";
 import Chatbot from "./features/chatbot/pages/Chatbot";
+import ChatbotPage from "./features/chatbot/pages/ChatbotPage";
 
 const WHATSAPP_NUMBER = "5491162856483";
 
@@ -136,7 +138,7 @@ function App() {
                 }
               />
               <Route
-                path="/capacitaciones/:capacitacionId"
+                path="/capacitaciones/:capacitacionSlug"
                 element={
                   <ProtectedRoute
                     element={CapacitacionDetalle}
@@ -145,10 +147,19 @@ function App() {
                 }
               />
               <Route
-                path="/capacitaciones/:capacitacionId/modulos/:moduloIndex"
+                path="/capacitaciones/:capacitacionSlug/modulos/:moduloIndex"
                 element={
                   <ProtectedRoute
                     element={CapacitacionModulo}
+                    allowedRoles={[USER_ROLES.CLIENTE, USER_ROLES.ADMIN]}
+                  />
+                }
+              />
+              <Route
+                path="/capacitaciones/:capacitacionId/modulos/:moduloIndex/examen"
+                element={
+                  <ProtectedRoute
+                    element={CapacitacionModuloExamen}
                     allowedRoles={[USER_ROLES.CLIENTE, USER_ROLES.ADMIN]}
                   />
                 }
@@ -222,6 +233,15 @@ function App() {
                   <ProtectedRoute
                     element={AdminKB}
                     allowedRoles={[USER_ROLES.ADMIN]}
+                  />
+                }
+              />
+              <Route
+                path="/chatbot"
+                element={
+                  <ProtectedRoute
+                    element={ChatbotPage}
+                    allowedRoles={[USER_ROLES.CLIENTE, USER_ROLES.ADMIN]}
                   />
                 }
               />
