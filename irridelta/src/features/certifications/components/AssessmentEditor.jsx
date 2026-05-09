@@ -157,12 +157,12 @@ function AssessmentEditor({
   };
 
   return (
-    <div className="space-y-5 rounded-lg border border-gray-200 bg-gray-50 p-4">
+    <div className="space-y-5 rounded-lg border border-gray-200 bg-white p-4">
       {showHeader && (
         <div>
-          <h5 className="text-base font-semibold text-gray-900">{title}</h5>
+          <h5 className="learning-section-title text-base">{title}</h5>
           {description && (
-            <p className="mt-1 text-sm text-gray-600">{description}</p>
+            <p className="learning-muted mt-1">{description}</p>
           )}
         </div>
       )}
@@ -234,7 +234,7 @@ function AssessmentEditor({
             type="button"
             onClick={() => handleAddQuestion(QUESTION_TYPES.MULTIPLE_CHOICE)}
             disabled={value.preguntas.length >= MAX_QUESTIONS}
-            className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow transition duration-200 hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-blue-300"
+            className="learning-button disabled:cursor-not-allowed disabled:opacity-60"
           >
             Agregar multiple choice
           </button>
@@ -243,7 +243,7 @@ function AssessmentEditor({
             type="button"
             onClick={() => handleAddQuestion(QUESTION_TYPES.TRUE_FALSE)}
             disabled={value.preguntas.length >= MAX_QUESTIONS}
-            className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow transition duration-200 hover:bg-indigo-600 disabled:cursor-not-allowed disabled:bg-indigo-300"
+            className="learning-button-secondary disabled:cursor-not-allowed disabled:opacity-60"
           >
             Agregar verdadero/falso
           </button>
@@ -384,7 +384,7 @@ function AssessmentEditor({
                       type="button"
                       onClick={() => handleAddOption(question.id)}
                       disabled={question.opciones.length >= MAX_OPTIONS}
-                      className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-white shadow disabled:cursor-not-allowed disabled:bg-gray-400"
+                      className="learning-button-secondary disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Agregar opcion
                     </button>

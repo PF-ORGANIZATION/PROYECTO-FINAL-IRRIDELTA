@@ -56,15 +56,15 @@ function AssessmentModal({
         className="absolute inset-0 bg-slate-900/65"
       />
 
-      <div className="relative z-10 flex max-h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+      <div className="learning-card relative z-10 flex max-h-[88vh] w-full max-w-6xl flex-col overflow-hidden p-0">
         <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
           <div className="max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-600">
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-green-700">
               Editor de evaluación
             </p>
-            <h2 className="mt-2 text-2xl font-bold text-gray-900">{title}</h2>
+            <h2 className="learning-section-title mt-2">{title}</h2>
             {description && (
-              <p className="mt-2 text-sm leading-6 text-gray-600">{description}</p>
+              <p className="learning-muted mt-2">{description}</p>
             )}
           </div>
 
@@ -97,7 +97,7 @@ function AssessmentModal({
               type="button"
               onClick={() => handleAddQuestion(QUESTION_TYPES.MULTIPLE_CHOICE)}
               disabled={!canAddQuestions}
-              className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow transition duration-200 hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-blue-300"
+              className="learning-button disabled:cursor-not-allowed disabled:opacity-60"
             >
               Agregar multiple choice
             </button>
@@ -106,7 +106,7 @@ function AssessmentModal({
               type="button"
               onClick={() => handleAddQuestion(QUESTION_TYPES.TRUE_FALSE)}
               disabled={!canAddQuestions}
-              className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow transition duration-200 hover:bg-indigo-600 disabled:cursor-not-allowed disabled:bg-indigo-300"
+              className="learning-button-secondary disabled:cursor-not-allowed disabled:opacity-60"
             >
               Agregar verdadero/falso
             </button>
@@ -119,7 +119,7 @@ function AssessmentModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-blue-700"
+            className="learning-button"
           >
             Listo
           </button>
