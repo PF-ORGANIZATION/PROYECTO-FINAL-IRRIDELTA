@@ -415,23 +415,7 @@ function CertificationExam() {
       ...answers,
       [questionId]: answerIndex,
     };
-    const answeredBefore = answeredQuestions;
-    const answeredAfter = countAnsweredQuestions(examQuestions, nextAnswers);
-
     setAnswers(nextAnswers);
-    setUiError("");
-
-    if (
-      stage === "exam" &&
-      answeredBefore < examQuestions.length &&
-      answeredAfter === examQuestions.length
-    ) {
-      setStage("review");
-    }
-  };
-
-  const handleGoBackToQuestions = () => {
-    setStage("exam");
     setUiError("");
   };
 
@@ -781,11 +765,11 @@ function CertificationExam() {
                   <div className="flex flex-wrap gap-3">
                     <button
                       type="button"
-                      onClick={() => setStage("review")}
-                      disabled={answeredQuestions !== examQuestionCount}
-                      className="rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                      onClick={() => finishExam()}
+                      disabled={answeredQuestions !== examQuestionCount || savingAttempt}
+                      className="rounded-lg bg-green-600 px-6 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-300"
                     >
-                      Ir a revision
+                      {savingAttempt ? "Guardando..." : "Enviar examen"}
                     </button>
 
                     <button
@@ -795,78 +779,6 @@ function CertificationExam() {
                       className="rounded-lg bg-gray-500 px-6 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-gray-600"
                     >
                       Reiniciar
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {stage === "review" && !result && (
-                <div className="mt-8 space-y-6">
-                  <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
-                    <h2 className="text-2xl font-bold text-gray-900">
-                      Revision previa al envio
-                    </h2>
-                    <p className="mt-2 text-sm leading-6 text-slate-700">
-                      Cada pregunta del examen tiene una respuesta guardada. Si
-                      estas conforme, envia ahora. Si quieres revisar algo,
-                      vuelve a las preguntas antes de entregar.
-                    </p>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {examQuestions.map((question, questionIndex) => {
-                      const selectedOptionIndex = answers[question.id];
-                      const selectedOption =
-                        selectedOptionIndex === undefined
-                          ? null
-                          : question.opciones[selectedOptionIndex];
-
-                      return (
-                        <article
-                          key={`${question.id}-review`}
-                          className="rounded-2xl border border-gray-200 bg-gray-50 p-4"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-semibold text-gray-900">
-                                Pregunta {questionIndex + 1}
-                              </p>
-                              <p className="mt-2 text-sm leading-6 text-gray-600">
-                                {question.enunciado}
-                              </p>
-                            </div>
-
-                            <span className="inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                              Respuesta guardada
-                            </span>
-                          </div>
-
-                          {selectedOption && (
-                            <div className="mt-4 rounded-xl border border-green-100 bg-white px-4 py-3 text-sm text-gray-700">
-                              Seleccion actual: {selectedOption}
-                            </div>
-                          )}
-                        </article>
-                      );
-                    })}
-                  </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={handleGoBackToQuestions}
-                      className="rounded-lg bg-gray-200 px-6 py-3 text-sm font-semibold text-gray-700 transition duration-200 hover:bg-gray-300"
-                    >
-                      Volver a las preguntas
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => finishExam()}
-                      disabled={savingAttempt}
-                      className="rounded-lg bg-green-600 px-6 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700"
-                    >
-                      {savingAttempt ? "Guardando..." : "Enviar examen"}
                     </button>
                   </div>
                 </div>
