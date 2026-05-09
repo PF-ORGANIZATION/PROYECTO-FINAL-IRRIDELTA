@@ -60,6 +60,41 @@ function countAnsweredQuestions(examQuestions, answers) {
   );
 }
 
+function getAttemptDurationSeconds(attempt, finishedAt = new Date()) {
+  const startedAt = attempt?.fecha_inicio
+    ? new Date(attempt.fecha_inicio).getTime()
+    : null;
+
+  if (!startedAt || Number.isNaN(startedAt)) {
+    return null;
+  }
+
+  return Math.max(Math.round((finishedAt.getTime() - startedAt) / 1000), 0);
+}
+
+function buildAnswerDetails(examQuestions, answers) {
+  return examQuestions.map((question, questionIndex) => {
+    const userAnswerIndex = answers[question.id];
+    const correctAnswerIndex = Number(question.respuesta_correcta);
+    const options = question.opciones ?? [];
+
+    return {
+      question_id: question.id,
+      question_number: questionIndex + 1,
+      enunciado: question.enunciado,
+      tipo: question.tipo ?? null,
+      opciones: options,
+      respuesta_usuario_index:
+        userAnswerIndex === undefined ? null : Number(userAnswerIndex),
+      respuesta_usuario:
+        userAnswerIndex === undefined ? null : options[userAnswerIndex] ?? null,
+      respuesta_correcta_index: correctAnswerIndex,
+      respuesta_correcta: options[correctAnswerIndex] ?? null,
+      correcta: Number(userAnswerIndex) === correctAnswerIndex,
+    };
+  });
+}
+
 function CertificationExam() {
   const { certificationId } = useParams();
   const navigate = useNavigate();
@@ -170,11 +205,18 @@ function CertificationExam() {
     setUiError("");
     setSavingAttempt(true);
 
+    const completedAttempt = activeAttempt;
+    const finishedAt = new Date();
+    const answerDetails = buildAnswerDetails(examQuestions, answers);
+    const durationSeconds = getAttemptDurationSeconds(completedAttempt, finishedAt);
+
     try {
-      if (activeAttempt?.id) {
-        await completeExamAttempt(activeAttempt.id, {
+      if (completedAttempt?.id) {
+        await completeExamAttempt(completedAttempt.id, {
           porcentaje: percentage,
           aprobado: correctAnswers >= minimumCorrectAnswers,
+          respuestasDetalle: answerDetails,
+          duracionSegundos: durationSeconds,
         });
         await refreshAttemptSummary();
       }
@@ -197,6 +239,8 @@ function CertificationExam() {
       passingScore,
       minimumCorrectAnswers,
       isTimeExpired,
+      attemptId: completedAttempt?.id ?? null,
+      durationSeconds,
     });
   }
 
@@ -371,23 +415,7 @@ function CertificationExam() {
       ...answers,
       [questionId]: answerIndex,
     };
-    const answeredBefore = answeredQuestions;
-    const answeredAfter = countAnsweredQuestions(examQuestions, nextAnswers);
-
     setAnswers(nextAnswers);
-    setUiError("");
-
-    if (
-      stage === "exam" &&
-      answeredBefore < examQuestions.length &&
-      answeredAfter === examQuestions.length
-    ) {
-      setStage("review");
-    }
-  };
-
-  const handleGoBackToQuestions = () => {
-    setStage("exam");
     setUiError("");
   };
 
@@ -512,20 +540,20 @@ function CertificationExam() {
         <title>Examen de Certificacion | IRRIDELTA</title>
       </Helmet>
 
-      <section className="min-h-[70vh] bg-gray-50 px-4 py-16">
-        <div className="mx-auto max-w-5xl">
+      <section className="learning-page">
+        <div className="learning-container-narrow">
           <div className="mb-8">
             <button
               type="button"
               onClick={handleGoBack}
-              className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+              className="learning-button-secondary"
             >
               Volver a certificaciones
             </button>
           </div>
 
           {loading && (
-            <div className="rounded-xl bg-white p-8 text-center text-gray-600 shadow">
+            <div className="learning-empty">
               Cargando examen...
             </div>
           )}
@@ -615,15 +643,15 @@ function CertificationExam() {
                 </section>
               </div>
             ) : (
-            <div className="rounded-2xl bg-white p-6 shadow-md">
+            <div className="learning-card">
               <header className="border-b pb-4">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <h1 className="text-3xl font-bold text-gray-900">
+                    <h1 className="learning-section-title">
                       {certification.titulo}
                     </h1>
                     {certification.descripcion && (
-                      <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-600">
+                      <p className="learning-muted mt-3 max-w-3xl">
                         {certification.descripcion}
                       </p>
                     )}
@@ -638,15 +666,47 @@ function CertificationExam() {
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-3 text-sm text-gray-600 md:grid-cols-4">
-                  <p>Preguntas del examen: {examQuestionCount}</p>
-                  <p>Aprobacion minima: {passingScore}%</p>
-                  <p>Minimo correcto: {minimumCorrectAnswers}</p>
-                  <p>Duracion: {formatDurationLabel(durationMinutes)}</p>
-                </div>
-
-                <div className="mt-4 inline-flex rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">
-                  Respuestas guardadas: {answeredQuestions} / {examQuestionCount}
+                <div className="learning-stat-grid learning-stat-grid-5 mt-5">
+                  <div className="learning-stat">
+                    <span className="learning-stat-label">
+                      Preguntas
+                    </span>
+                    <strong className="learning-stat-value">
+                      {examQuestionCount}
+                    </strong>
+                  </div>
+                  <div className="learning-stat">
+                    <span className="learning-stat-label">
+                      Aprobacion
+                    </span>
+                    <strong className="learning-stat-value">
+                      {passingScore}%
+                    </strong>
+                  </div>
+                  <div className="learning-stat">
+                    <span className="learning-stat-label">
+                      Minimo correcto
+                    </span>
+                    <strong className="learning-stat-value">
+                      {minimumCorrectAnswers}
+                    </strong>
+                  </div>
+                  <div className="learning-stat">
+                    <span className="learning-stat-label">
+                      Duracion
+                    </span>
+                    <strong className="learning-stat-value">
+                      {formatDurationLabel(durationMinutes)}
+                    </strong>
+                  </div>
+                  <div className="learning-stat">
+                    <span className="learning-stat-label">
+                      Guardadas
+                    </span>
+                    <strong className="learning-stat-value">
+                      {answeredQuestions} / {examQuestionCount}
+                    </strong>
+                  </div>
                 </div>
               </header>
 
@@ -705,92 +765,20 @@ function CertificationExam() {
                   <div className="flex flex-wrap gap-3">
                     <button
                       type="button"
-                      onClick={() => setStage("review")}
-                      disabled={answeredQuestions !== examQuestionCount}
-                      className="rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                      onClick={() => finishExam()}
+                      disabled={answeredQuestions !== examQuestionCount || savingAttempt}
+                      className="learning-button"
                     >
-                      Ir a revision
+                      {savingAttempt ? "Guardando..." : "Enviar examen"}
                     </button>
 
                     <button
                       type="button"
                       onClick={handleRestartExam}
                       disabled={savingAttempt}
-                      className="rounded-lg bg-gray-500 px-6 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-gray-600"
+                      className="learning-button-secondary"
                     >
                       Reiniciar
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {stage === "review" && !result && (
-                <div className="mt-8 space-y-6">
-                  <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
-                    <h2 className="text-2xl font-bold text-gray-900">
-                      Revision previa al envio
-                    </h2>
-                    <p className="mt-2 text-sm leading-6 text-slate-700">
-                      Cada pregunta del examen tiene una respuesta guardada. Si
-                      estas conforme, envia ahora. Si quieres revisar algo,
-                      vuelve a las preguntas antes de entregar.
-                    </p>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {examQuestions.map((question, questionIndex) => {
-                      const selectedOptionIndex = answers[question.id];
-                      const selectedOption =
-                        selectedOptionIndex === undefined
-                          ? null
-                          : question.opciones[selectedOptionIndex];
-
-                      return (
-                        <article
-                          key={`${question.id}-review`}
-                          className="rounded-2xl border border-gray-200 bg-gray-50 p-4"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-semibold text-gray-900">
-                                Pregunta {questionIndex + 1}
-                              </p>
-                              <p className="mt-2 text-sm leading-6 text-gray-600">
-                                {question.enunciado}
-                              </p>
-                            </div>
-
-                            <span className="inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                              Respuesta guardada
-                            </span>
-                          </div>
-
-                          {selectedOption && (
-                            <div className="mt-4 rounded-xl border border-green-100 bg-white px-4 py-3 text-sm text-gray-700">
-                              Seleccion actual: {selectedOption}
-                            </div>
-                          )}
-                        </article>
-                      );
-                    })}
-                  </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={handleGoBackToQuestions}
-                      className="rounded-lg bg-gray-200 px-6 py-3 text-sm font-semibold text-gray-700 transition duration-200 hover:bg-gray-300"
-                    >
-                      Volver a las preguntas
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => finishExam()}
-                      disabled={savingAttempt}
-                      className="rounded-lg bg-green-600 px-6 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700"
-                    >
-                      {savingAttempt ? "Guardando..." : "Enviar examen"}
                     </button>
                   </div>
                 </div>
@@ -833,7 +821,7 @@ function CertificationExam() {
                       <button
                         type="button"
                         onClick={handleRestartExam}
-                        className="rounded-lg bg-gray-800 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-gray-900"
+                        className="learning-button-secondary"
                       >
                         Rendir nuevamente
                       </button>
@@ -847,7 +835,7 @@ function CertificationExam() {
 
                     <Link
                       to="/certificaciones"
-                      className="rounded-lg bg-white px-5 py-3 text-sm font-semibold text-gray-800 shadow transition duration-200 hover:bg-gray-100"
+                      className="learning-button-secondary"
                     >
                       Volver al listado
                     </Link>
@@ -881,7 +869,7 @@ function CertificationExam() {
                           <button
                             type="submit"
                             disabled={isSubmittingRequest}
-                            className="rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-300"
+                            className="learning-button"
                           >
                             {isSubmittingRequest
                               ? "Enviando..."
@@ -926,7 +914,7 @@ function CertificationExam() {
                           <button
                             type="submit"
                             disabled={isSubmittingRequest}
-                            className="rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-300"
+                            className="learning-button"
                           >
                             {isSubmittingRequest
                               ? "Reenviando..."
@@ -947,7 +935,7 @@ function CertificationExam() {
                               onClick={() =>
                                 downloadCertificatePng(getCertificateDownloadData())
                               }
-                              className="rounded-lg bg-slate-800 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-slate-900"
+                              className="learning-button-secondary"
                             >
                               Descargar PNG
                             </button>
@@ -956,7 +944,7 @@ function CertificationExam() {
                               onClick={() =>
                                 downloadCertificatePdf(getCertificateDownloadData())
                               }
-                              className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-blue-700"
+                              className="learning-button"
                             >
                               Descargar PDF
                             </button>
@@ -965,7 +953,7 @@ function CertificationExam() {
                       )}
 
                       {requestMessage && (
-                        <p className="mt-4 rounded-lg bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
+                        <p className="mt-4 rounded-lg bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
                           {requestMessage}
                         </p>
                       )}
