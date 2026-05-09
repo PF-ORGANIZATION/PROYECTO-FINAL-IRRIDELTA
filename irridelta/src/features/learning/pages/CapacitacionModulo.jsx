@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -30,7 +30,6 @@ import {
 } from "../utils/learningRuntime";
 import { USER_ROLES } from "../../auth/authRoles";
 import { useSessionStore } from "../../../store/sessionStore";
-import { EXAM_TYPES } from "../services/examAttemptsService";
 
 function CapacitacionModulo() {
   const { capacitacionId, moduloIndex: moduloIndexParam } = useParams();
@@ -41,7 +40,6 @@ function CapacitacionModulo() {
   const {
     capacitacion,
     completedResourceIds,
-    approvedModuleIds,
     loading,
     loadingProgress,
     loadingExamAttempts,
@@ -77,17 +75,6 @@ function CapacitacionModulo() {
     learningStateReady && areModuleResourcesCompleted(module, completedResourceIds);
   const moduleHasAssessment =
     module && Array.isArray(module.preguntas) && module.preguntas.length > 0;
-  const attemptParams = useMemo(
-    () =>
-      module?.id
-        ? {
-            tipoExamen: EXAM_TYPES.MODULO,
-            capacitacionId,
-            moduloId: module.id,
-          }
-        : null,
-    [capacitacionId, module?.id]
-  );
   const videoCount = moduleResources.filter(
     (resource) => resource.tipo === "youtube"
   ).length;
@@ -397,17 +384,14 @@ function CapacitacionModulo() {
                     <ModuleExam
                       module={module}
                       isUnlocked={moduleResourcesCompleted}
-                      isCompleted={approvedModuleIds.has(module.id)}
                       disabled={!moduleResourcesCompleted}
                       variant="inline"
                       courseTitle={capacitacion?.titulo}
-                      attemptParams={attemptParams}
                     />
                   ) : (
                     <div className="rounded-xl bg-gray-50 px-4 py-4 text-sm font-semibold text-gray-600">
                       Completa los recursos del modulo para responder la
-                      autoevaluacion. Igual vas a poder avanzar cuando termines
-                      el contenido.
+                      autoevaluacion.
                     </div>
                   )}
                 </section>

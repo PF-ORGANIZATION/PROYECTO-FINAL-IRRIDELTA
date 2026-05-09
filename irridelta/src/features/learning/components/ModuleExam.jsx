@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   CheckCircle,
@@ -82,6 +82,18 @@ function buildAnswerDetails(examQuestions, answers) {
   });
 }
 
+function buildSelectedQuestions(questions, questionCount) {
+  return shuffleArray(questions)
+    .slice(0, questionCount)
+    .map((question) => ({
+      ...question,
+      opciones_shuffled:
+        question.tipo === QUESTION_TYPES.TRUE_FALSE
+          ? question.opciones
+          : shuffleArray(question.opciones ?? []),
+    }));
+}
+
 function ModuleExam({
   module,
   isUnlocked = false,
@@ -115,7 +127,10 @@ function ModuleExam({
   const [showCooldownModal, setShowCooldownModal] = useState(false);
 
   const assessment = module ?? {};
-  const questions = assessment.preguntas ?? [];
+  const questions = useMemo(
+    () => assessment.preguntas ?? [],
+    [assessment.preguntas]
+  );
   const hasQuestions = questions.length > 0;
   const passingScore = Number(assessment.porcentaje_aprobacion ?? 70);
   const durationMinutes = Number(assessment.duracion_maxima_minutos ?? 30);
@@ -162,6 +177,35 @@ function ModuleExam({
 
     return () => window.clearTimeout(timer);
   }, [secondsRemaining, timerStarted]);
+
+  useEffect(() => {
+    if (
+      !isInline ||
+      !hasQuestions ||
+      !isUnlocked ||
+      result ||
+      examStarted ||
+      examQuestions.length > 0
+    ) {
+      return;
+    }
+
+    setExamQuestions(buildSelectedQuestions(questions, questionCount));
+    setAnswers({});
+    setResult(null);
+    setSecondsRemaining(null);
+    setTimerStarted(false);
+    setExamStarted(true);
+  }, [
+    examQuestions.length,
+    examStarted,
+    hasQuestions,
+    isInline,
+    isUnlocked,
+    questionCount,
+    questions,
+    result,
+  ]);
 
   useEffect(() => {
     let ignore = false;
@@ -319,15 +363,7 @@ function ModuleExam({
       return;
     }
 
-    const selectedQuestions = shuffleArray(questions)
-      .slice(0, questionCount)
-      .map((question) => ({
-        ...question,
-        opciones_shuffled:
-          question.tipo === QUESTION_TYPES.TRUE_FALSE
-            ? question.opciones
-            : shuffleArray(question.opciones ?? []),
-      }));
+    const selectedQuestions = buildSelectedQuestions(questions, questionCount);
 
     setExamQuestions(selectedQuestions);
     setAnswers({});
@@ -660,7 +696,7 @@ function ModuleExam({
             >
               {savingAttempt ? "Guardando..." : "Finalizar autoevaluacion"}
             </button>
-            {isStandalone && onExit ? (
+            {isInline ? null : isStandalone && onExit ? (
               <button
                 type="button"
                 onClick={handleExit}
