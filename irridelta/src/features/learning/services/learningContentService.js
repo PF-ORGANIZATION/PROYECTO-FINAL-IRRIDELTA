@@ -102,6 +102,16 @@ function normalizeCertificationQuestion(question, index) {
   return sanitizeQuestionForSave({ ...question, tipo: type }, index);
 }
 
+function isFinalCertificationComplete(certification) {
+  return (
+    Boolean(certification?.titulo?.trim()) &&
+    validateAssessment(certification, {
+      includeQuestionCount: true,
+      questionCountKey: "cantidad_preguntas_examen",
+    }) === ""
+  );
+}
+
 function mapCapacitacionItem(item) {
   // Normalizar módulos para parsear preguntas si vienen como JSON string
   const normalizedModulos = (item.modulos ?? []).map((module) => {
@@ -622,6 +632,17 @@ async function upsertFinalCertification(capacitacionId, certification) {
   }
 }
 
+async function deleteFinalCertification(capacitacionId) {
+  const { error } = await supabase
+    .from(CERTIFICACIONES_TABLE)
+    .delete()
+    .eq("capacitacion_id", capacitacionId);
+
+  if (error) {
+    throw error;
+  }
+}
+
 export async function saveLearningItem(item) {
   const now = new Date().toISOString();
   const payload = {
@@ -632,10 +653,7 @@ export async function saveLearningItem(item) {
   };
   const modules = item.modulos ?? [];
   validateLearningModules(modules);
-
-  if (!item.certificacion) {
-    throw new Error("La capacitacion debe tener un test final configurado.");
-  }
+  const hasFinalCertification = isFinalCertificationComplete(item.certificacion);
 
   if (item.id) {
     const { data, error } = await supabase
@@ -650,7 +668,11 @@ export async function saveLearningItem(item) {
     }
 
     await replaceCapacitacionModules(data.id, modules);
-    await upsertFinalCertification(data.id, item.certificacion);
+    if (hasFinalCertification) {
+      await upsertFinalCertification(data.id, item.certificacion);
+    } else {
+      await deleteFinalCertification(data.id);
+    }
     return (await hydrateCapacitaciones([data]))[0];
   }
 
@@ -665,7 +687,9 @@ export async function saveLearningItem(item) {
   }
 
   await replaceCapacitacionModules(data.id, modules);
-  await upsertFinalCertification(data.id, item.certificacion);
+  if (hasFinalCertification) {
+    await upsertFinalCertification(data.id, item.certificacion);
+  }
   return (await hydrateCapacitaciones([data]))[0];
 }
 

@@ -23,7 +23,6 @@ import AssessmentSummaryCard from "../../certifications/components/AssessmentSum
 import CapacitacionPreviewModal from "./CapacitacionPreviewModal";
 import ModuleCard from "./ModuleCard";
 import {
-  normalizeAssessmentForForm,
   getQuestionFingerprint,
   isQuestionEmpty,
   isQuestionReadyForImport,
@@ -69,13 +68,6 @@ function getPublishBlockInfo(form) {
     return {
       tab: EDITOR_TABS.MODULES,
       message: "Completa todos los modulos y sus pruebas antes de publicar.",
-    };
-  }
-
-  if (!getFinalAssessmentSectionComplete(form)) {
-    return {
-      tab: EDITOR_TABS.FINAL,
-      message: "Completa la evaluacion final antes de publicar.",
     };
   }
 
@@ -147,6 +139,7 @@ function AdminLearningManager({
       icon: FileQuestion,
       title: "Evaluacion final",
       complete: getFinalAssessmentSectionComplete(form),
+      optional: true,
     },
   ];
 
@@ -370,11 +363,6 @@ function AdminLearningManager({
       return "El titulo es obligatorio.";
     }
 
-    if (!form.certificacion.titulo.trim()) {
-      setActiveTab(EDITOR_TABS.FINAL);
-      return "La prueba final debe tener un titulo.";
-    }
-
     if (form.modulos.length === 0) {
       setActiveTab(EDITOR_TABS.MODULES);
       return "La capacitacion debe tener al menos un modulo.";
@@ -413,15 +401,7 @@ function AdminLearningManager({
     setSaving(true);
 
     try {
-      const savedItem = await saveLearningItem({
-        ...form,
-        certificacion: {
-          ...form.certificacion,
-          titulo:
-            form.certificacion.titulo.trim() ||
-            `Evaluacion final - ${form.titulo.trim()}`,
-        },
-      });
+      const savedItem = await saveLearningItem(form);
 
       if (mode === "exit") {
         onSaveAndExitSuccess(savedItem);
@@ -561,7 +541,12 @@ function AdminLearningManager({
     <section className="rounded-2xl bg-white p-6 shadow-md">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-xl font-semibold text-gray-900">Evaluacion final</h3>
+          <h3 className="text-xl font-semibold text-gray-900">
+            Evaluacion final opcional
+          </h3>
+          <p className="mt-1 text-sm text-gray-600">
+            Configurala solo si esta capacitacion entrega certificado.
+          </p>
         </div>
         <span
           className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -570,14 +555,14 @@ function AdminLearningManager({
               : "bg-amber-100 text-amber-700"
           }`}
         >
-          {getFinalAssessmentSectionComplete(form) ? "Completo" : "Pendiente"}
+          {getFinalAssessmentSectionComplete(form) ? "Configurada" : "Opcional"}
         </span>
       </div>
 
       <div className="mb-4 grid gap-4 md:grid-cols-2">
         <input
           type="text"
-          placeholder="Titulo de la prueba final"
+          placeholder="Titulo de la prueba final opcional"
           value={form.certificacion.titulo}
           onChange={(e) => updateFinalCertification({ titulo: e.target.value })}
           className="w-full rounded border p-3"
@@ -586,7 +571,7 @@ function AdminLearningManager({
       </div>
 
       <textarea
-        placeholder="Descripcion de la prueba final"
+        placeholder="Descripcion de la prueba final opcional"
         value={form.certificacion.descripcion}
         onChange={(e) =>
           updateFinalCertification({ descripcion: e.target.value })
@@ -610,7 +595,7 @@ function AdminLearningManager({
       </div>
 
       <AssessmentSummaryCard
-        title="Prueba final obligatoria"
+        title="Prueba final opcional"
         questionCount={form.certificacion.preguntas?.length ?? 0}
         questionCountToShow={form.certificacion.cantidad_preguntas_examen ?? 0}
         passingScore={form.certificacion.porcentaje_aprobacion ?? null}
@@ -763,7 +748,11 @@ function AdminLearningManager({
                           : "bg-amber-100 text-amber-700"
                     }`}
                   >
-                    {section.complete ? "Completo" : "Pendiente"}
+                    {section.complete
+                      ? "Completo"
+                      : section.optional
+                      ? "Opcional"
+                      : "Pendiente"}
                   </span>
                 </button>
               );
@@ -803,8 +792,8 @@ function AdminLearningManager({
 
       <AssessmentModal
         isOpen={isFinalAssessmentModalOpen}
-        title={form.certificacion.titulo || "Prueba final obligatoria"}
-        description="Configura la evaluación final de la capacitación en una vista amplia y enfocada."
+        title={form.certificacion.titulo || "Prueba final opcional"}
+        description="Configura la evaluación final solo si esta capacitación entrega certificado."
         value={form.certificacion}
         onChange={updateFinalCertification}
         onClose={() => setIsFinalAssessmentModalOpen(false)}
