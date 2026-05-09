@@ -45,7 +45,7 @@ export function parseModuleIndex(moduleIndexParam) {
   return moduleIndex - 1;
 }
 
-export function getModuleRoute(capacitacionId, moduleIndex) {
-  return `/capacitaciones/${capacitacionId}/modulos/${moduleIndex + 1}`;
+export function getModuleRoute(capacitacionIdOrSlug, moduleIndex) {
+  return `/capacitaciones/${capacitacionIdOrSlug}/modulos/${moduleIndex + 1}`;
 }
 
