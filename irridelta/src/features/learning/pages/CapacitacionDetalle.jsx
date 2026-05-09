@@ -14,11 +14,15 @@ import {
   isModuleUnlocked,
   isResourceCompleted,
 } from "../services/learningProgressService";
+import { generateSlug } from "../services/learningContentService";
 import useCapacitacionProgress from "../hooks/useCapacitacionProgress";
 import {
   getModuleRoute,
   isModuleCompleted,
 } from "../utils/learningRuntime";
+import { LEARNING_PROGRESS_STATUS_ORDER } from "../utils/learningProgressStatus";
+import { USER_ROLES } from "../../auth/authRoles";
+import { useSessionStore } from "../../../store/sessionStore";
 import styles from "./CapacitacionDetalle.module.css";
 
 function getModuleResourceSummary(module) {
@@ -37,46 +41,46 @@ function getModuleResourceSummary(module) {
 }
 
 function CapacitacionDetalle() {
-  const { capacitacionId } = useParams();
+  const { capacitacionSlug } = useParams();
+  const role = useSessionStore((state) => state.role);
+  const onlyPublished = role !== USER_ROLES.ADMIN;
   const {
     capacitacion,
     completedResourceIds,
-    approvedModuleIds,
     loading,
     loadingProgress,
     loadingExamAttempts,
     error,
     progressError,
     examAttemptsError,
-  } = useCapacitacionProgress(capacitacionId, { onlyPublished: true });
+  } = useCapacitacionProgress(capacitacionSlug, { onlyPublished });
 
   const modules = capacitacion?.modulos ?? [];
   const certification = capacitacion?.certificacion ?? null;
   const learningStateReady = !loadingProgress && !loadingExamAttempts;
   const totalModules = modules.length;
   const completedModulesCount = modules.filter((module) =>
-    isModuleCompleted(module, completedResourceIds, approvedModuleIds)
+    isModuleCompleted(module, completedResourceIds)
   ).length;
   const overallProgressPercentage =
     learningStateReady && totalModules > 0
       ? Math.round((completedModulesCount / totalModules) * 100)
       : 0;
-  const capacitacionCompleted = isCapacitacionCompleted(
-    modules,
-    completedResourceIds,
-    approvedModuleIds
-  );
+  const capacitacionCompleted = isCapacitacionCompleted(modules, completedResourceIds);
   const orderedModules = modules
     .map((module, moduleIndex) => {
       const moduleCompleted = isModuleCompleted(
         module,
-        completedResourceIds,
-        approvedModuleIds
+        completedResourceIds
       );
       const moduleStarted = (module.recursos ?? []).some((resource) =>
         isResourceCompleted(resource, completedResourceIds, module.id)
       );
-      const statusOrder = moduleCompleted ? 2 : moduleStarted ? 0 : 1;
+      const statusOrder = moduleCompleted
+        ? LEARNING_PROGRESS_STATUS_ORDER.completado
+        : moduleStarted
+        ? LEARNING_PROGRESS_STATUS_ORDER["en-progreso"]
+        : LEARNING_PROGRESS_STATUS_ORDER.pendiente;
 
       return {
         module,
@@ -101,32 +105,32 @@ function CapacitacionDetalle() {
         <title>{pageTitle}</title>
       </Helmet>
 
-      <section className={styles.page}>
-        <div className={styles.inner}>
+      <section className="learning-page">
+        <div className="learning-container">
           <Link to="/capacitaciones" className={styles.backLink}>
             <ChevronLeft size={18} aria-hidden="true" />
             Volver a capacitaciones
           </Link>
 
           {loading && (
-            <div className={styles.feedbackCard}>Cargando capacitacion...</div>
+            <div className="learning-empty">Cargando capacitacion...</div>
           )}
 
           {!loading && error && <div className="alert-error">{error}</div>}
 
           {!loading && !error && !capacitacion && (
-            <div className={styles.feedbackCard}>
+            <div className="learning-empty">
               No encontramos la capacitacion solicitada.
             </div>
           )}
 
           {!loading && !error && capacitacion && (
             <>
-              <article className={styles.hero}>
-                <h1 className={styles.title}>{capacitacion.titulo}</h1>
+              <article className="learning-header">
+                <h1 className="learning-title">{capacitacion.titulo}</h1>
 
                 {capacitacion.descripcion && (
-                  <p className={styles.description}>{capacitacion.descripcion}</p>
+                  <p className="learning-subtitle">{capacitacion.descripcion}</p>
                 )}
 
                 <div className={styles.progressPanel}>
@@ -160,7 +164,7 @@ function CapacitacionDetalle() {
 
               <section className={styles.section}>
                 <div className="mb-6 border-b-2 border-gray-200 pb-4">
-                  <h2 className={styles.sectionTitle}>Contenido del curso</h2>
+                  <h2 className="learning-section-title">Contenido del curso</h2>
                 </div>
 
                 {modules.length === 0 && (
@@ -170,7 +174,7 @@ function CapacitacionDetalle() {
                 )}
 
                 {modules.length > 0 && !learningStateReady && (
-                  <div className={styles.feedbackCard}>
+                  <div className="learning-empty">
                     Cargando avance de modulos...
                   </div>
                 )}
@@ -181,15 +185,13 @@ function CapacitacionDetalle() {
                       const moduleUnlocked = isModuleUnlocked(
                         moduleIndex,
                         modules,
-                        completedResourceIds,
-                        approvedModuleIds
+                        completedResourceIds
                       );
                       const moduleCompleted = isModuleCompleted(
                         module,
-                        completedResourceIds,
-                        approvedModuleIds
+                        completedResourceIds
                       );
-                      const modulePath = getModuleRoute(capacitacion.id, moduleIndex);
+                      const modulePath = getModuleRoute(generateSlug(capacitacion.titulo), moduleIndex);
                       const moduleStarted = (module.recursos ?? []).some((resource) =>
                         isResourceCompleted(resource, completedResourceIds, module.id)
                       );
@@ -205,7 +207,7 @@ function CapacitacionDetalle() {
                       return (
                         <article
                           key={module.id ?? `${capacitacion.id}-${moduleIndex}`}
-                          className={`rounded-2xl border p-6 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-md ${
+                          className={`learning-card transition duration-200 hover:-translate-y-1 hover:shadow-md ${
                             moduleCompleted
                               ? "border-green-300 bg-gray-50"
                               : moduleUnlocked
@@ -264,7 +266,7 @@ function CapacitacionDetalle() {
                               {moduleUnlocked ? (
                                 <Link
                                   to={modulePath}
-                                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700"
+                                  className="learning-button"
                                 >
                                   {moduleActionLabel}
                                   <ArrowRight size={16} />
@@ -283,9 +285,10 @@ function CapacitacionDetalle() {
                 )}
               </section>
 
+              {certification && (
               <section className={styles.section}>
                 {certification && !learningStateReady ? (
-                  <div className={styles.feedbackCard}>
+                  <div className="learning-empty">
                     Cargando estado de certificacion...
                   </div>
                 ) : certification ? (
@@ -318,7 +321,7 @@ function CapacitacionDetalle() {
                         <p className={styles.finalCertificationText}>
                           {capacitacionCompleted
                             ? "Ya podes acceder al examen final para obtener tu certificado."
-                            : "Completa y aproba todos los modulos para habilitar el examen final."}
+                            : "Completa todos los modulos para habilitar el examen final."}
                         </p>
 
                         <div className={styles.finalCertificationActions}>
@@ -344,14 +347,9 @@ function CapacitacionDetalle() {
                       </div>
                     </div>
                   </div>
-                ) : (
-                  <div className="rounded-2xl border-2 border-gray-200 bg-gray-50 p-8">
-                    <p className="text-center font-medium text-gray-600">
-                      Esta capacitacion no tiene certificacion asociada.
-                    </p>
-                  </div>
-                )}
+                ) : null}
               </section>
+              )}
             </>
           )}
         </div>
