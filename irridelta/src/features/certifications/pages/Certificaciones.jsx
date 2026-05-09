@@ -7,6 +7,11 @@ import {
   fetchLearningItems,
 } from "../../learning/services/learningContentService";
 import {
+  fetchUserLearningProgress,
+  getCompletedResourceIds,
+  isCapacitacionCompleted,
+} from "../../learning/services/learningProgressService";
+import {
   getCertificationDurationMinutes,
 } from "../utils/certifications";
 
@@ -24,12 +29,35 @@ function Certificaciones() {
       setError("");
 
       try {
-        const data = await fetchLearningItems(LEARNING_TYPES.CERTIFICACION, {
+        const data = await fetchLearningItems(LEARNING_TYPES.CAPACITACION, {
           onlyPublished: true,
         });
+        const progressEntries = await Promise.all(
+          data.map(async (item) => {
+            const progress = await fetchUserLearningProgress(item.id);
+            return [item.id, progress];
+          })
+        );
+        const progressByItemId = Object.fromEntries(progressEntries);
+        const availableCertifications = data
+          .filter((item) => {
+            if (!item.certificacion) {
+              return false;
+            }
+
+            const completedResourceIds = getCompletedResourceIds(
+              progressByItemId[item.id] ?? []
+            );
+
+            return isCapacitacionCompleted(item.modulos, completedResourceIds);
+          })
+          .map((item) => ({
+            ...item.certificacion,
+            capacitacion_titulo: item.titulo,
+          }));
 
         if (!ignore) {
-          setItems(data);
+          setItems(availableCertifications);
         }
       } catch (loadError) {
         if (!ignore) {
@@ -80,7 +108,20 @@ function Certificaciones() {
 
           {!loading && !error && items.length === 0 && (
             <div className="rounded-xl bg-white p-8 text-center text-gray-600 shadow">
-              Todavia no hay certificaciones publicadas.
+              <h2 className="text-2xl font-bold text-gray-900">
+                Todavia no tenes certificaciones disponibles.
+              </h2>
+              <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-gray-600">
+                Completa una capacitacion con certificado para habilitar su
+                examen final.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate("/capacitaciones")}
+                className="mt-6 inline-flex rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700"
+              >
+                Ir a capacitaciones
+              </button>
             </div>
           )}
 
