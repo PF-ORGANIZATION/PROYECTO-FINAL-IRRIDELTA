@@ -49,118 +49,195 @@ function ChatbotPage() {
     e.preventDefault();
     if (!input.trim() || isLoading || cooldown > 0) return;
 
-    const userMessage = input.trim();
+    const userMsg = input.trim();
+    setMessages((prev) => [...prev, { id: Date.now(), sender: "user", text: userMsg }]);
     setInput("");
-
-    // Agregar mensaje del usuario
-    const userMessageObj = {
-      id: Date.now(),
-      sender: "user",
-      text: userMessage,
-    };
-    setMessages((prev) => [...prev, userMessageObj]);
-
-    // Agregar al historial de conversación
-    conversationHistory.current.push({ role: "user", content: userMessage });
-
-    // Limitar el historial
-    if (conversationHistory.current.length > MAX_HISTORY_TURNS * 2) {
-      conversationHistory.current = conversationHistory.current.slice(-MAX_HISTORY_TURNS * 2);
-    }
-
     setIsLoading(true);
 
     try {
-      // Verificar si la consulta es relevante para Irridelta
-      const isRelevant = KEYWORDS_IRRIDELTA.some((keyword) =>
-        userMessage.toLowerCase().includes(keyword.toLowerCase())
-      );
+      // 1. Detectar si es un follow-up corto y enriquecer la query para el embedding
+      const tieneHistorial = conversationHistory.current.length > 0;
+      const esFollowUp = tieneHistorial && userMsg.split(/\s+/).length <= 5;
 
-      if (!isRelevant) {
-        const botMessage = {
-          id: Date.now() + 1,
-          sender: "bot",
-          text: OFF_TOPIC_RESPONSE,
-        };
-        setMessages((prev) => [...prev, botMessage]);
-        setIsLoading(false);
+      let queryParaEmbedding = userMsg;
+      if (esFollowUp) {
+        // Usar el último intercambio como contexto para mejorar la búsqueda vectorial
+        const lastAssistant = [...conversationHistory.current]
+          .reverse()
+          .find((m) => m.role === "assistant");
+        if (lastAssistant) {
+          // Tomar las primeras 200 chars de la última respuesta como contexto
+          const resumenPrevio = lastAssistant.content.slice(0, 200);
+          queryParaEmbedding = `${resumenPrevio} ${userMsg}`;
+        }
+      }
+
+      // 2. Vectorizar y buscar en la KB
+      const queryEmbedding = await embed(queryParaEmbedding);
+      const { data: documentos, error: searchErr } = await supabase.rpc('buscar_contexto_kb', {
+        query_embedding: queryEmbedding,
+        match_threshold: MATCH_THRESHOLD,
+        match_count: MATCH_COUNT,
+      });
+      if (searchErr) {
+        console.error("Error buscando en Supabase:", searchErr);
+        throw searchErr;
+      }
+
+      // 3. Preparar el contexto y extraer fuentes
+      let contexto = "";
+      let fuentesUnicas = [];
+      if (documentos && documentos.length > 0) {
+        contexto = documentos.map(doc => doc.contenido).join("\n\n---\n\n");
+        fuentesUnicas = [...new Set(documentos.map(doc => doc.metadata?.source).filter(Boolean))];
+      }
+
+      // 3b. FILTRO DE RELEVANCIA: bloquear queries fuera de tema sin gastar tokens
+      const queryLower = userMsg.toLowerCase();
+      const tieneContexto = contexto.length > 0;
+      const esRelevante = KEYWORDS_IRRIDELTA.some((kw) => queryLower.includes(kw));
+
+      if (!tieneContexto && !tieneHistorial && !esRelevante) {
+        conversationHistory.current.push(
+          { role: "user", content: userMsg },
+          { role: "assistant", content: OFF_TOPIC_RESPONSE }
+        );
+        setMessages((prev) => [
+          ...prev,
+          { id: Date.now() + 1, sender: "bot", text: OFF_TOPIC_RESPONSE },
+        ]);
         return;
       }
 
-      // Buscar en la base de conocimientos
-      const { data: chunks, error: embedError } = await embed(userMessage, MATCH_COUNT, MATCH_THRESHOLD);
-
-      if (embedError) {
-        console.error("Error al buscar en la KB:", embedError);
-        const botMessage = {
-          id: Date.now() + 1,
-          sender: "bot",
-          text: "Lo siento, tuve un problema al buscar información. Por favor, intenta de nuevo.",
-        };
-        setMessages((prev) => [...prev, botMessage]);
-        setIsLoading(false);
-        return;
-      }
-
-      // Preparar el contexto
-      const context = chunks?.map((chunk) => chunk.content).join("\n\n") || "";
-
-      // Preparar el prompt del sistema
-      const systemPrompt = buildSystemPrompt(context, userRole);
-
-      // Preparar los mensajes para el LLM
-      const messagesForLLM = [
+      // 4. Armar mensajes para el LLM
+      const systemPrompt = buildSystemPrompt(contexto);
+      const llmMessages = [
         { role: "system", content: systemPrompt },
         ...conversationHistory.current,
+        { role: "user", content: userMsg },
       ];
 
-      // Llamar al LLM
-      const { data: llmResponse, error: llmError } = await supabase.functions.invoke("chat", {
-        body: {
-          messages: messagesForLLM,
-          model: LLM_MODEL,
-          temperature: LLM_TEMPERATURE,
-          max_tokens: LLM_MAX_TOKENS,
+      // 5. Llamada a la Edge Function con streaming
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
+      const botMsgId = Date.now() + 1;
+
+      // Crear la burbuja del bot con placeholder
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: botMsgId,
+          sender: "bot",
+          text: "_Pensando..._",
+          isStreaming: true,
+          sources: userRole === "admin" ? fuentesUnicas : undefined,
         },
-      });
-
-      if (llmError) {
-        console.error("Error del LLM:", llmError);
-        const botMessage = {
-          id: Date.now() + 1,
-          sender: "bot",
-          text: "Lo siento, tuve un problema al procesar tu consulta. Por favor, intenta de nuevo.",
-        };
-        setMessages((prev) => [...prev, botMessage]);
-      } else {
-        const botResponse = llmResponse?.choices?.[0]?.message?.content || "No pude generar una respuesta.";
-        const botMessage = {
-          id: Date.now() + 1,
-          sender: "bot",
-          text: botResponse,
-        };
-        setMessages((prev) => [...prev, botMessage]);
-
-        // Agregar respuesta del bot al historial
-        conversationHistory.current.push({ role: "assistant", content: botResponse });
-      }
-    } catch (error) {
-      console.error("Excepción general en el chatbot:", error);
-      const botMessage = {
-        id: Date.now() + 1,
-        sender: "bot",
-        text: "Ocurrió un error inesperado. Por favor, intenta de nuevo.",
-      };
-      setMessages((prev) => [...prev, botMessage]);
-    } finally {
+      ]);
       setIsLoading(false);
 
-      // Iniciar cooldown
+      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseKey}`,
+          "apikey": supabaseKey,
+        },
+        body: JSON.stringify({
+          model: LLM_MODEL,
+          messages: llmMessages,
+          temperature: LLM_TEMPERATURE,
+          max_tokens: LLM_MAX_TOKENS,
+          stream: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        console.error("Error en la Edge Function:", errData);
+        throw new Error("No se pudo conectar con la IA. Intenta de nuevo en unos segundos.");
+      }
+
+      // 6. Leer el stream SSE token por token
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullReply = "";
+      let sseBuffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        sseBuffer += decoder.decode(value, { stream: true });
+
+        const parts = sseBuffer.split("\n");
+        sseBuffer = parts.pop() || "";
+
+        for (const line of parts) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data: ")) continue;
+          const data = trimmed.slice(6);
+          if (data === "[DONE]") continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const token = parsed.choices?.[0]?.delta?.content;
+            if (token) {
+              fullReply += token;
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === botMsgId ? { ...msg, text: fullReply } : msg
+                )
+              );
+            }
+          } catch {
+            // JSON incompleto, se procesará en el próximo ciclo
+          }
+        }
+      }
+
+      const finalReply = fullReply.trim() || "Lo siento, hubo un problema al generar la respuesta.";
+
+      conversationHistory.current.push(
+        { role: "user", content: userMsg },
+        { role: "assistant", content: finalReply }
+      );
+      if (conversationHistory.current.length > MAX_HISTORY_TURNS * 2) {
+        conversationHistory.current = conversationHistory.current.slice(-MAX_HISTORY_TURNS * 2);
+      }
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === botMsgId ? { ...msg, text: finalReply, isStreaming: false } : msg
+        )
+      );
+
+    } catch (error) {
+      console.error("Excepción general en el chatbot:", error);
+      setMessages((prev) => {
+        const hasStreamBubble = prev.some((m) => m.isStreaming);
+        if (hasStreamBubble) {
+          return prev.map((m) =>
+            m.isStreaming
+              ? { ...m, text: error.message || "Hubo un problema al procesar tu consulta.", isStreaming: false }
+              : m
+          );
+        }
+        return [
+          ...prev,
+          {
+            id: Date.now() + 1,
+            sender: "bot",
+            text: error.message || "Hubo un problema al procesar tu consulta. Intenta de nuevo.",
+          },
+        ];
+      });
+    } finally {
+      setIsLoading(false);
       setCooldown(COOLDOWN_SECONDS);
-      const cooldownInterval = setInterval(() => {
+      const timer = setInterval(() => {
         setCooldown((prev) => {
           if (prev <= 1) {
-            clearInterval(cooldownInterval);
+            clearInterval(timer);
             return 0;
           }
           return prev - 1;

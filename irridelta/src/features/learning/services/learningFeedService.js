@@ -340,7 +340,7 @@ export async function fetchLearningFeed({
   } catch (error) {
     shouldTryLearningFeedFunction = false;
     console.warn(
-      "No se pudo invocar learning-feed; usando fallback directo a Supabase.",
+      "No se pudo invocar el feed; usando modo fallback.",
       error
     );
 
