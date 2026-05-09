@@ -165,72 +165,85 @@ export function downloadCertificatePng(data) {
   }, "image/png");
 }
 
-function escapePdfText(value) {
-  return String(value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\x20-\x7E]/g, "")
-    .replace(/\\/g, "\\\\")
-    .replace(/\(/g, "\\(")
-    .replace(/\)/g, "\\)");
-}
-
 function buildPdfObject(id, content) {
   return `${id} 0 obj\n${content}\nendobj\n`;
 }
 
+function getCanvasJpegBinary(canvas) {
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+  const base64 = dataUrl.split(",")[1] ?? "";
+
+  const binaryString = window.atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+
+  for (let index = 0; index < binaryString.length; index += 1) {
+    bytes[index] = binaryString.charCodeAt(index);
+  }
+
+  return bytes;
+}
+
+function encodePdfText(value) {
+  return new TextEncoder().encode(value);
+}
+
+function appendPdfPart(parts, offsets, part) {
+  const bytes = typeof part === "string" ? encodePdfText(part) : part;
+  parts.push(bytes);
+  offsets.total += bytes.byteLength;
+}
+
 export function downloadCertificatePdf(data) {
-  const certificateDate = formatCertificateDate(data.approvedAt);
-  const capacitacionTitle = data.capacitacionTitle || data.certificationTitle;
-  const lines = [
-    "q",
-    "0.06 0.09 0.16 rg 0 0 842 595 re f",
-    "0.08 0.33 0.18 rg 0 0 842 210 re f",
-    "0.52 0.93 0.67 RG 3 w 42 42 758 511 re S",
-    "1 1 1 rg BT /F1 36 Tf 211 470 Td (Certificado de Aprobacion) Tj ET",
-    "0.82 0.98 0.90 rg BT /F2 15 Tf 348 425 Td (IRRIDELTA certifica que) Tj ET",
-    `1 1 1 rg BT /F1 30 Tf 0 0 Td 421 365 Td (${escapePdfText(data.requesterName)}) Tj ET`,
-    "0.90 0.91 0.92 rg BT /F2 15 Tf 243 325 Td (ha aprobado satisfactoriamente la capacitacion) Tj ET",
-    `0.73 0.97 0.82 rg BT /F1 22 Tf 0 0 Td 421 285 Td (${escapePdfText(capacitacionTitle)}) Tj ET`,
-    `0.90 0.91 0.92 rg BT /F2 15 Tf 326 220 Td (Fecha de emision: ${escapePdfText(certificateDate)}) Tj ET`,
-    "1 1 1 rg BT /F1 26 Tf 95 105 Td (IRRIDELTA) Tj ET",
-    "0.52 0.93 0.67 rg BT /F2 12 Tf 97 80 Td (Formacion tecnica en riego) Tj ET",
-    "1 1 1 RG 1.5 w 540 112 m 730 112 l S",
-    "1 1 1 rg BT /F2 13 Tf 562 88 Td (Administracion IRRIDELTA) Tj ET",
-    "0.73 0.97 0.82 rg BT /F2 10 Tf 552 68 Td (Certificacion validada por administrador) Tj ET",
-    "Q",
-  ];
-  const stream = lines.join("\n");
-  const objects = [
-    buildPdfObject(1, "<< /Type /Catalog /Pages 2 0 R >>"),
-    buildPdfObject(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
-    buildPdfObject(
-      3,
-      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>"
-    ),
-    buildPdfObject(4, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"),
-    buildPdfObject(5, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"),
-    buildPdfObject(6, `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`),
+  const canvas = document.createElement("canvas");
+  drawCertificateToCanvas(canvas, data);
+
+  const imageBytes = getCanvasJpegBinary(canvas);
+  const pageStream = `q\n${CERTIFICATE_WIDTH} 0 0 ${CERTIFICATE_HEIGHT} 0 0 cm\n/CertImage Do\nQ`;
+  const imageHeader = `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${CERTIFICATE_WIDTH} /Height ${CERTIFICATE_HEIGHT} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imageBytes.byteLength} >>\nstream\n`;
+  const imageFooter = "\nendstream\nendobj\n";
+  const objectParts = [
+    [buildPdfObject(1, "<< /Type /Catalog /Pages 2 0 R >>")],
+    [buildPdfObject(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>")],
+    [
+      buildPdfObject(
+        3,
+        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${CERTIFICATE_WIDTH} ${CERTIFICATE_HEIGHT}] /Resources << /XObject << /CertImage 4 0 R >> >> /Contents 5 0 R >>`
+      ),
+    ],
+    [imageHeader, imageBytes, imageFooter],
+    [
+      buildPdfObject(
+        5,
+        `<< /Length ${pageStream.length} >>\nstream\n${pageStream}\nendstream`
+      ),
+    ],
   ];
 
-  let pdf = "%PDF-1.4\n";
+  const parts = [];
+  const offsetsState = { total: 0 };
   const offsets = [0];
 
-  for (const object of objects) {
-    offsets.push(pdf.length);
-    pdf += object;
+  appendPdfPart(parts, offsetsState, "%PDF-1.4\n");
+
+  for (const objectPart of objectParts) {
+    offsets.push(offsetsState.total);
+
+    for (const part of objectPart) {
+      appendPdfPart(parts, offsetsState, part);
+    }
   }
 
-  const xrefOffset = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n`;
-  pdf += "0000000000 65535 f \n";
+  const xrefOffset = offsetsState.total;
+  let xref = `xref\n0 ${objectParts.length + 1}\n`;
+  xref += "0000000000 65535 f \n";
   for (let index = 1; index < offsets.length; index += 1) {
-    pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+    xref += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
   }
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  xref += `trailer\n<< /Size ${objectParts.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  appendPdfPart(parts, offsetsState, xref);
 
   downloadBlob(
-    new Blob([pdf], { type: "application/pdf" }),
+    new Blob(parts, { type: "application/pdf" }),
     `${getCertificateFileBase(data)}.pdf`
   );
 }

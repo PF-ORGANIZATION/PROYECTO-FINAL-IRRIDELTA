@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 // Importamos los iconos adicionales que usaremos para las redes sociales
 import { Users, Lightbulb, TrendingUp, Handshake, Facebook, Instagram } from 'lucide-react'; 
 
@@ -146,9 +147,9 @@ function About() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> 
           <h2 className="text-3xl font-extrabold mb-4">¡Conoce al equipo que lo hace posible!</h2>
           <p className="text-xl mb-8">Te invitamos a pasar por nuestros locales de Benavídez y Escobar o contactarnos!</p>
-          <a href="/contacto" className="bg-white hover:bg-gray-100 text-blue-600 font-bold py-3 px-8 rounded-lg transition duration-300 shadow-xl">
+          <Link to="/contacto" className="bg-white hover:bg-gray-100 text-blue-600 font-bold py-3 px-8 rounded-lg transition duration-300 shadow-xl">
             Contactanos!
-          </a>
+          </Link>
         </div>
       </section>
     </div>
