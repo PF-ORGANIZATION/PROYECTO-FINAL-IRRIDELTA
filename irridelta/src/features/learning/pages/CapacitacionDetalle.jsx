@@ -19,6 +19,8 @@ import {
   getModuleRoute,
   isModuleCompleted,
 } from "../utils/learningRuntime";
+import { USER_ROLES } from "../../auth/authRoles";
+import { useSessionStore } from "../../../store/sessionStore";
 import styles from "./CapacitacionDetalle.module.css";
 
 function getModuleResourceSummary(module) {
@@ -38,6 +40,8 @@ function getModuleResourceSummary(module) {
 
 function CapacitacionDetalle() {
   const { capacitacionId } = useParams();
+  const role = useSessionStore((state) => state.role);
+  const onlyPublished = role !== USER_ROLES.ADMIN;
   const {
     capacitacion,
     completedResourceIds,
@@ -48,7 +52,7 @@ function CapacitacionDetalle() {
     error,
     progressError,
     examAttemptsError,
-  } = useCapacitacionProgress(capacitacionId, { onlyPublished: true });
+  } = useCapacitacionProgress(capacitacionId, { onlyPublished });
 
   const modules = capacitacion?.modulos ?? [];
   const certification = capacitacion?.certificacion ?? null;

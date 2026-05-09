@@ -11,11 +11,15 @@ import {
   getModuleRoute,
   parseModuleIndex,
 } from "../utils/learningRuntime";
+import { USER_ROLES } from "../../auth/authRoles";
+import { useSessionStore } from "../../../store/sessionStore";
 
 function CapacitacionModuloExam() {
   const { capacitacionId, moduloIndex: moduloIndexParam } = useParams();
   const navigate = useNavigate();
   const moduleIndex = parseModuleIndex(moduloIndexParam);
+  const role = useSessionStore((state) => state.role);
+  const onlyPublished = role !== USER_ROLES.ADMIN;
   const {
     capacitacion,
     completedResourceIds,
@@ -25,7 +29,7 @@ function CapacitacionModuloExam() {
     loadingExamAttempts,
     error,
   } =
-    useCapacitacionProgress(capacitacionId, { onlyPublished: true });
+    useCapacitacionProgress(capacitacionId, { onlyPublished });
 
   const modules = capacitacion?.modulos ?? [];
   const module = moduleIndex >= 0 ? modules[moduleIndex] : null;
@@ -36,6 +40,7 @@ function CapacitacionModuloExam() {
   const learningStateReady = !loadingProgress && !loadingExamAttempts;
   const moduleResourcesCompleted =
     learningStateReady && areModuleResourcesCompleted(module, completedResourceIds);
+  const moduleResourceCount = module?.recursos?.length ?? 0;
   const modulePath =
     moduleIndex >= 0 ? getModuleRoute(capacitacionId, moduleIndex) : null;
   const capacitacionPath = `/capacitaciones/${capacitacionId}`;
@@ -115,7 +120,9 @@ function CapacitacionModuloExam() {
                 Este examen todavia esta bloqueado
               </h1>
               <p className="mt-3 text-gray-600">
-                Completa todos los recursos del modulo para habilitar el examen.
+                {moduleResourceCount > 0
+                  ? "Completa todos los recursos del modulo para habilitar el examen."
+                  : "Este examen todavia no esta disponible."}
               </p>
             </div>
           )}

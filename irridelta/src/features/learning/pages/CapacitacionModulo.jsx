@@ -28,10 +28,14 @@ import {
   isModuleCompleted,
   parseModuleIndex,
 } from "../utils/learningRuntime";
+import { USER_ROLES } from "../../auth/authRoles";
+import { useSessionStore } from "../../../store/sessionStore";
 
 function CapacitacionModulo() {
   const { capacitacionId, moduloIndex: moduloIndexParam } = useParams();
   const moduleIndex = parseModuleIndex(moduloIndexParam);
+  const role = useSessionStore((state) => state.role);
+  const onlyPublished = role !== USER_ROLES.ADMIN;
   const [openResourceKeys, setOpenResourceKeys] = useState(() => new Set());
   const {
     capacitacion,
@@ -45,7 +49,7 @@ function CapacitacionModulo() {
     savingResourceId,
     markResourceAsCompleted,
     setTrackingReady,
-  } = useCapacitacionProgress(capacitacionId, { onlyPublished: true });
+  } = useCapacitacionProgress(capacitacionId, { onlyPublished });
 
   const modules = capacitacion?.modulos ?? [];
   const module = moduleIndex >= 0 ? modules[moduleIndex] : null;
@@ -394,9 +398,11 @@ function CapacitacionModulo() {
                         Ir al examen
                         <Lock size={16} />
                       </button>
-                      <p className="max-w-sm text-sm font-semibold text-gray-500 lg:text-right">
-                        Completa todos los recursos del modulo para habilitar el examen.
-                      </p>
+                      {moduleResources.length > 0 && (
+                        <p className="max-w-sm text-sm font-semibold text-gray-500 lg:text-right">
+                          Completa todos los recursos del modulo para habilitar el examen.
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <span className="rounded-lg bg-gray-100 px-4 py-3 text-sm font-semibold text-gray-600">

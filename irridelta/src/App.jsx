@@ -132,7 +132,7 @@ function App() {
                 element={
                   <ProtectedRoute
                     element={Capacitaciones}
-                    allowedRoles={[USER_ROLES.CLIENTE]}
+                    allowedRoles={[USER_ROLES.CLIENTE, USER_ROLES.ADMIN]}
                   />
                 }
               />
@@ -141,7 +141,7 @@ function App() {
                 element={
                   <ProtectedRoute
                     element={CapacitacionDetalle}
-                    allowedRoles={[USER_ROLES.CLIENTE]}
+                    allowedRoles={[USER_ROLES.CLIENTE, USER_ROLES.ADMIN]}
                   />
                 }
               />
@@ -150,7 +150,7 @@ function App() {
                 element={
                   <ProtectedRoute
                     element={CapacitacionModulo}
-                    allowedRoles={[USER_ROLES.CLIENTE]}
+                    allowedRoles={[USER_ROLES.CLIENTE, USER_ROLES.ADMIN]}
                   />
                 }
               />
@@ -159,7 +159,7 @@ function App() {
                 element={
                   <ProtectedRoute
                     element={CapacitacionModuloExam}
-                    allowedRoles={[USER_ROLES.CLIENTE]}
+                    allowedRoles={[USER_ROLES.CLIENTE, USER_ROLES.ADMIN]}
                   />
                 }
               />
@@ -168,7 +168,7 @@ function App() {
                 element={
                   <ProtectedRoute
                     element={Certificaciones}
-                    allowedRoles={[USER_ROLES.CLIENTE]}
+                    allowedRoles={[USER_ROLES.CLIENTE, USER_ROLES.ADMIN]}
                   />
                 }
               />
@@ -177,7 +177,7 @@ function App() {
                 element={
                   <ProtectedRoute
                     element={CertificationExam}
-                    allowedRoles={[USER_ROLES.CLIENTE]}
+                    allowedRoles={[USER_ROLES.CLIENTE, USER_ROLES.ADMIN]}
                   />
                 }
               />
