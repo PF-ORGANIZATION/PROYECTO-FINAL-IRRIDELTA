@@ -49,6 +49,3 @@ export function getModuleRoute(capacitacionId, moduleIndex) {
   return `/capacitaciones/${capacitacionId}/modulos/${moduleIndex + 1}`;
 }
 
-export function getModuleExamRoute(capacitacionId, moduleIndex) {
-  return `/capacitaciones/${capacitacionId}/modulos/${moduleIndex + 1}/examen`;
-}
