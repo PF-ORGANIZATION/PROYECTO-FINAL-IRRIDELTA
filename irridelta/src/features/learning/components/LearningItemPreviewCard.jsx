@@ -31,7 +31,12 @@ const STATUS_LABELS = {
   completado: "Completado",
 };
 
-function LearningItemPreviewCard({ item, progress, showPublishedDate = true }) {
+function LearningItemPreviewCard({
+  item,
+  progress,
+  showPublishedDate = true,
+  onDetailClick = null,
+}) {
   if (!item) {
     return null;
   }
@@ -132,10 +137,21 @@ function LearningItemPreviewCard({ item, progress, showPublishedDate = true }) {
       </div>
 
       <footer className={styles.footer}>
-        <Link to={`/capacitaciones/${item.id}`} className={styles.detailLink}>
-          {detailLabel}
-          <ChevronRight size={18} aria-hidden="true" />
-        </Link>
+        {onDetailClick ? (
+          <button
+            type="button"
+            onClick={onDetailClick}
+            className={styles.detailLink}
+          >
+            {detailLabel}
+            <ChevronRight size={18} aria-hidden="true" />
+          </button>
+        ) : (
+          <Link to={`/capacitaciones/${item.id}`} className={styles.detailLink}>
+            {detailLabel}
+            <ChevronRight size={18} aria-hidden="true" />
+          </Link>
+        )}
       </footer>
     </article>
   );
