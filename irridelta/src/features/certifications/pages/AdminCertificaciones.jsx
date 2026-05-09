@@ -62,16 +62,16 @@ function ExamPreviewModal({ request, onClose }) {
         className="absolute inset-0 bg-slate-900/65"
       />
 
-      <div className="learning-card relative z-10 flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden p-0">
+      <div className="card relative z-10 flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden p-0">
         <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-green-700">
               Previsualizacion de examen
             </p>
-            <h2 className="learning-section-title mt-2">
+            <h2 className="text-xl font-bold mt-2">
               {request.requester_name}
             </h2>
-            <p className="learning-muted mt-1">
+            <p className="text-gray-500 mt-1">
               {request.capacitacion_title || request.certification_title}
             </p>
           </div>
@@ -151,7 +151,7 @@ function ExamPreviewModal({ request, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="learning-button-secondary"
+            className="btn-secondary"
           >
             Cerrar
           </button>
@@ -242,33 +242,33 @@ function AdminCertificaciones() {
   });
 
   return (
-    <section className="learning-page">
-      <div className="learning-container">
-      <header className="learning-header mb-8">
+    <section className="page-wrapper">
+      <div className="container-main">
+      <header className="card mb-8 mb-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="learning-title">
+            <h1 className="text-3xl font-bold mb-4 border-b pb-4">
               Solicitudes de Certificacion
             </h1>
-            <p className="learning-subtitle">
+            <p className="text-gray-500 mt-2">
               Aproba o rechaza certificados solicitados despues de aprobar la prueba final.
             </p>
           </div>
 
-          <div className="learning-stat min-w-[180px]">
+          <div className="bg-gray-50 border rounded-md p-4 min-w-[180px]">
             <span className="font-semibold text-gray-900">Pendientes:</span>{" "}
             <span className="font-bold text-amber-700">{pendingRequestsCount}</span>
           </div>
         </div>
       </header>
 
-      <div className="learning-card mb-6">
+      <div className="card mb-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="learning-section-title">
+            <h2 className="text-xl font-bold">
               Solicitudes recibidas
             </h2>
-            <p className="learning-muted mt-1">
+            <p className="text-gray-500 mt-1">
               Revisa nombre, capacitacion, resultado y estado de aprobacion.
             </p>
           </div>
@@ -293,13 +293,13 @@ function AdminCertificaciones() {
       )}
 
       {requestsLoading && (
-        <div className="learning-empty">
+        <div className="card text-center py-12">
           Cargando solicitudes...
         </div>
       )}
 
       {!requestsLoading && filteredRequests.length === 0 && (
-        <div className="learning-empty">
+        <div className="card text-center py-12">
           No hay solicitudes con ese filtro.
         </div>
       )}
@@ -314,10 +314,10 @@ function AdminCertificaciones() {
             return (
               <article
                 key={request.id}
-                className="learning-card"
+                className="card"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="learning-section-title">
+                  <h3 className="text-xl font-bold">
                     {request.requester_name}
                   </h3>
                   <span
@@ -350,7 +350,7 @@ function AdminCertificaciones() {
                     type="button"
                     disabled={answerDetails.length === 0}
                     onClick={() => setSelectedExamRequest(request)}
-                    className="learning-button-secondary h-full disabled:cursor-not-allowed disabled:opacity-60"
+                    className="btn-secondary h-full disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Ver examen
                   </button>
@@ -375,7 +375,7 @@ function AdminCertificaciones() {
                     <button
                       type="button"
                       onClick={() => handleApproveRequest(request)}
-                      className="learning-button h-full"
+                      className="btn-primary h-full"
                     >
                       Aprobar
                     </button>
@@ -383,7 +383,7 @@ function AdminCertificaciones() {
                     <button
                       type="button"
                       onClick={() => downloadCertificatePng(getDownloadData(request))}
-                      className="learning-button-secondary h-full"
+                      className="btn-secondary h-full"
                     >
                       PNG
                     </button>
@@ -420,7 +420,7 @@ function AdminCertificaciones() {
                     <button
                       type="button"
                       onClick={() => downloadCertificatePdf(getDownloadData(request))}
-                      className="learning-button-secondary h-full"
+                      className="btn-secondary h-full"
                     >
                       PDF
                     </button>
@@ -461,7 +461,7 @@ function AdminCertificaciones() {
                           setRejectingRequestId(null);
                           setRejectionReason("");
                         }}
-                        className="learning-button-secondary"
+                        className="btn-secondary"
                       >
                         Cancelar
                       </button>

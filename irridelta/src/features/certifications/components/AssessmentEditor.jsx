@@ -160,9 +160,9 @@ function AssessmentEditor({
     <div className="space-y-5 rounded-lg border border-gray-200 bg-white p-4">
       {showHeader && (
         <div>
-          <h5 className="learning-section-title text-base">{title}</h5>
+          <h5 className="text-xl font-bold text-base">{title}</h5>
           {description && (
-            <p className="learning-muted mt-1">{description}</p>
+            <p className="text-gray-500 mt-1">{description}</p>
           )}
         </div>
       )}
@@ -234,7 +234,7 @@ function AssessmentEditor({
             type="button"
             onClick={() => handleAddQuestion(QUESTION_TYPES.MULTIPLE_CHOICE)}
             disabled={value.preguntas.length >= MAX_QUESTIONS}
-            className="learning-button disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
           >
             Agregar multiple choice
           </button>
@@ -243,7 +243,7 @@ function AssessmentEditor({
             type="button"
             onClick={() => handleAddQuestion(QUESTION_TYPES.TRUE_FALSE)}
             disabled={value.preguntas.length >= MAX_QUESTIONS}
-            className="learning-button-secondary disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
           >
             Agregar verdadero/falso
           </button>
@@ -384,7 +384,7 @@ function AssessmentEditor({
                       type="button"
                       onClick={() => handleAddOption(question.id)}
                       disabled={question.opciones.length >= MAX_OPTIONS}
-                      className="learning-button-secondary disabled:cursor-not-allowed disabled:opacity-60"
+                      className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Agregar opcion
                     </button>

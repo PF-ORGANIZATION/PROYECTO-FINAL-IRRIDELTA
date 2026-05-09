@@ -97,12 +97,12 @@ function LearningCatalog({ title, emptyMessage }) {
   }, [hasMore, loadItems, loading, loadingMore, nextCursor]);
 
   return (
-    <section className="learning-page">
-      <div className="learning-container">
-        <header className="learning-header">
+    <section className="page-wrapper">
+      <div className="container-main">
+        <header className="card mb-8">
           <div>
-            <h1 className="learning-title">{title}</h1>
-            <p className="learning-subtitle">
+            <h1 className="text-3xl font-bold mb-4 border-b pb-4">{title}</h1>
+            <p className="text-gray-500 mt-2">
               Accede al material de formacion y segui tu avance en cada modulo.
             </p>
           </div>
@@ -123,7 +123,7 @@ function LearningCatalog({ title, emptyMessage }) {
         )}
 
         {!loading && !error && items.length === 0 && activeFilter === FILTERS.ALL && !debouncedSearch && (
-          <div className="learning-empty">{emptyMessage}</div>
+          <div className="card text-center py-12">{emptyMessage}</div>
         )}
 
         {!loading && !error && (items.length > 0 || activeFilter !== FILTERS.ALL || debouncedSearch) && (
@@ -168,7 +168,7 @@ function LearningCatalog({ title, emptyMessage }) {
             </div>
 
             {items.length === 0 ? (
-              <div className="learning-empty">
+              <div className="card text-center py-12">
                 No se encontraron capacitaciones con ese criterio.
               </div>
             ) : (
@@ -193,7 +193,7 @@ function LearningCatalog({ title, emptyMessage }) {
                   {!loadingMore && hasMore && (
                     <button
                       type="button"
-                      className="learning-button-secondary"
+                      className="btn-secondary"
                       onClick={() => loadItems({ cursor: nextCursor, append: true })}
                     >
                       Cargar mas

@@ -6,7 +6,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-skills
 
 node_modules
 package-lock.json
@@ -21,7 +20,6 @@ scripts/make-admin.mjs
 make-admin.mjs
 make-admin.js
 scripts
-skills/
 
 
 

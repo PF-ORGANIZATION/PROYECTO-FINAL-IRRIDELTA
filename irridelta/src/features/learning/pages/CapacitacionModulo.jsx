@@ -119,8 +119,8 @@ function CapacitacionModulo() {
         <title>{pageTitle}</title>
       </Helmet>
 
-      <section className="learning-page">
-        <div className="learning-container">
+      <section className="page-wrapper">
+        <div className="container-main">
           <Link
             to={`/capacitaciones/${capacitacionTitleSlug}`}
             className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-green-700 hover:text-green-600"
@@ -130,7 +130,7 @@ function CapacitacionModulo() {
           </Link>
 
           {loading && (
-            <div className="learning-empty">
+            <div className="card text-center py-12">
               Cargando modulo...
             </div>
           )}
@@ -138,19 +138,19 @@ function CapacitacionModulo() {
           {!loading && error && <div className="alert-error">{error}</div>}
 
           {!loading && !error && !module && (
-            <div className="learning-empty">
+            <div className="card text-center py-12">
               No encontramos el modulo solicitado.
             </div>
           )}
 
           {!loading && !error && module && !learningStateReady && (
-            <div className="learning-empty">
+            <div className="card text-center py-12">
               Cargando avance del modulo...
             </div>
           )}
 
           {!loading && !error && module && learningStateReady && !moduleUnlocked && (
-            <div className="learning-empty">
+            <div className="card text-center py-12">
               <div className="mx-auto mb-4 inline-flex rounded-full bg-gray-100 p-4">
                 <Lock size={30} className="text-gray-500" />
               </div>
@@ -165,7 +165,7 @@ function CapacitacionModulo() {
 
           {!loading && !error && module && learningStateReady && moduleUnlocked && (
             <>
-              <article className="learning-card">
+              <article className="card">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -209,10 +209,10 @@ function CapacitacionModulo() {
                 <div className="alert-error mt-6">{progressError}</div>
               )}
 
-              <section className="learning-card mt-8">
+              <section className="card mt-8">
                 <div className="mb-6 flex flex-col gap-3 border-b border-gray-200 pb-4 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <h2 className="learning-section-title">
+                    <h2 className="text-xl font-bold">
                       Contenido del modulo
                     </h2>
                     <p className="mt-2 text-sm font-semibold text-gray-500">
@@ -375,12 +375,12 @@ function CapacitacionModulo() {
               </section>
 
               {moduleHasAssessment && (
-                <section className="learning-card mt-8">
+                <section className="card mt-8">
                   <div className="mb-5 border-b border-gray-200 pb-4">
-                    <h2 className="learning-section-title">
+                    <h2 className="text-xl font-bold">
                       Autoevaluacion del modulo
                     </h2>
-                    <p className="learning-muted mt-2 max-w-3xl">
+                    <p className="text-gray-500 mt-2 max-w-3xl">
                       Estas preguntas son de practica y no bloquean el avance al
                       siguiente modulo.
                     </p>
@@ -390,7 +390,7 @@ function CapacitacionModulo() {
                     <div className="text-center">
                       <Link
                         to={`/capacitaciones/${capacitacionTitleSlug}/modulos/${moduloIndexParam}/examen`}
-                        className="learning-button inline-flex items-center gap-2"
+                        className="btn-primary inline-flex items-center gap-2"
                       >
                         Realizar autoevaluacion
                       </Link>
@@ -438,7 +438,7 @@ function CapacitacionModulo() {
                     moduleResourcesCompleted ? (
                       <Link
                         to={`/certificaciones/${certification.id}`}
-                        className="learning-button inline-flex items-center gap-2"
+                        className="btn-primary inline-flex items-center gap-2"
                       >
                         Ir al examen final
                         <Award size={16} />
@@ -451,7 +451,7 @@ function CapacitacionModulo() {
                   ) : (
                     <Link
                       to="/capacitaciones"
-                      className="learning-button-secondary inline-flex items-center gap-2"
+                      className="btn-secondary inline-flex items-center gap-2"
                     >
                       Volver a capacitaciones
                       <ArrowRight size={16} />

@@ -540,20 +540,20 @@ function CertificationExam() {
         <title>Examen de Certificacion | IRRIDELTA</title>
       </Helmet>
 
-      <section className="learning-page">
-        <div className="learning-container-narrow">
+      <section className="page-wrapper">
+        <div className="container-main max-w-4xl">
           <div className="mb-8">
             <button
               type="button"
               onClick={handleGoBack}
-              className="learning-button-secondary"
+              className="btn-secondary"
             >
               Volver a certificaciones
             </button>
           </div>
 
           {loading && (
-            <div className="learning-empty">
+            <div className="card text-center py-12">
               Cargando examen...
             </div>
           )}
@@ -643,15 +643,15 @@ function CertificationExam() {
                 </section>
               </div>
             ) : (
-            <div className="learning-card">
+            <div className="card">
               <header className="border-b pb-4">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <h1 className="learning-section-title">
+                    <h1 className="text-xl font-bold">
                       {certification.titulo}
                     </h1>
                     {certification.descripcion && (
-                      <p className="learning-muted mt-3 max-w-3xl">
+                      <p className="text-gray-500 mt-3 max-w-3xl">
                         {certification.descripcion}
                       </p>
                     )}
@@ -666,44 +666,44 @@ function CertificationExam() {
                   </div>
                 </div>
 
-                <div className="learning-stat-grid learning-stat-grid-5 mt-5">
-                  <div className="learning-stat">
-                    <span className="learning-stat-label">
+                <div className="grid gap-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-5">
+                  <div className="bg-gray-50 border rounded-md p-4">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
                       Preguntas
                     </span>
-                    <strong className="learning-stat-value">
+                    <strong className="text-xl font-bold mt-1">
                       {examQuestionCount}
                     </strong>
                   </div>
-                  <div className="learning-stat">
-                    <span className="learning-stat-label">
+                  <div className="bg-gray-50 border rounded-md p-4">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
                       Aprobacion
                     </span>
-                    <strong className="learning-stat-value">
+                    <strong className="text-xl font-bold mt-1">
                       {passingScore}%
                     </strong>
                   </div>
-                  <div className="learning-stat">
-                    <span className="learning-stat-label">
+                  <div className="bg-gray-50 border rounded-md p-4">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
                       Minimo correcto
                     </span>
-                    <strong className="learning-stat-value">
+                    <strong className="text-xl font-bold mt-1">
                       {minimumCorrectAnswers}
                     </strong>
                   </div>
-                  <div className="learning-stat">
-                    <span className="learning-stat-label">
+                  <div className="bg-gray-50 border rounded-md p-4">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
                       Duracion
                     </span>
-                    <strong className="learning-stat-value">
+                    <strong className="text-xl font-bold mt-1">
                       {formatDurationLabel(durationMinutes)}
                     </strong>
                   </div>
-                  <div className="learning-stat">
-                    <span className="learning-stat-label">
+                  <div className="bg-gray-50 border rounded-md p-4">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
                       Guardadas
                     </span>
-                    <strong className="learning-stat-value">
+                    <strong className="text-xl font-bold mt-1">
                       {answeredQuestions} / {examQuestionCount}
                     </strong>
                   </div>
@@ -767,7 +767,7 @@ function CertificationExam() {
                       type="button"
                       onClick={() => finishExam()}
                       disabled={answeredQuestions !== examQuestionCount || savingAttempt}
-                      className="learning-button"
+                      className="btn-primary"
                     >
                       {savingAttempt ? "Guardando..." : "Enviar examen"}
                     </button>
@@ -776,7 +776,7 @@ function CertificationExam() {
                       type="button"
                       onClick={handleRestartExam}
                       disabled={savingAttempt}
-                      className="learning-button-secondary"
+                      className="btn-secondary"
                     >
                       Reiniciar
                     </button>
@@ -821,7 +821,7 @@ function CertificationExam() {
                       <button
                         type="button"
                         onClick={handleRestartExam}
-                        className="learning-button-secondary"
+                        className="btn-secondary"
                       >
                         Rendir nuevamente
                       </button>
@@ -835,7 +835,7 @@ function CertificationExam() {
 
                     <Link
                       to="/certificaciones"
-                      className="learning-button-secondary"
+                      className="btn-secondary"
                     >
                       Volver al listado
                     </Link>
@@ -869,7 +869,7 @@ function CertificationExam() {
                           <button
                             type="submit"
                             disabled={isSubmittingRequest}
-                            className="learning-button"
+                            className="btn-primary"
                           >
                             {isSubmittingRequest
                               ? "Enviando..."
@@ -914,7 +914,7 @@ function CertificationExam() {
                           <button
                             type="submit"
                             disabled={isSubmittingRequest}
-                            className="learning-button"
+                            className="btn-primary"
                           >
                             {isSubmittingRequest
                               ? "Reenviando..."
@@ -935,7 +935,7 @@ function CertificationExam() {
                               onClick={() =>
                                 downloadCertificatePng(getCertificateDownloadData())
                               }
-                              className="learning-button-secondary"
+                              className="btn-secondary"
                             >
                               Descargar PNG
                             </button>
@@ -944,7 +944,7 @@ function CertificationExam() {
                               onClick={() =>
                                 downloadCertificatePdf(getCertificateDownloadData())
                               }
-                              className="learning-button"
+                              className="btn-primary"
                             >
                               Descargar PDF
                             </button>

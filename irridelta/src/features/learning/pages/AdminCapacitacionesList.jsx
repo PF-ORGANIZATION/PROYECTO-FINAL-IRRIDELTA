@@ -128,15 +128,15 @@ function AdminCapacitacionesList() {
   };
 
   return (
-    <section className="learning-page">
-      <div className="learning-container">
-      <header className="learning-header">
+    <section className="page-wrapper">
+      <div className="container-main">
+      <header className="card mb-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="learning-title">
+            <h1 className="text-3xl font-bold mb-4 border-b pb-4">
               Panel de Capacitaciones
             </h1>
-            <p className="learning-subtitle">
+            <p className="text-gray-500 mt-2">
               Primero gestionas las capacitaciones. Luego entras a editar una puntual.
             </p>
           </div>
@@ -144,7 +144,7 @@ function AdminCapacitacionesList() {
           <button
             type="button"
             onClick={() => navigate("/admin/capacitaciones/nueva")}
-            className="learning-button"
+            className="btn-primary"
           >
             <Plus className="h-4 w-4" />
             Nueva capacitacion
@@ -158,7 +158,7 @@ function AdminCapacitacionesList() {
         </div>
       )}
 
-      <div className="learning-card mb-6 p-5">
+      <div className="card mb-6 p-5">
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
           <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
             <Search className="h-5 w-5 text-gray-400" />
@@ -184,23 +184,23 @@ function AdminCapacitacionesList() {
       </div>
 
       {loading && (
-        <div className="learning-empty">
+        <div className="card text-center py-12">
           Cargando capacitaciones...
         </div>
       )}
 
       {!loading && !error && items.length === 0 && !debouncedSearch && statusFilter === "todos" && (
-        <div className="learning-empty">
-          <h2 className="learning-empty-title">
+        <div className="card text-center py-12">
+          <h2 className="text-xl font-bold">
             Todavia no hay capacitaciones cargadas
           </h2>
-          <p className="learning-empty-text">
+          <p className="text-gray-500 mt-2 max-w-lg mx-auto">
             Empieza creando la primera capacitacion para construir el contenido y sus evaluaciones.
           </p>
           <button
             type="button"
             onClick={() => navigate("/admin/capacitaciones/nueva")}
-            className="learning-button mt-6"
+            className="btn-primary mt-6"
           >
             <Plus className="h-4 w-4" />
             Crear primera capacitacion
@@ -209,7 +209,7 @@ function AdminCapacitacionesList() {
       )}
 
       {!loading && !error && items.length === 0 && (debouncedSearch || statusFilter !== "todos") && (
-        <div className="learning-empty">
+        <div className="card text-center py-12">
           No se encontraron capacitaciones con esos filtros.
         </div>
       )}
@@ -219,7 +219,7 @@ function AdminCapacitacionesList() {
           {items.map((item) => (
             <article
               key={item.id}
-              className="learning-card"
+              className="card"
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
@@ -265,14 +265,14 @@ function AdminCapacitacionesList() {
                     type="button"
                     onClick={() => handlePreview(item)}
                     disabled={previewLoadingId === item.id}
-                    className="learning-button-secondary"
+                    className="btn-secondary"
                   >
                     {previewLoadingId === item.id ? "Cargando..." : "Ver"}
                   </button>
                   <button
                     type="button"
                     onClick={() => navigate(`/admin/capacitaciones/${item.id}/editar`)}
-                    className="learning-button-secondary"
+                    className="btn-secondary"
                   >
                     Editar
                   </button>
@@ -288,11 +288,11 @@ function AdminCapacitacionesList() {
             </article>
           ))}
           <div ref={loadMoreRef} className="grid justify-items-center py-6">
-            {loadingMore && <div className="learning-empty w-full">Cargando mas...</div>}
+            {loadingMore && <div className="card text-center py-12 w-full">Cargando mas...</div>}
             {!loadingMore && hasMore && (
               <button
                 type="button"
-                className="learning-button-secondary"
+                className="btn-secondary"
                 onClick={() => loadItems({ cursor: nextCursor, append: true })}
               >
                 Cargar mas

@@ -1,0 +1,150 @@
+# 🔍 Branch Analysis: `feature/santi-cap-cert`
+
+## Summary
+
+Santiago's branch has **58 commits not in main** and carries **significant problems**. Here's the full breakdown.
+
+---
+
+## 🚨 Problem 1: Ghost Commits — Your Work Under His Branch
+
+The branch includes commits authored by **you** (`ianGregorini`) that are already merged into main via PRs. These are not cherry-picks — they're the **original commits** carried in his branch's ancestry because he branched from a very old point (`agus_cap_ux`) and never rebased.
+
+Your commits appearing in his branch history:
+
+| Commit | Message |
+|--------|---------|
+| `da3260e` | Agrego worker en background para la vectorizacion de files en kb |
+| `a017bda` | Chequeo previo para no duplicar files ni chunks |
+| `21c51aa` | Alert cuando se está subiendo y se quiere abandonar el sitio |
+| `1114499` | Agrego detail modal con vista previa del documento |
+| `0a9f275` | Se agrega posibilidad de deshabilitar files de la kb en el chat |
+| `5f4ab63` | Se modifica el prompt para evitar generar información falsa |
+| `fee9181` | **Complete refactor through all project folders and elements** |
+| `f0e19a3` | Se modularizan los estilos de Navbar, chatbot y certificacionExam |
+| `86557e3` | Arreglo bug cuando el contexto es muy grande |
+| `5a5cf61` | **Cherry pick de manuBritezLogin y refactor importante** |
+
+> [!IMPORTANT]
+> These are your commits that reached main through PRs. They appear in his branch because his branch **descends from `agus_cap_ux`** which included them. This isn't malicious — it's a branching/rebasing mistake.
+
+---
+
+## 🚨 Problem 2: Dangerous Merge — "Keeping Our Branch Changes"
+
+Commit `2ac4ff9` is the critical problem:
+
+```
+Merge origin/main into feature/santi-cap-cert and resolve conflicts
+keeping our branch changes
+```
+
+This merge from today (May 9, 13:41) resolved **conflicts in 5 files by discarding main's version**:
+
+| File | Impact |
+|------|--------|
+| `Chatbot.jsx` | Overwrote your latest chatbot improvements |
+| `chatbotConfig.js` | Overwrote your config changes |
+| `AdminKB.jsx` | Overwrote your KB admin updates |
+| `.gitignore` | Overwrote main's gitignore |
+| `useCapacitacionProgress.js` | Overwrote hook changes |
+
+> [!CAUTION]
+> He resolved ALL conflicts by keeping his branch's versions, effectively **reverting your recent work** in those files. The merge commit message explicitly says "keeping our branch changes."
+
+---
+
+## 🚨 Problem 3: Parallel CSS System (Breaks Your Architecture)
+
+Your established architecture uses:
+- **CSS Modules** (`.module.css`) for component-scoped styles
+- **Design tokens** via CSS custom properties in `shared.css` (e.g., `--color-primary`, `--space-sm`)
+- **Utility classes** like `.btn-primary`, `.card`, `.input-field` that reference tokens
+
+Santiago's branch adds **219 lines** of new global CSS classes to `shared.css` with a completely different naming convention:
+
+```css
+/* His additions — NOT using CSS Modules, NOT following your naming */
+.learning-page { ... }
+.learning-header { ... }
+.learning-card { ... }
+.learning-section-title { ... }
+.learning-muted { ... }
+.learning-button { ... }
+.learning-button-secondary { ... }
+.learning-pill { ... }
+.learning-empty { ... }
+.learning-grid-2 { ... }
+.learning-stat-grid-5 { ... }
+```
+
+Then in JSX files, he replaces your established patterns:
+
+```diff
+- className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow"
++ className="learning-button disabled:cursor-not-allowed disabled:opacity-60"
+```
+
+> [!WARNING]
+> This creates a **second parallel design system** alongside yours. It mixes global utility classes with Tailwind utilities (like `disabled:cursor-not-allowed`), completely bypassing CSS Modules. This will cause namespace collisions and makes styles harder to trace and maintain.
+
+---
+
+## 🚨 Problem 4: ChatbotPage.jsx — Reimplementing Your Chatbot
+
+He created a new `ChatbotPage.jsx` (241 lines) that **duplicates** the logic from your `Chatbot.jsx` component into a standalone page:
+
+- Copies your streaming logic, embedding service calls, and conversation history
+- Adds a new `/chatbot` route in `App.jsx`
+- The existing chatbot is a **floating widget** accessible from everywhere — this creates a second, standalone version
+
+> [!IMPORTANT]
+> This directly conflicts with the architectural decision to have the chatbot as a global floating widget, not a dedicated page.
+
+---
+
+## 🚨 Problem 5: .gitignore Modification
+
+His branch adds `skills` and `skills/` entries to `.gitignore`, which don't exist in main's version. While not destructive, it diverges from the agreed configuration.
+
+---
+
+## 📊 Full Diff Summary
+
+The net effect of merging this branch into main:
+
+```
+44 files changed, 3064 insertions(+), 1223 deletions(-)
+```
+
+Key file changes:
+- **1 deleted**: `CapacitacionModuloExam.jsx` (renamed to `CapacitacionModuloExamen.jsx`)
+- **4 added**: `ChatbotPage.jsx`, `CapacitacionModuloExamen.jsx`, `learningFeedService.js`, `learningProgressStatus.js`, `learning-feed/index.ts` (Supabase edge function)
+- **~35 modified**: across certifications, learning, chatbot, public pages, docs, and styles
+
+---
+
+## ✅ Recommended Actions
+
+### Option A: Request Santi to Rebase and Clean Up (Preferred)
+1. Have him **rebase onto latest main** (`git rebase origin/main`)
+2. During rebase, conflicts should be resolved by **keeping main's version** for files he didn't intentionally change
+3. Remove `ChatbotPage.jsx` and the `/chatbot` route (conflicts with floating widget architecture)
+4. Migrate his `learning-*` CSS classes into proper **CSS Modules** (`.module.css`) files
+5. Remove duplicate `.gitignore` entries
+6. Squash the 58 commits into logical, reviewable units
+
+### Option B: Cherry-Pick Only the Valuable Work
+If the rebase is too messy, cherry-pick only the commits that add **genuine new functionality**:
+- Learning feed service + edge function
+- Certification exam review features
+- Slug-based navigation (if desired)
+- Progress status management
+
+### Option C: Block the Merge, Review File-by-File
+Request changes on the PR and review each of the 44 changed files, accepting only the changes that align with your architecture.
+
+---
+
+> [!TIP]
+> The root cause is that Santi branched from `agus_cap_ux` (which contained a lot of history including your work) and never rebased onto main. When he finally merged main in, he resolved all conflicts in favor of his branch. A conversation about **rebasing workflow** and **CSS Module standards** would prevent this in the future.

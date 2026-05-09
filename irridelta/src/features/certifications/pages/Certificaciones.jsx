@@ -82,11 +82,11 @@ function Certificaciones() {
         <title>Certificaciones | IRRIDELTA</title>
       </Helmet>
 
-      <section className="learning-page">
-        <div className="learning-container">
-          <header className="learning-header">
-            <h1 className="learning-title normal-case">Certificaciones</h1>
-            <p className="learning-subtitle">
+      <section className="page-wrapper">
+        <div className="container-main">
+          <header className="card mb-8">
+            <h1 className="text-3xl font-bold mb-4 border-b pb-4 normal-case">Certificaciones</h1>
+            <p className="text-gray-500 mt-2">
               Accede a los examenes finales habilitados por tus capacitaciones completadas.
             </p>
           </header>
@@ -105,18 +105,18 @@ function Certificaciones() {
           )}
 
           {!loading && !error && items.length === 0 && (
-            <div className="learning-empty">
-              <h2 className="learning-empty-title">
+            <div className="card text-center py-12">
+              <h2 className="text-xl font-bold">
                 Todavia no tenes certificaciones disponibles.
               </h2>
-              <p className="learning-empty-text">
+              <p className="text-gray-500 mt-2 max-w-lg mx-auto">
                 Completa una capacitacion con certificado para habilitar su
                 examen final.
               </p>
               <button
                 type="button"
                 onClick={() => navigate("/capacitaciones")}
-                className="learning-button mt-6"
+                className="btn-primary mt-6"
               >
                 Ir a capacitaciones
               </button>
@@ -125,26 +125,26 @@ function Certificaciones() {
 
           {!loading && !error && items.length > 0 && (
             <>
-              <div className="learning-grid-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {items.map((item) => {
                   const durationMinutes = getCertificationDurationMinutes(item);
 
                   return (
                     <article
                       key={item.id}
-                      className="learning-card"
+                      className="card"
                     >
-                      <h2 className="learning-section-title">
+                      <h2 className="text-xl font-bold">
                         {item.titulo}
                       </h2>
 
                       {item.descripcion && (
-                        <p className="learning-muted mt-3">
+                        <p className="text-gray-500 mt-3">
                           {item.descripcion}
                         </p>
                       )}
 
-                      <div className="learning-pill mt-5">
+                      <div className="inline-flex items-center gap-1 border rounded-full bg-gray-50 px-3 py-1 text-sm font-semibold text-gray-700 mt-5">
                         <Clock3 size={16} aria-hidden="true" />
                         {durationMinutes}
                       </div>
@@ -153,7 +153,7 @@ function Certificaciones() {
                         <button
                           type="button"
                           onClick={() => navigate(`/certificaciones/${item.id}`)}
-                          className="learning-button"
+                          className="btn-primary"
                         >
                           Realizar certificacion
                         </button>
@@ -172,7 +172,7 @@ function Certificaciones() {
                 {!loadingMore && hasMore && (
                   <button
                     type="button"
-                    className="learning-button-secondary"
+                    className="btn-secondary"
                     onClick={() => loadItems({ cursor: nextCursor, append: true })}
                   >
                     Cargar mas

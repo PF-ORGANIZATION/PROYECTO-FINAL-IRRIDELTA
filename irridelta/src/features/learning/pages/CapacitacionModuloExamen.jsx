@@ -45,9 +45,9 @@ function CapacitacionModuloExamen() {
 
   if (loading) {
     return (
-      <section className="learning-page">
-        <div className="learning-container">
-          <div className="learning-empty">Cargando examen...</div>
+      <section className="page-wrapper">
+        <div className="container-main">
+          <div className="card text-center py-12">Cargando examen...</div>
         </div>
       </section>
     );
@@ -55,8 +55,8 @@ function CapacitacionModuloExamen() {
 
   if (error) {
     return (
-      <section className="learning-page">
-        <div className="learning-container">
+      <section className="page-wrapper">
+        <div className="container-main">
           <div className="alert-error">{error}</div>
         </div>
       </section>
@@ -65,9 +65,9 @@ function CapacitacionModuloExamen() {
 
   if (!module) {
     return (
-      <section className="learning-page">
-        <div className="learning-container">
-          <div className="learning-empty">
+      <section className="page-wrapper">
+        <div className="container-main">
+          <div className="card text-center py-12">
             No encontramos el módulo solicitado.
           </div>
         </div>
@@ -77,9 +77,9 @@ function CapacitacionModuloExamen() {
 
   if (!moduleUnlocked) {
     return (
-      <section className="learning-page">
-        <div className="learning-container">
-          <div className="learning-empty">
+      <section className="page-wrapper">
+        <div className="container-main">
+          <div className="card text-center py-12">
             Este módulo todavía está bloqueado. Completa los módulos anteriores para acceder al examen.
           </div>
         </div>
@@ -89,9 +89,9 @@ function CapacitacionModuloExamen() {
 
   if (!moduleResourcesCompleted) {
     return (
-      <section className="learning-page">
-        <div className="learning-container">
-          <div className="learning-empty">
+      <section className="page-wrapper">
+        <div className="container-main">
+          <div className="card text-center py-12">
             Completa todos los recursos del módulo antes de realizar el examen.
           </div>
         </div>
@@ -101,9 +101,9 @@ function CapacitacionModuloExamen() {
 
   if (!moduleHasAssessment) {
     return (
-      <section className="learning-page">
-        <div className="learning-container">
-          <div className="learning-empty">
+      <section className="page-wrapper">
+        <div className="container-main">
+          <div className="card text-center py-12">
             Este módulo no tiene examen configurado.
           </div>
         </div>
@@ -117,8 +117,8 @@ function CapacitacionModuloExamen() {
         <title>{pageTitle}</title>
       </Helmet>
 
-      <section className="learning-page">
-        <div className="learning-container">
+      <section className="page-wrapper">
+        <div className="container-main">
           <Link
             to={modulePath}
             className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-green-700 hover:text-green-600"

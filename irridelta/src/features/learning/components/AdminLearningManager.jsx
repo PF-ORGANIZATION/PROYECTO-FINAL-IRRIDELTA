@@ -433,7 +433,7 @@ function AdminLearningManager({
   };
 
   const renderGeneralTab = () => (
-    <section className="learning-card">
+    <section className="card">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
           <h3 className="text-xl font-semibold text-gray-900">Datos generales</h3>
@@ -485,7 +485,7 @@ function AdminLearningManager({
   );
 
   const renderModulesTab = () => (
-    <section className="learning-card space-y-4">
+    <section className="card space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-xl font-semibold text-gray-900">Modulos</h3>
@@ -529,7 +529,7 @@ function AdminLearningManager({
         <button
           type="button"
           onClick={addModule}
-          className="learning-button"
+          className="btn-primary"
         >
           Agregar modulo
         </button>
@@ -538,7 +538,7 @@ function AdminLearningManager({
   );
 
   const renderFinalTab = () => (
-    <section className="learning-card">
+    <section className="card">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-xl font-semibold text-gray-900">
@@ -610,16 +610,16 @@ function AdminLearningManager({
   );
 
   return (
-    <section className="learning-page">
-      <div className="learning-container">
-      <header className="learning-header">
+    <section className="page-wrapper">
+      <div className="container-main">
+      <header className="card mb-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={onBack}
-                className="learning-button-secondary"
+                className="btn-secondary"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Volver
@@ -635,8 +635,8 @@ function AdminLearningManager({
               </span>
             </div>
 
-            <h1 className="learning-title mt-4">{title}</h1>
-            <p className="learning-subtitle">
+            <h1 className="text-3xl font-bold mb-4 border-b pb-4 mt-4">{title}</h1>
+            <p className="text-gray-500 mt-2">
               Primero gestionas la capacitacion. Despues editas cada evaluacion en vistas enfocadas.
             </p>
           </div>
@@ -645,7 +645,7 @@ function AdminLearningManager({
             <button
               type="button"
               onClick={() => setIsPreviewOpen(true)}
-              className="learning-button-secondary"
+              className="btn-secondary"
             >
               <Eye className="h-4 w-4" />
               Ver
@@ -663,10 +663,10 @@ function AdminLearningManager({
               }
               className={`${
                 form.publicada
-                  ? "learning-button"
+                  ? "btn-primary"
                   : isPublishDisabled
-                    ? "learning-button-secondary cursor-not-allowed opacity-60"
-                    : "learning-button-secondary"
+                    ? "btn-secondary cursor-not-allowed opacity-60"
+                    : "btn-secondary"
               }`}
             >
               <Globe className="h-4 w-4" />
@@ -678,7 +678,7 @@ function AdminLearningManager({
                 type="button"
                 onClick={() => triggerSave("stay")}
                 disabled={saving}
-                className="learning-button rounded-r-none"
+                className="btn-primary rounded-r-none"
               >
                 <Save className="h-4 w-4" />
                 {saving ? "Guardando..." : "Guardar"}
@@ -690,7 +690,7 @@ function AdminLearningManager({
                 disabled={saving}
                 aria-haspopup="menu"
                 aria-expanded={isSaveMenuOpen}
-                className="learning-button rounded-l-none border-l border-white/20 px-3"
+                className="btn-primary rounded-l-none border-l border-white/20 px-3"
               >
                 <ChevronDown className="h-4 w-4" />
               </button>
@@ -721,7 +721,7 @@ function AdminLearningManager({
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <nav className="learning-card sticky top-20 z-20 p-3">
+        <nav className="card sticky top-20 z-20 p-3">
           <div className="flex flex-wrap gap-2">
             {sectionStatuses.map((section) => {
               const Icon = section.icon;

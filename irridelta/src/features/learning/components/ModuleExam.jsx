@@ -143,10 +143,10 @@ function ModuleExam({
   const canShowHeaderToggle =
     !isStandalone && !isInline && !examStarted && !result && isUnlocked && !isCompleted;
   const wrapperClass = isStandalone
-    ? "learning-card"
+    ? "card"
     : isInline
     ? "rounded-xl bg-white"
-    : "learning-card mt-6";
+    : "card mt-6";
   const maxAttempts = attemptSummary?.maxAttempts ?? 3;
   const cooldownUnlocked = Boolean(cooldownUntil && cooldownSeconds <= 0);
   const cooldownActive = Boolean(cooldownUntil && cooldownSeconds > 0);
@@ -325,7 +325,7 @@ function ModuleExam({
 
   if (!hasQuestions) {
     return isStandalone ? (
-      <div className="learning-empty">
+      <div className="card text-center py-12">
         Este modulo no tiene autoevaluacion configurada.
       </div>
     ) : null;
@@ -661,7 +661,7 @@ function ModuleExam({
         >
           <div className="mb-6 space-y-6">
             {examQuestions.map((question, questionIndex) => (
-              <div key={question.id} className="learning-card-compact">
+              <div key={question.id} className="card p-4">
                 <p className="mb-3 font-semibold text-gray-900">
                   {questionIndex + 1}. {question.enunciado}
                 </p>
@@ -708,7 +708,7 @@ function ModuleExam({
               <button
                 type="button"
                 onClick={() => setExamStarted(false)}
-                className="learning-button-secondary flex-1"
+                className="btn-secondary flex-1"
               >
                 Pausar
               </button>
@@ -838,7 +838,7 @@ function ModuleExam({
               <button
                 type="button"
                 onClick={resetExam}
-                className={`${isStandalone ? "flex-1" : "w-full"} learning-button-secondary`}
+                className={`${isStandalone ? "flex-1" : "w-full"} btn-secondary`}
               >
                 Intentar de nuevo
               </button>
@@ -848,7 +848,7 @@ function ModuleExam({
               <button
                 type="button"
                 onClick={requestAttemptUnlock}
-                className={`${isStandalone ? "flex-1" : "w-full"} learning-button-secondary`}
+                className={`${isStandalone ? "flex-1" : "w-full"} btn-secondary`}
               >
                 Solicitar desbloqueo de intentos
               </button>
@@ -858,7 +858,7 @@ function ModuleExam({
               <button
                 type="button"
                 onClick={onResultExit ?? onExit}
-                className="learning-button flex-1"
+                className="btn-primary flex-1"
               >
                 Volver al modulo
               </button>

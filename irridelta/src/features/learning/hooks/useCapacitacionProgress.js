@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchLearningItemById, fetchLearningItemBySlug } from "../services/learningContentService";
+import { fetchLearningItemById } from "../services/learningContentService";
 import {
   fetchUserLearningProgress,
   getCompletedResourceIds,
@@ -12,7 +12,7 @@ import {
   fetchExamAttempts,
 } from "../services/examAttemptsService";
 
-function useCapacitacionProgress(capacitacionIdOrSlug, options = {}) {
+function useCapacitacionProgress(capacitacionId, options = {}) {
   const { onlyPublished = true } = options;
   const [capacitacion, setCapacitacion] = useState(null);
   const [progressItems, setProgressItems] = useState([]);
@@ -35,11 +35,9 @@ function useCapacitacionProgress(capacitacionIdOrSlug, options = {}) {
       setError("");
 
       try {
-        // Check if it's a UUID (ID) or a slug
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89abAB][0-9a-f]{3}-[0-9a-f]{12}$/i.test(capacitacionIdOrSlug);
-        const data = isUuid
-          ? await fetchLearningItemById(capacitacionIdOrSlug, { onlyPublished })
-          : await fetchLearningItemBySlug(capacitacionIdOrSlug, { onlyPublished });
+        const data = await fetchLearningItemById(capacitacionId, {
+          onlyPublished,
+        });
 
         if (!ignore) {
           setCapacitacion(data);
@@ -61,21 +59,17 @@ function useCapacitacionProgress(capacitacionIdOrSlug, options = {}) {
     return () => {
       ignore = true;
     };
-  }, [capacitacionIdOrSlug, onlyPublished]);
+  }, [capacitacionId, onlyPublished]);
 
   useEffect(() => {
     let ignore = false;
 
     const loadProgress = async () => {
-      if (!capacitacion?.id) {
-        return;
-      }
-
       setLoadingProgress(true);
       setProgressError("");
 
       try {
-        const data = await fetchUserLearningProgress(capacitacion.id);
+        const data = await fetchUserLearningProgress(capacitacionId);
 
         if (!ignore) {
           setProgressItems(data);
@@ -97,23 +91,19 @@ function useCapacitacionProgress(capacitacionIdOrSlug, options = {}) {
     return () => {
       ignore = true;
     };
-  }, [capacitacion?.id]);
+  }, [capacitacionId]);
 
   useEffect(() => {
     let ignore = false;
 
     const loadExamAttempts = async () => {
-      if (!capacitacion?.id) {
-        return;
-      }
-
       setLoadingExamAttempts(true);
       setExamAttemptsError("");
 
       try {
         const data = await fetchExamAttempts({
           tipoExamen: EXAM_TYPES.MODULO,
-          capacitacionId: capacitacion.id,
+          capacitacionId,
         });
 
         if (!ignore) {
@@ -136,7 +126,7 @@ function useCapacitacionProgress(capacitacionIdOrSlug, options = {}) {
     return () => {
       ignore = true;
     };
-  }, [capacitacion?.id]);
+  }, [capacitacionId]);
 
   const completedResourceIds = useMemo(
     () => getCompletedResourceIds(progressItems),
@@ -174,7 +164,7 @@ function useCapacitacionProgress(capacitacionIdOrSlug, options = {}) {
   };
 
   const markResourceAsCompleted = async (module, resource) => {
-    if (!capacitacion?.id) {
+    if (!capacitacionId) {
       return;
     }
 
@@ -195,7 +185,7 @@ function useCapacitacionProgress(capacitacionIdOrSlug, options = {}) {
 
     try {
       const savedProgress = await saveResourceProgress({
-        capacitacionId: capacitacion.id,
+        capacitacionId,
         moduloId: module.id,
         recursoId: resource.id,
       });

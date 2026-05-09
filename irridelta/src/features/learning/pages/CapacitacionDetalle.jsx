@@ -105,32 +105,32 @@ function CapacitacionDetalle() {
         <title>{pageTitle}</title>
       </Helmet>
 
-      <section className="learning-page">
-        <div className="learning-container">
+      <section className="page-wrapper">
+        <div className="container-main">
           <Link to="/capacitaciones" className={styles.backLink}>
             <ChevronLeft size={18} aria-hidden="true" />
             Volver a capacitaciones
           </Link>
 
           {loading && (
-            <div className="learning-empty">Cargando capacitacion...</div>
+            <div className="card text-center py-12">Cargando capacitacion...</div>
           )}
 
           {!loading && error && <div className="alert-error">{error}</div>}
 
           {!loading && !error && !capacitacion && (
-            <div className="learning-empty">
+            <div className="card text-center py-12">
               No encontramos la capacitacion solicitada.
             </div>
           )}
 
           {!loading && !error && capacitacion && (
             <>
-              <article className="learning-header">
-                <h1 className="learning-title">{capacitacion.titulo}</h1>
+              <article className="card mb-8">
+                <h1 className="text-3xl font-bold mb-4 border-b pb-4">{capacitacion.titulo}</h1>
 
                 {capacitacion.descripcion && (
-                  <p className="learning-subtitle">{capacitacion.descripcion}</p>
+                  <p className="text-gray-500 mt-2">{capacitacion.descripcion}</p>
                 )}
 
                 <div className={styles.progressPanel}>
@@ -164,7 +164,7 @@ function CapacitacionDetalle() {
 
               <section className={styles.section}>
                 <div className="mb-6 border-b-2 border-gray-200 pb-4">
-                  <h2 className="learning-section-title">Contenido del curso</h2>
+                  <h2 className="text-xl font-bold">Contenido del curso</h2>
                 </div>
 
                 {modules.length === 0 && (
@@ -174,7 +174,7 @@ function CapacitacionDetalle() {
                 )}
 
                 {modules.length > 0 && !learningStateReady && (
-                  <div className="learning-empty">
+                  <div className="card text-center py-12">
                     Cargando avance de modulos...
                   </div>
                 )}
@@ -207,7 +207,7 @@ function CapacitacionDetalle() {
                       return (
                         <article
                           key={module.id ?? `${capacitacion.id}-${moduleIndex}`}
-                          className={`learning-card transition duration-200 hover:-translate-y-1 hover:shadow-md ${
+                          className={`card transition duration-200 hover:-translate-y-1 hover:shadow-md ${
                             moduleCompleted
                               ? "border-green-300 bg-gray-50"
                               : moduleUnlocked
@@ -266,7 +266,7 @@ function CapacitacionDetalle() {
                               {moduleUnlocked ? (
                                 <Link
                                   to={modulePath}
-                                  className="learning-button"
+                                  className="btn-primary"
                                 >
                                   {moduleActionLabel}
                                   <ArrowRight size={16} />
@@ -288,7 +288,7 @@ function CapacitacionDetalle() {
               {certification && (
               <section className={styles.section}>
                 {certification && !learningStateReady ? (
-                  <div className="learning-empty">
+                  <div className="card text-center py-12">
                     Cargando estado de certificacion...
                   </div>
                 ) : certification ? (
