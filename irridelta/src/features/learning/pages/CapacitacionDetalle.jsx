@@ -19,6 +19,7 @@ import {
   getModuleRoute,
   isModuleCompleted,
 } from "../utils/learningRuntime";
+import { LEARNING_PROGRESS_STATUS_ORDER } from "../utils/learningProgressStatus";
 import { USER_ROLES } from "../../auth/authRoles";
 import { useSessionStore } from "../../../store/sessionStore";
 import styles from "./CapacitacionDetalle.module.css";
@@ -74,7 +75,11 @@ function CapacitacionDetalle() {
       const moduleStarted = (module.recursos ?? []).some((resource) =>
         isResourceCompleted(resource, completedResourceIds, module.id)
       );
-      const statusOrder = moduleCompleted ? 2 : moduleStarted ? 0 : 1;
+      const statusOrder = moduleCompleted
+        ? LEARNING_PROGRESS_STATUS_ORDER.completado
+        : moduleStarted
+        ? LEARNING_PROGRESS_STATUS_ORDER["en-progreso"]
+        : LEARNING_PROGRESS_STATUS_ORDER.pendiente;
 
       return {
         module,

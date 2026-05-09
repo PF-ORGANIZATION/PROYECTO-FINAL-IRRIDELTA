@@ -6,6 +6,10 @@ import {
   getCompletedResourceIds,
   isResourceCompleted,
 } from "../services/learningProgressService";
+import {
+  LEARNING_PROGRESS_STATUS_ORDER,
+  getLearningProgressStatus,
+} from "../utils/learningProgressStatus";
 import LearningItemPreviewCard from "./LearningItemPreviewCard";
 import styles from "./LearningCatalog.module.css";
 
@@ -23,6 +27,11 @@ function getModuleResources(module) {
 function getItemProgress(item, progressItems = []) {
   const modules = item?.modulos ?? [];
   const completedResourceIds = getCompletedResourceIds(progressItems);
+  const startedModules = modules.filter((module) =>
+    getModuleResources(module).some((resource) =>
+      isResourceCompleted(resource, completedResourceIds, module.id)
+    )
+  ).length;
   const completedModules = modules.filter((module) => {
     const resources = getModuleResources(module);
     return resources.every((resource) =>
@@ -32,12 +41,11 @@ function getItemProgress(item, progressItems = []) {
   const totalModules = modules.length;
   const progressPercentage =
     totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
-  const status =
-    totalModules === 0 || completedModules === 0
-      ? "pendiente"
-      : completedModules === totalModules
-      ? "completado"
-      : "en-progreso";
+  const status = getLearningProgressStatus({
+    completedModules,
+    totalModules,
+    startedModules,
+  });
 
   return {
     completedModules,
@@ -144,12 +152,6 @@ function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
 
   const filteredItems = useMemo(
     () => {
-      const statusOrder = {
-        [FILTERS.IN_PROGRESS]: 0,
-        [FILTERS.PENDING]: 1,
-        [FILTERS.COMPLETED]: 2,
-      };
-
       return itemsWithProgress
         .filter(({ item, progress }) => {
         const matchesFilter =
@@ -159,8 +161,8 @@ function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
         })
         .sort(
           (currentItem, nextItem) =>
-            statusOrder[currentItem.progress.status] -
-            statusOrder[nextItem.progress.status]
+            LEARNING_PROGRESS_STATUS_ORDER[currentItem.progress.status] -
+            LEARNING_PROGRESS_STATUS_ORDER[nextItem.progress.status]
         );
     },
     [activeFilter, itemsWithProgress, searchQuery]
