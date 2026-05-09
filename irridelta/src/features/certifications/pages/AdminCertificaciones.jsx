@@ -62,16 +62,16 @@ function ExamPreviewModal({ request, onClose }) {
         className="absolute inset-0 bg-slate-900/65"
       />
 
-      <div className="relative z-10 flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+      <div className="learning-card relative z-10 flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden p-0">
         <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
           <div>
-            <p className="text-sm font-semibold uppercase text-blue-600">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-green-700">
               Previsualizacion de examen
             </p>
-            <h2 className="mt-2 text-2xl font-bold text-gray-900">
+            <h2 className="learning-section-title mt-2">
               {request.requester_name}
             </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="learning-muted mt-1">
               {request.capacitacion_title || request.certification_title}
             </p>
           </div>
@@ -151,7 +151,7 @@ function ExamPreviewModal({ request, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg bg-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition duration-200 hover:bg-gray-300"
+            className="learning-button-secondary"
           >
             Cerrar
           </button>
@@ -242,32 +242,33 @@ function AdminCertificaciones() {
   });
 
   return (
-    <section className="min-h-screen bg-gray-100 px-6 py-6 md:px-12 lg:px-24">
-      <header className="mb-8 border-b pb-4">
+    <section className="learning-page">
+      <div className="learning-container">
+      <header className="learning-header mb-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="learning-title">
               Solicitudes de Certificacion
             </h1>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="learning-subtitle">
               Aproba o rechaza certificados solicitados despues de aprobar la prueba final.
             </p>
           </div>
 
-          <div className="rounded-2xl bg-white px-5 py-4 text-sm shadow">
+          <div className="learning-stat min-w-[180px]">
             <span className="font-semibold text-gray-900">Pendientes:</span>{" "}
             <span className="font-bold text-amber-700">{pendingRequestsCount}</span>
           </div>
         </div>
       </header>
 
-      <div className="mb-6 rounded-2xl bg-white p-5 shadow-md">
+      <div className="learning-card mb-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">
+            <h2 className="learning-section-title">
               Solicitudes recibidas
             </h2>
-            <p className="mt-1 text-sm text-gray-600">
+            <p className="learning-muted mt-1">
               Revisa nombre, capacitacion, resultado y estado de aprobacion.
             </p>
           </div>
@@ -292,13 +293,13 @@ function AdminCertificaciones() {
       )}
 
       {requestsLoading && (
-        <div className="rounded-2xl bg-white p-8 text-center text-gray-600 shadow-md">
+        <div className="learning-empty">
           Cargando solicitudes...
         </div>
       )}
 
       {!requestsLoading && filteredRequests.length === 0 && (
-        <div className="rounded-2xl bg-white p-8 text-center text-gray-600 shadow-md">
+        <div className="learning-empty">
           No hay solicitudes con ese filtro.
         </div>
       )}
@@ -313,10 +314,10 @@ function AdminCertificaciones() {
             return (
               <article
                 key={request.id}
-                className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+                className="learning-card"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-xl font-bold text-gray-900">
+                  <h3 className="learning-section-title">
                     {request.requester_name}
                   </h3>
                   <span
@@ -349,7 +350,7 @@ function AdminCertificaciones() {
                     type="button"
                     disabled={answerDetails.length === 0}
                     onClick={() => setSelectedExamRequest(request)}
-                    className="h-full rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600"
+                    className="learning-button-secondary h-full disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Ver examen
                   </button>
@@ -374,7 +375,7 @@ function AdminCertificaciones() {
                     <button
                       type="button"
                       onClick={() => handleApproveRequest(request)}
-                      className="h-full rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white"
+                      className="learning-button h-full"
                     >
                       Aprobar
                     </button>
@@ -382,7 +383,7 @@ function AdminCertificaciones() {
                     <button
                       type="button"
                       onClick={() => downloadCertificatePng(getDownloadData(request))}
-                      className="h-full rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white"
+                      className="learning-button-secondary h-full"
                     >
                       PNG
                     </button>
@@ -419,7 +420,7 @@ function AdminCertificaciones() {
                     <button
                       type="button"
                       onClick={() => downloadCertificatePdf(getDownloadData(request))}
-                      className="h-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
+                      className="learning-button-secondary h-full"
                     >
                       PDF
                     </button>
@@ -460,7 +461,7 @@ function AdminCertificaciones() {
                           setRejectingRequestId(null);
                           setRejectionReason("");
                         }}
-                        className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow"
+                        className="learning-button-secondary"
                       >
                         Cancelar
                       </button>
@@ -478,6 +479,7 @@ function AdminCertificaciones() {
         request={selectedExamRequest}
         onClose={() => setSelectedExamRequest(null)}
       />
+      </div>
     </section>
   );
 }

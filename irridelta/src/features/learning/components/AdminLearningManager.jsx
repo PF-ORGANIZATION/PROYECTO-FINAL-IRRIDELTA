@@ -433,7 +433,7 @@ function AdminLearningManager({
   };
 
   const renderGeneralTab = () => (
-    <section className="rounded-2xl bg-white p-6 shadow-md">
+    <section className="learning-card">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
           <h3 className="text-xl font-semibold text-gray-900">Datos generales</h3>
@@ -485,7 +485,7 @@ function AdminLearningManager({
   );
 
   const renderModulesTab = () => (
-    <section className="space-y-4 rounded-2xl bg-white p-6 shadow-md">
+    <section className="learning-card space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-xl font-semibold text-gray-900">Modulos</h3>
@@ -529,7 +529,7 @@ function AdminLearningManager({
         <button
           type="button"
           onClick={addModule}
-          className="rounded-lg bg-green-600 px-5 py-2 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700"
+          className="learning-button"
         >
           Agregar modulo
         </button>
@@ -538,7 +538,7 @@ function AdminLearningManager({
   );
 
   const renderFinalTab = () => (
-    <section className="rounded-2xl bg-white p-6 shadow-md">
+    <section className="learning-card">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-xl font-semibold text-gray-900">
@@ -610,15 +610,16 @@ function AdminLearningManager({
   );
 
   return (
-    <section className="min-h-screen bg-gray-100 px-6 py-6 md:px-12 lg:px-24">
-      <header className="mb-8 border-b pb-4">
+    <section className="learning-page">
+      <div className="learning-container">
+      <header className="learning-header">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={onBack}
-                className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow transition duration-200 hover:bg-gray-50"
+                className="learning-button-secondary"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Volver
@@ -634,8 +635,8 @@ function AdminLearningManager({
               </span>
             </div>
 
-            <h1 className="mt-4 text-3xl font-bold text-gray-900">{title}</h1>
-            <p className="mt-2 text-sm text-gray-600">
+            <h1 className="learning-title mt-4">{title}</h1>
+            <p className="learning-subtitle">
               Primero gestionas la capacitacion. Despues editas cada evaluacion en vistas enfocadas.
             </p>
           </div>
@@ -644,7 +645,7 @@ function AdminLearningManager({
             <button
               type="button"
               onClick={() => setIsPreviewOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow transition duration-200 hover:bg-slate-50"
+              className="learning-button-secondary"
             >
               <Eye className="h-4 w-4" />
               Ver
@@ -660,12 +661,12 @@ function AdminLearningManager({
                   ? publishBlockInfo.message
                   : undefined
               }
-              className={`inline-flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold shadow transition duration-200 ${
+              className={`${
                 form.publicada
-                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                  ? "learning-button"
                   : isPublishDisabled
-                    ? "cursor-not-allowed bg-gray-100 text-gray-400 hover:bg-gray-100"
-                    : "bg-white text-slate-700 hover:bg-slate-50"
+                    ? "learning-button-secondary cursor-not-allowed opacity-60"
+                    : "learning-button-secondary"
               }`}
             >
               <Globe className="h-4 w-4" />
@@ -677,7 +678,7 @@ function AdminLearningManager({
                 type="button"
                 onClick={() => triggerSave("stay")}
                 disabled={saving}
-                className="inline-flex items-center gap-2 rounded-l-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                className="learning-button rounded-r-none"
               >
                 <Save className="h-4 w-4" />
                 {saving ? "Guardando..." : "Guardar"}
@@ -689,7 +690,7 @@ function AdminLearningManager({
                 disabled={saving}
                 aria-haspopup="menu"
                 aria-expanded={isSaveMenuOpen}
-                className="inline-flex items-center rounded-r-lg border-l border-white/20 bg-blue-600 px-3 py-3 text-white shadow transition duration-200 hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                className="learning-button rounded-l-none border-l border-white/20 px-3"
               >
                 <ChevronDown className="h-4 w-4" />
               </button>
@@ -701,7 +702,7 @@ function AdminLearningManager({
                     onClick={() => triggerSave("stay")}
                     className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                   >
-                    <Save className="h-4 w-4 text-blue-600" />
+                    <Save className="h-4 w-4 text-green-700" />
                     Guardar cambios
                   </button>
                   <button
@@ -720,7 +721,7 @@ function AdminLearningManager({
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <nav className="sticky top-20 z-20 rounded-2xl bg-white p-3 shadow-md">
+        <nav className="learning-card sticky top-20 z-20 p-3">
           <div className="flex flex-wrap gap-2">
             {sectionStatuses.map((section) => {
               const Icon = section.icon;
@@ -849,6 +850,7 @@ function AdminLearningManager({
           </div>
         </div>
       )}
+      </div>
     </section>
   );
 }

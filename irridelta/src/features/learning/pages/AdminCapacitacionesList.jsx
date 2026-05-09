@@ -73,14 +73,15 @@ function AdminCapacitacionesList() {
   };
 
   return (
-    <section className="min-h-screen bg-gray-100 px-6 py-6 md:px-12 lg:px-24">
-      <header className="mb-8 border-b pb-4">
+    <section className="learning-page">
+      <div className="learning-container">
+      <header className="learning-header">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="learning-title">
               Panel de Capacitaciones
             </h1>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="learning-subtitle">
               Primero gestionas las capacitaciones. Luego entras a editar una puntual.
             </p>
           </div>
@@ -88,7 +89,7 @@ function AdminCapacitacionesList() {
           <button
             type="button"
             onClick={() => navigate("/admin/capacitaciones/nueva")}
-            className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700"
+            className="learning-button"
           >
             <Plus className="h-4 w-4" />
             Nueva capacitacion
@@ -102,7 +103,7 @@ function AdminCapacitacionesList() {
         </div>
       )}
 
-      <div className="mb-6 rounded-2xl bg-white p-5 shadow-md">
+      <div className="learning-card mb-6 p-5">
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
           <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
             <Search className="h-5 w-5 text-gray-400" />
@@ -128,23 +129,23 @@ function AdminCapacitacionesList() {
       </div>
 
       {loading && (
-        <div className="rounded-2xl bg-white p-8 text-center text-gray-600 shadow-md">
+        <div className="learning-empty">
           Cargando capacitaciones...
         </div>
       )}
 
       {!loading && items.length === 0 && (
-        <div className="rounded-2xl bg-white p-12 text-center shadow-md">
-          <h2 className="text-2xl font-bold text-gray-900">
+        <div className="learning-empty">
+          <h2 className="learning-empty-title">
             Todavia no hay capacitaciones cargadas
           </h2>
-          <p className="mt-3 text-sm text-gray-600">
+          <p className="learning-empty-text">
             Empieza creando la primera capacitacion para construir el contenido y sus evaluaciones.
           </p>
           <button
             type="button"
             onClick={() => navigate("/admin/capacitaciones/nueva")}
-            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700"
+            className="learning-button mt-6"
           >
             <Plus className="h-4 w-4" />
             Crear primera capacitacion
@@ -153,7 +154,7 @@ function AdminCapacitacionesList() {
       )}
 
       {!loading && items.length > 0 && filteredItems.length === 0 && (
-        <div className="rounded-2xl bg-white p-8 text-center text-gray-600 shadow-md">
+        <div className="learning-empty">
           No se encontraron capacitaciones con esos filtros.
         </div>
       )}
@@ -163,7 +164,7 @@ function AdminCapacitacionesList() {
           {filteredItems.map((item) => (
             <article
               key={item.id}
-              className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+              className="learning-card"
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
@@ -211,21 +212,21 @@ function AdminCapacitacionesList() {
                   <button
                     type="button"
                     onClick={() => setPreviewItem(item)}
-                    className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white"
+                    className="learning-button-secondary"
                   >
                     Ver
                   </button>
                   <button
                     type="button"
                     onClick={() => navigate(`/admin/capacitaciones/${item.id}/editar`)}
-                    className="rounded-lg bg-yellow-500 px-4 py-2 text-sm font-semibold text-white"
+                    className="learning-button-secondary"
                   >
                     Editar
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDelete(item)}
-                    className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white"
+                    className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-red-600"
                   >
                     Eliminar
                   </button>
@@ -240,6 +241,7 @@ function AdminCapacitacionesList() {
         item={previewItem}
         onClose={() => setPreviewItem(null)}
       />
+      </div>
     </section>
   );
 }
