@@ -60,6 +60,41 @@ function countAnsweredQuestions(examQuestions, answers) {
   );
 }
 
+function getAttemptDurationSeconds(attempt, finishedAt = new Date()) {
+  const startedAt = attempt?.fecha_inicio
+    ? new Date(attempt.fecha_inicio).getTime()
+    : null;
+
+  if (!startedAt || Number.isNaN(startedAt)) {
+    return null;
+  }
+
+  return Math.max(Math.round((finishedAt.getTime() - startedAt) / 1000), 0);
+}
+
+function buildAnswerDetails(examQuestions, answers) {
+  return examQuestions.map((question, questionIndex) => {
+    const userAnswerIndex = answers[question.id];
+    const correctAnswerIndex = Number(question.respuesta_correcta);
+    const options = question.opciones ?? [];
+
+    return {
+      question_id: question.id,
+      question_number: questionIndex + 1,
+      enunciado: question.enunciado,
+      tipo: question.tipo ?? null,
+      opciones: options,
+      respuesta_usuario_index:
+        userAnswerIndex === undefined ? null : Number(userAnswerIndex),
+      respuesta_usuario:
+        userAnswerIndex === undefined ? null : options[userAnswerIndex] ?? null,
+      respuesta_correcta_index: correctAnswerIndex,
+      respuesta_correcta: options[correctAnswerIndex] ?? null,
+      correcta: Number(userAnswerIndex) === correctAnswerIndex,
+    };
+  });
+}
+
 function CertificationExam() {
   const { certificationId } = useParams();
   const navigate = useNavigate();
@@ -170,11 +205,18 @@ function CertificationExam() {
     setUiError("");
     setSavingAttempt(true);
 
+    const completedAttempt = activeAttempt;
+    const finishedAt = new Date();
+    const answerDetails = buildAnswerDetails(examQuestions, answers);
+    const durationSeconds = getAttemptDurationSeconds(completedAttempt, finishedAt);
+
     try {
-      if (activeAttempt?.id) {
-        await completeExamAttempt(activeAttempt.id, {
+      if (completedAttempt?.id) {
+        await completeExamAttempt(completedAttempt.id, {
           porcentaje: percentage,
           aprobado: correctAnswers >= minimumCorrectAnswers,
+          respuestasDetalle: answerDetails,
+          duracionSegundos: durationSeconds,
         });
         await refreshAttemptSummary();
       }
@@ -197,6 +239,8 @@ function CertificationExam() {
       passingScore,
       minimumCorrectAnswers,
       isTimeExpired,
+      attemptId: completedAttempt?.id ?? null,
+      durationSeconds,
     });
   }
 

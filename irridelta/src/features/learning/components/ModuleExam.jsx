@@ -43,6 +43,45 @@ function shuffleArray(array) {
   return copy;
 }
 
+function getAttemptDurationSeconds(attempt, finishedAt = new Date()) {
+  const startedAt = attempt?.fecha_inicio
+    ? new Date(attempt.fecha_inicio).getTime()
+    : null;
+
+  if (!startedAt || Number.isNaN(startedAt)) {
+    return null;
+  }
+
+  return Math.max(Math.round((finishedAt.getTime() - startedAt) / 1000), 0);
+}
+
+function buildAnswerDetails(examQuestions, answers) {
+  return examQuestions.map((question, questionIndex) => {
+    const userAnswerIndex = answers[question.id];
+    const displayedOptions = question.opciones_shuffled ?? question.opciones ?? [];
+    const originalOptions = question.opciones ?? [];
+    const correctAnswer = originalOptions[question.respuesta_correcta] ?? null;
+    const correctAnswerIndex = displayedOptions.findIndex(
+      (option) => option === correctAnswer
+    );
+
+    return {
+      question_id: question.id,
+      question_number: questionIndex + 1,
+      enunciado: question.enunciado,
+      tipo: question.tipo ?? null,
+      opciones: displayedOptions,
+      respuesta_usuario_index:
+        userAnswerIndex === undefined ? null : Number(userAnswerIndex),
+      respuesta_usuario:
+        userAnswerIndex === undefined ? null : displayedOptions[userAnswerIndex] ?? null,
+      respuesta_correcta_index: correctAnswerIndex,
+      respuesta_correcta: correctAnswer,
+      correcta: Number(userAnswerIndex) === correctAnswerIndex,
+    };
+  });
+}
+
 function ModuleExam({
   module,
   isUnlocked = false,
@@ -318,11 +357,18 @@ function ModuleExam({
     setTimerStarted(false);
     setSavingAttempt(true);
 
+    const completedAttempt = activeAttempt;
+    const finishedAt = new Date();
+    const answerDetails = buildAnswerDetails(examQuestions, answers);
+    const durationSeconds = getAttemptDurationSeconds(completedAttempt, finishedAt);
+
     try {
-      if (activeAttempt?.id) {
-        await completeExamAttempt(activeAttempt.id, {
+      if (completedAttempt?.id) {
+        await completeExamAttempt(completedAttempt.id, {
           porcentaje: percentage,
           aprobado: passed,
+          respuestasDetalle: answerDetails,
+          duracionSegundos: durationSeconds,
         });
         await refreshAttemptSummary();
       }
@@ -342,6 +388,8 @@ function ModuleExam({
       passingScore,
       minimumCorrectAnswers,
       isTimeExpired,
+      attemptId: completedAttempt?.id ?? null,
+      durationSeconds,
     });
     setExamStarted(false);
     setActiveAttempt(null);
