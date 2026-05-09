@@ -95,14 +95,14 @@ function ModuleExam({
   attemptParams = null,
 }) {
   const isStandalone = variant === "standalone";
-  const [isExpanded, setIsExpanded] = useState(isStandalone);
+  const isInline = variant === "inline";
+  const [isExpanded, setIsExpanded] = useState(isStandalone || isInline);
   const [answers, setAnswers] = useState({});
   const [examStarted, setExamStarted] = useState(false);
   const [result, setResult] = useState(null);
   const [examQuestions, setExamQuestions] = useState([]);
   const [secondsRemaining, setSecondsRemaining] = useState(null);
   const [timerStarted, setTimerStarted] = useState(false);
-  const [showStartModal, setShowStartModal] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
   const [attemptSummary, setAttemptSummary] = useState(null);
   const [activeAttempt, setActiveAttempt] = useState(null);
@@ -126,11 +126,12 @@ function ModuleExam({
   const minimumCorrectAnswers = Math.ceil((questionCount * passingScore) / 100);
   const showIntro = !examStarted && !result && isUnlocked && (isStandalone || isExpanded);
   const canShowHeaderToggle =
-    !isStandalone && !examStarted && !result && isUnlocked && !isCompleted;
+    !isStandalone && !isInline && !examStarted && !result && isUnlocked && !isCompleted;
   const wrapperClass = isStandalone
     ? "rounded-2xl border border-gray-200 bg-white shadow-md"
+    : isInline
+    ? "rounded-xl bg-white"
     : "mt-6 rounded-xl border border-gray-200 bg-white shadow-sm";
-  const remainingAttempts = attemptSummary?.remainingAttempts ?? 3;
   const maxAttempts = attemptSummary?.maxAttempts ?? 3;
   const cooldownUnlocked = Boolean(cooldownUntil && cooldownSeconds <= 0);
   const cooldownActive = Boolean(cooldownUntil && cooldownSeconds > 0);
@@ -281,7 +282,7 @@ function ModuleExam({
   if (!hasQuestions) {
     return isStandalone ? (
       <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-gray-600 shadow-md">
-        Este modulo no tiene examen configurado.
+        Este modulo no tiene autoevaluacion configurada.
       </div>
     ) : null;
   }
@@ -315,7 +316,6 @@ function ModuleExam({
       console.error("No se pudo iniciar el intento", error);
       setAttemptError(error?.message || "No se pudo iniciar el intento.");
       setSavingAttempt(false);
-      setShowStartModal(false);
       return;
     }
 
@@ -335,7 +335,6 @@ function ModuleExam({
     setSecondsRemaining(durationMinutes * 60);
     setExamStarted(true);
     setTimerStarted(true);
-    setShowStartModal(false);
     setSavingAttempt(false);
   }
 
@@ -435,7 +434,9 @@ function ModuleExam({
 
     setCooldownUntil(nextCooldownUntil);
     setCooldownSeconds(RETRY_COOLDOWN_SECONDS);
-    setShowCooldownModal(true);
+    if (!isInline) {
+      setShowCooldownModal(true);
+    }
   }
 
   function handleExit() {
@@ -508,7 +509,7 @@ function ModuleExam({
 
           </div>
         </div>
-      ) : (
+      ) : isInline ? null : (
         <button
           type="button"
           onClick={() => !examStarted && !result && setIsExpanded(!isExpanded)}
@@ -517,7 +518,9 @@ function ModuleExam({
           style={disabled || examStarted || result ? { opacity: 0.7 } : {}}
         >
           <div className="flex items-center gap-3">
-            <span className="font-semibold text-gray-900">Examen del modulo</span>
+            <span className="font-semibold text-gray-900">
+              Autoevaluacion del modulo
+            </span>
             {isCompleted && (
               <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">
                 <CheckCircle size={14} />
@@ -540,7 +543,15 @@ function ModuleExam({
       )}
 
       {showIntro && (
-        <div className={isStandalone ? "px-6 py-6" : "border-t border-gray-200 px-6 py-4"}>
+        <div
+          className={
+            isStandalone
+              ? "px-6 py-6"
+              : isInline
+              ? ""
+              : "border-t border-gray-200 px-6 py-4"
+          }
+        >
           {attemptError && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
               {attemptError}
@@ -573,7 +584,7 @@ function ModuleExam({
             ) : (
               <button
                 type="button"
-                onClick={() => setShowStartModal(true)}
+                onClick={startExam}
                 disabled={
                   loadingAttempts ||
                   savingAttempt ||
@@ -584,7 +595,7 @@ function ModuleExam({
               >
                 {cooldownActive
                   ? `Podras volver a intentar en ${formatCooldown(cooldownSeconds)}`
-                  : "Iniciar examen"}
+                  : "Responder preguntas"}
               </button>
             )}
           </div>
@@ -603,7 +614,15 @@ function ModuleExam({
       )}
 
       {examStarted && (
-        <div className={isStandalone ? "px-6 py-6" : "border-t border-gray-200 px-6 py-4"}>
+        <div
+          className={
+            isStandalone
+              ? "px-6 py-6"
+              : isInline
+              ? ""
+              : "border-t border-gray-200 px-6 py-4"
+          }
+        >
           <div className="mb-6 space-y-6">
             {examQuestions.map((question, questionIndex) => (
               <div key={question.id} className="rounded-lg border border-gray-200 p-4">
@@ -639,7 +658,7 @@ function ModuleExam({
               disabled={savingAttempt}
               className={styles.finishAction}
             >
-              {savingAttempt ? "Guardando..." : "Finalizar examen"}
+              {savingAttempt ? "Guardando..." : "Finalizar autoevaluacion"}
             </button>
             {isStandalone && onExit ? (
               <button
@@ -659,64 +678,6 @@ function ModuleExam({
               </button>
             )}
           </div>
-        </div>
-      )}
-
-      {showStartModal && (
-        <div className={styles.modalOverlay}>
-          <section className={styles.examDisclaimerModal}>
-            <p className={styles.disclaimerEyebrow}>Condiciones del examen</p>
-            <h2 className={styles.disclaimerTitle}>{module.titulo}</h2>
-            <p className={styles.disclaimerText}>
-              Antes de iniciar, revisa las condiciones del examen del modulo.
-            </p>
-
-            <div className={styles.disclaimerGrid}>
-              <div className={styles.disclaimerItem}>
-                <span>Cantidad de preguntas</span>
-                <strong>{questionCount}</strong>
-              </div>
-              <div className={styles.disclaimerItem}>
-                <span>Minimo correcto</span>
-                <strong>{minimumCorrectAnswers} respuestas</strong>
-              </div>
-              <div className={styles.disclaimerItem}>
-                <span>Porcentaje para aprobar</span>
-                <strong>{passingScore}%</strong>
-              </div>
-              <div className={styles.disclaimerItem}>
-                <span>Tiempo maximo</span>
-                <strong>{durationMinutes} min</strong>
-              </div>
-            </div>
-
-            <div className={styles.disclaimerNotice}>
-              <p>
-                El tiempo comienza cuando presiones Comenzar examen. No se puede
-                abandonar y retomar luego. Si salis antes de finalizar, el
-                intento se considera utilizado.
-              </p>
-              <p>Intentos disponibles: {remainingAttempts} de {maxAttempts}.</p>
-            </div>
-
-            <div className={styles.disclaimerActions}>
-              <button
-                type="button"
-                className={styles.disclaimerSecondary}
-                onClick={() => setShowStartModal(false)}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className={styles.disclaimerPrimary}
-                disabled={savingAttempt || !canStartAttempt}
-                onClick={startExam}
-              >
-                {savingAttempt ? "Iniciando..." : "Comenzar examen"}
-              </button>
-            </div>
-          </section>
         </div>
       )}
 
@@ -773,7 +734,15 @@ function ModuleExam({
       )}
 
       {result && (
-        <div className={isStandalone ? "px-6 py-6" : "border-t border-gray-200 px-6 py-4"}>
+        <div
+          className={
+            isStandalone
+              ? "px-6 py-6"
+              : isInline
+              ? ""
+              : "border-t border-gray-200 px-6 py-4"
+          }
+        >
           <div
             className={`mb-4 rounded-lg px-4 py-3 text-center ${
               result.passed ? "bg-green-100" : "bg-red-100"

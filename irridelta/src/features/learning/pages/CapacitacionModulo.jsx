@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -13,6 +13,7 @@ import {
   PlayCircle,
 } from "lucide-react";
 import YouTubePlayer from "../components/YouTubePlayer";
+import ModuleExam from "../components/ModuleExam";
 import useCapacitacionProgress from "../hooks/useCapacitacionProgress";
 import {
   isModuleUnlocked,
@@ -21,7 +22,6 @@ import {
 } from "../services/learningProgressService";
 import {
   areModuleResourcesCompleted,
-  getModuleExamRoute,
   getModuleRoute,
   getResourceHref,
   getResourceLabel,
@@ -30,6 +30,7 @@ import {
 } from "../utils/learningRuntime";
 import { USER_ROLES } from "../../auth/authRoles";
 import { useSessionStore } from "../../../store/sessionStore";
+import { EXAM_TYPES } from "../services/examAttemptsService";
 
 function CapacitacionModulo() {
   const { capacitacionId, moduloIndex: moduloIndexParam } = useParams();
@@ -55,29 +56,38 @@ function CapacitacionModulo() {
   const module = moduleIndex >= 0 ? modules[moduleIndex] : null;
   const moduleUnlocked =
     moduleIndex >= 0
-      ? isModuleUnlocked(moduleIndex, modules, completedResourceIds, approvedModuleIds)
+      ? isModuleUnlocked(moduleIndex, modules, completedResourceIds)
       : false;
   const moduleCompleted = module
-    ? isModuleCompleted(module, completedResourceIds, approvedModuleIds)
+    ? isModuleCompleted(module, completedResourceIds)
     : false;
   const previousModulePath =
     moduleIndex > 0 ? getModuleRoute(capacitacionId, moduleIndex - 1) : null;
   const nextModuleIndex = moduleIndex + 1;
   const hasNextModule = nextModuleIndex < modules.length;
   const nextModuleUnlocked = hasNextModule
-    ? isModuleUnlocked(nextModuleIndex, modules, completedResourceIds, approvedModuleIds)
+    ? isModuleUnlocked(nextModuleIndex, modules, completedResourceIds)
     : false;
   const nextModulePath = hasNextModule
     ? getModuleRoute(capacitacionId, nextModuleIndex)
     : null;
-  const moduleExamPath =
-    module && Array.isArray(module.preguntas) && module.preguntas.length > 0
-      ? getModuleExamRoute(capacitacionId, moduleIndex)
-      : null;
   const moduleResources = module?.recursos ?? [];
   const learningStateReady = !loadingProgress && !loadingExamAttempts;
-  const canStartModuleExam =
+  const moduleResourcesCompleted =
     learningStateReady && areModuleResourcesCompleted(module, completedResourceIds);
+  const moduleHasAssessment =
+    module && Array.isArray(module.preguntas) && module.preguntas.length > 0;
+  const attemptParams = useMemo(
+    () =>
+      module?.id
+        ? {
+            tipoExamen: EXAM_TYPES.MODULO,
+            capacitacionId,
+            moduloId: module.id,
+          }
+        : null,
+    [capacitacionId, module?.id]
+  );
   const videoCount = moduleResources.filter(
     (resource) => resource.tipo === "youtube"
   ).length;
@@ -240,8 +250,7 @@ function CapacitacionModulo() {
                         moduleIndex,
                         resourceIndex,
                         modules,
-                        completedResourceIds,
-                        approvedModuleIds
+                        completedResourceIds
                       );
                       const resourceCompleted = isResourceCompleted(
                         resource,
@@ -372,45 +381,37 @@ function CapacitacionModulo() {
                 )}
               </section>
 
-              <section className="mt-8 rounded-2xl border border-gray-200 bg-white p-8 shadow-md">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
+              {moduleHasAssessment && (
+                <section className="mt-8 rounded-2xl border border-gray-200 bg-white p-8 shadow-md">
+                  <div className="mb-5 border-b border-gray-200 pb-4">
                     <h2 className="text-2xl font-bold text-gray-900">
-                      Examen del modulo
+                      Autoevaluacion del modulo
                     </h2>
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">
+                      Estas preguntas son de practica y no bloquean el avance al
+                      siguiente modulo.
+                    </p>
                   </div>
 
-                  {moduleExamPath && canStartModuleExam ? (
-                    <Link
-                      to={moduleExamPath}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow transition duration-200 hover:bg-green-700"
-                    >
-                      Ir al examen
-                      <ArrowRight size={16} />
-                    </Link>
-                  ) : moduleExamPath ? (
-                    <div className="flex flex-col items-start gap-2 lg:items-end">
-                      <button
-                        type="button"
-                        disabled
-                        className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-gray-300 px-5 py-3 text-sm font-semibold text-gray-600"
-                      >
-                        Ir al examen
-                        <Lock size={16} />
-                      </button>
-                      {moduleResources.length > 0 && (
-                        <p className="max-w-sm text-sm font-semibold text-gray-500 lg:text-right">
-                          Completa todos los recursos del modulo para habilitar el examen.
-                        </p>
-                      )}
-                    </div>
+                  {moduleResourcesCompleted ? (
+                    <ModuleExam
+                      module={module}
+                      isUnlocked={moduleResourcesCompleted}
+                      isCompleted={approvedModuleIds.has(module.id)}
+                      disabled={!moduleResourcesCompleted}
+                      variant="inline"
+                      courseTitle={capacitacion?.titulo}
+                      attemptParams={attemptParams}
+                    />
                   ) : (
-                    <span className="rounded-lg bg-gray-100 px-4 py-3 text-sm font-semibold text-gray-600">
-                      Este modulo no tiene examen configurado.
-                    </span>
+                    <div className="rounded-xl bg-gray-50 px-4 py-4 text-sm font-semibold text-gray-600">
+                      Completa los recursos del modulo para responder la
+                      autoevaluacion. Igual vas a poder avanzar cuando termines
+                      el contenido.
+                    </div>
                   )}
-                </div>
-              </section>
+                </section>
+              )}
 
               <section className="mt-8 flex flex-wrap items-center justify-between gap-3">
                 <div>
