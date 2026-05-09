@@ -20,7 +20,7 @@ import AdminProducts from "./features/products/pages/AdminProducts";
 import Capacitaciones from "./features/learning/pages/Capacitaciones";
 import CapacitacionDetalle from "./features/learning/pages/CapacitacionDetalle";
 import CapacitacionModulo from "./features/learning/pages/CapacitacionModulo";
-import CapacitacionModuloExam from "./features/learning/pages/CapacitacionModuloExam";
+import CapacitacionModuloExamen from "./features/learning/pages/CapacitacionModuloExamen";
 import Certificaciones from "./features/certifications/pages/Certificaciones";
 import CertificationExam from "./features/certifications/pages/CertificationExam";
 import AdminCapacitacionesList from "./features/learning/pages/AdminCapacitacionesList";
@@ -132,25 +132,25 @@ function App() {
                 element={
                   <ProtectedRoute
                     element={Capacitaciones}
-                    allowedRoles={[USER_ROLES.CLIENTE]}
+                    allowedRoles={[USER_ROLES.CLIENTE, USER_ROLES.ADMIN]}
                   />
                 }
               />
               <Route
-                path="/capacitaciones/:capacitacionId"
+                path="/capacitaciones/:capacitacionSlug"
                 element={
                   <ProtectedRoute
                     element={CapacitacionDetalle}
-                    allowedRoles={[USER_ROLES.CLIENTE]}
+                    allowedRoles={[USER_ROLES.CLIENTE, USER_ROLES.ADMIN]}
                   />
                 }
               />
               <Route
-                path="/capacitaciones/:capacitacionId/modulos/:moduloIndex"
+                path="/capacitaciones/:capacitacionSlug/modulos/:moduloIndex"
                 element={
                   <ProtectedRoute
                     element={CapacitacionModulo}
-                    allowedRoles={[USER_ROLES.CLIENTE]}
+                    allowedRoles={[USER_ROLES.CLIENTE, USER_ROLES.ADMIN]}
                   />
                 }
               />
@@ -158,8 +158,8 @@ function App() {
                 path="/capacitaciones/:capacitacionId/modulos/:moduloIndex/examen"
                 element={
                   <ProtectedRoute
-                    element={CapacitacionModuloExam}
-                    allowedRoles={[USER_ROLES.CLIENTE]}
+                    element={CapacitacionModuloExamen}
+                    allowedRoles={[USER_ROLES.CLIENTE, USER_ROLES.ADMIN]}
                   />
                 }
               />
@@ -168,7 +168,7 @@ function App() {
                 element={
                   <ProtectedRoute
                     element={Certificaciones}
-                    allowedRoles={[USER_ROLES.CLIENTE]}
+                    allowedRoles={[USER_ROLES.CLIENTE, USER_ROLES.ADMIN]}
                   />
                 }
               />
@@ -177,7 +177,7 @@ function App() {
                 element={
                   <ProtectedRoute
                     element={CertificationExam}
-                    allowedRoles={[USER_ROLES.CLIENTE]}
+                    allowedRoles={[USER_ROLES.CLIENTE, USER_ROLES.ADMIN]}
                   />
                 }
               />
@@ -235,6 +235,7 @@ function App() {
                   />
                 }
               />
+
               <Route
                 path="*"
                 element={<div className="p-8 text-center">404 - Pagina no encontrada</div>}
