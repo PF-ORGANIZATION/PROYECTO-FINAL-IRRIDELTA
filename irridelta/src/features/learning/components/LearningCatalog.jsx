@@ -169,19 +169,19 @@ function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
   );
 
   return (
-    <section className={styles.catalog}>
-      <div className={styles.inner}>
-        <header className={styles.header}>
-          <div className={styles.headerContent}>
-            <h1 className={styles.title}>{title}</h1>
-            <p className={styles.subtitle}>
+    <section className="learning-page">
+      <div className="learning-container">
+        <header className="learning-header">
+          <div>
+            <h1 className="learning-title">{title}</h1>
+            <p className="learning-subtitle">
               Accede al material de formación y seguí tu avance en cada módulo.
             </p>
 
           </div>
         </header>
 
-        {loading && <div className={styles.feedbackCard}>Cargando contenido...</div>}
+        {loading && <div className="learning-empty">Cargando contenido...</div>}
 
         {!loading && error && (
           <div className="rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700">
@@ -190,7 +190,7 @@ function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
         )}
 
         {!loading && !error && items.length === 0 && (
-          <div className={styles.feedbackCard}>{emptyMessage}</div>
+          <div className="learning-empty">{emptyMessage}</div>
         )}
 
         {!loading && !error && items.length > 0 && (
@@ -247,7 +247,7 @@ function LearningCatalog({ type, title, emptyMessage, onlyPublished = false }) {
             )}
 
             {filteredItems.length === 0 ? (
-              <div className={styles.feedbackCard}>
+              <div className="learning-empty">
                 No se encontraron capacitaciones con ese criterio.
               </div>
             ) : (

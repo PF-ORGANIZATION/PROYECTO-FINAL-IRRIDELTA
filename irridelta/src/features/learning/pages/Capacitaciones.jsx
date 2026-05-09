@@ -12,7 +12,7 @@ function Capacitaciones() {
 
       <LearningCatalog
         type={LEARNING_TYPES.CAPACITACION}
-        title="CAPACITACIONES"
+        title="Capacitaciones"
         emptyMessage="Todavia no hay capacitaciones publicadas."
         onlyPublished
       />

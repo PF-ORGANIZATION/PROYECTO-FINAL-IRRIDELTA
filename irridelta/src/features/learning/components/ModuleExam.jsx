@@ -143,10 +143,10 @@ function ModuleExam({
   const canShowHeaderToggle =
     !isStandalone && !isInline && !examStarted && !result && isUnlocked && !isCompleted;
   const wrapperClass = isStandalone
-    ? "rounded-2xl border border-gray-200 bg-white shadow-md"
+    ? "learning-card"
     : isInline
     ? "rounded-xl bg-white"
-    : "mt-6 rounded-xl border border-gray-200 bg-white shadow-sm";
+    : "learning-card mt-6";
   const maxAttempts = attemptSummary?.maxAttempts ?? 3;
   const cooldownUnlocked = Boolean(cooldownUntil && cooldownSeconds <= 0);
   const cooldownActive = Boolean(cooldownUntil && cooldownSeconds > 0);
@@ -325,7 +325,7 @@ function ModuleExam({
 
   if (!hasQuestions) {
     return isStandalone ? (
-      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-gray-600 shadow-md">
+      <div className="learning-empty">
         Este modulo no tiene autoevaluacion configurada.
       </div>
     ) : null;
@@ -661,7 +661,7 @@ function ModuleExam({
         >
           <div className="mb-6 space-y-6">
             {examQuestions.map((question, questionIndex) => (
-              <div key={question.id} className="rounded-lg border border-gray-200 p-4">
+              <div key={question.id} className="learning-card-compact">
                 <p className="mb-3 font-semibold text-gray-900">
                   {questionIndex + 1}. {question.enunciado}
                 </p>
@@ -708,7 +708,7 @@ function ModuleExam({
               <button
                 type="button"
                 onClick={() => setExamStarted(false)}
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-2 font-semibold text-gray-700 transition hover:bg-gray-50"
+                className="learning-button-secondary flex-1"
               >
                 Pausar
               </button>
@@ -838,7 +838,7 @@ function ModuleExam({
               <button
                 type="button"
                 onClick={resetExam}
-                className={`${isStandalone ? "flex-1" : "w-full"} rounded-lg border border-gray-300 px-4 py-2 font-semibold text-gray-700 transition hover:bg-gray-50`}
+                className={`${isStandalone ? "flex-1" : "w-full"} learning-button-secondary`}
               >
                 Intentar de nuevo
               </button>
@@ -848,7 +848,7 @@ function ModuleExam({
               <button
                 type="button"
                 onClick={requestAttemptUnlock}
-                className={`${isStandalone ? "flex-1" : "w-full"} rounded-lg border border-gray-300 px-4 py-2 font-semibold text-gray-700 transition hover:bg-gray-50`}
+                className={`${isStandalone ? "flex-1" : "w-full"} learning-button-secondary`}
               >
                 Solicitar desbloqueo de intentos
               </button>
@@ -858,7 +858,7 @@ function ModuleExam({
               <button
                 type="button"
                 onClick={onResultExit ?? onExit}
-                className="flex-1 rounded-lg bg-green-600 px-4 py-2 font-semibold text-white transition hover:bg-green-700"
+                className="learning-button flex-1"
               >
                 Volver al modulo
               </button>

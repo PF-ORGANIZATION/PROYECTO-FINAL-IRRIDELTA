@@ -113,8 +113,8 @@ function CapacitacionModulo() {
         <title>{pageTitle}</title>
       </Helmet>
 
-      <section className="min-h-[70vh] bg-gray-50 px-4 py-12">
-        <div className="mx-auto max-w-6xl">
+      <section className="learning-page">
+        <div className="learning-container">
           <Link
             to={`/capacitaciones/${capacitacionId}`}
             className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-green-700 hover:text-green-600"
@@ -124,7 +124,7 @@ function CapacitacionModulo() {
           </Link>
 
           {loading && (
-            <div className="rounded-2xl bg-white p-8 text-center text-gray-600 shadow-md">
+            <div className="learning-empty">
               Cargando modulo...
             </div>
           )}
@@ -132,19 +132,19 @@ function CapacitacionModulo() {
           {!loading && error && <div className="alert-error">{error}</div>}
 
           {!loading && !error && !module && (
-            <div className="rounded-2xl bg-white p-8 text-center text-gray-600 shadow-md">
+            <div className="learning-empty">
               No encontramos el modulo solicitado.
             </div>
           )}
 
           {!loading && !error && module && !learningStateReady && (
-            <div className="rounded-2xl bg-white p-8 text-center text-gray-600 shadow-md">
+            <div className="learning-empty">
               Cargando avance del modulo...
             </div>
           )}
 
           {!loading && !error && module && learningStateReady && !moduleUnlocked && (
-            <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center shadow-md">
+            <div className="learning-empty">
               <div className="mx-auto mb-4 inline-flex rounded-full bg-gray-100 p-4">
                 <Lock size={30} className="text-gray-500" />
               </div>
@@ -159,7 +159,7 @@ function CapacitacionModulo() {
 
           {!loading && !error && module && learningStateReady && moduleUnlocked && (
             <>
-              <article className="rounded-2xl border border-gray-200 bg-white p-8 shadow-md">
+              <article className="learning-card">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -203,10 +203,10 @@ function CapacitacionModulo() {
                 <div className="alert-error mt-6">{progressError}</div>
               )}
 
-              <section className="mt-8 rounded-2xl border border-gray-200 bg-white p-8 shadow-md">
+              <section className="learning-card mt-8">
                 <div className="mb-6 flex flex-col gap-3 border-b border-gray-200 pb-4 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">
+                    <h2 className="learning-section-title">
                       Contenido del modulo
                     </h2>
                     <p className="mt-2 text-sm font-semibold text-gray-500">
@@ -278,7 +278,7 @@ function CapacitacionModulo() {
                                 Bloqueado
                               </span>
                             ) : resourceOpened ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
                                 <PlayCircle size={12} />
                                 En curso
                               </span>
@@ -369,12 +369,12 @@ function CapacitacionModulo() {
               </section>
 
               {moduleHasAssessment && (
-                <section className="mt-8 rounded-2xl border border-gray-200 bg-white p-8 shadow-md">
+                <section className="learning-card mt-8">
                   <div className="mb-5 border-b border-gray-200 pb-4">
-                    <h2 className="text-2xl font-bold text-gray-900">
+                    <h2 className="learning-section-title">
                       Autoevaluacion del modulo
                     </h2>
-                    <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">
+                    <p className="learning-muted mt-2 max-w-3xl">
                       Estas preguntas son de practica y no bloquean el avance al
                       siguiente modulo.
                     </p>
