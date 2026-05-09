@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Mail, Zap, Compass, CheckCircle, Facebook, Instagram, GraduationCap, Package, Sprout } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 
@@ -152,9 +153,9 @@ function Home() {
             <section className="py-16 bg-gray-900 text-white text-center">
                 <h2 className="text-3xl font-extrabold mb-4">¿Listo para comenzar tu proyecto?</h2>
                 <p className="text-xl mb-8">Contáctanos hoy para recibir asesoramiento de expertos.</p>
-                <a href="/contacto" className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-3 px-8 rounded-lg transition duration-300 shadow-xl">
+                <Link to="/contacto" className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-3 px-8 rounded-lg transition duration-300 shadow-xl">
                     Dejanos tu consulta
-                </a>
+                </Link>
             </section>
         </div>
     );
