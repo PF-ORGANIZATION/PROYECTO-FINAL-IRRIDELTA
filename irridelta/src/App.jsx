@@ -29,7 +29,6 @@ import AdminCertificaciones from "./features/certifications/pages/AdminCertifica
 import AdminKB from "./features/kb/pages/AdminKB";
 import { getDefaultPathByRole, USER_ROLES } from "./features/auth/authRoles";
 import Chatbot from "./features/chatbot/pages/Chatbot";
-import ChatbotPage from "./features/chatbot/pages/ChatbotPage";
 
 const WHATSAPP_NUMBER = "5491162856483";
 
@@ -236,15 +235,7 @@ function App() {
                   />
                 }
               />
-              <Route
-                path="/chatbot"
-                element={
-                  <ProtectedRoute
-                    element={ChatbotPage}
-                    allowedRoles={[USER_ROLES.CLIENTE, USER_ROLES.ADMIN]}
-                  />
-                }
-              />
+
               <Route
                 path="*"
                 element={<div className="p-8 text-center">404 - Pagina no encontrada</div>}
