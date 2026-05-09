@@ -265,14 +265,14 @@ function AdminCapacitacionesList() {
                     type="button"
                     onClick={() => handlePreview(item)}
                     disabled={previewLoadingId === item.id}
-                    className="learning-button-secondary"
+                    className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-slate-800"
                   >
                     {previewLoadingId === item.id ? "Cargando..." : "Ver"}
                   </button>
                   <button
                     type="button"
                     onClick={() => navigate(`/admin/capacitaciones/${item.id}/editar`)}
-                    className="learning-button-secondary"
+                    className="rounded-lg bg-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-yellow-600"
                   >
                     Editar
                   </button>
