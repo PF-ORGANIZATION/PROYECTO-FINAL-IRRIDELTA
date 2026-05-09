@@ -20,7 +20,7 @@ import AdminProducts from "./features/products/pages/AdminProducts";
 import Capacitaciones from "./features/learning/pages/Capacitaciones";
 import CapacitacionDetalle from "./features/learning/pages/CapacitacionDetalle";
 import CapacitacionModulo from "./features/learning/pages/CapacitacionModulo";
-import CapacitacionModuloExamen from "./features/learning/pages/CapacitacionModuloExamen";
+
 import Certificaciones from "./features/certifications/pages/Certificaciones";
 import CertificationExam from "./features/certifications/pages/CertificationExam";
 import AdminCapacitacionesList from "./features/learning/pages/AdminCapacitacionesList";
@@ -154,15 +154,7 @@ function App() {
                   />
                 }
               />
-              <Route
-                path="/capacitaciones/:capacitacionSlug/modulos/:moduloIndex/examen"
-                element={
-                  <ProtectedRoute
-                    element={CapacitacionModuloExamen}
-                    allowedRoles={[USER_ROLES.CLIENTE, USER_ROLES.ADMIN]}
-                  />
-                }
-              />
+
               <Route
                 path="/certificaciones"
                 element={
