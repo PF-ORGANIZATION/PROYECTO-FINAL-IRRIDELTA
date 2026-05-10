@@ -1,8 +1,6 @@
 import React from "react";
 import {
   Award,
-  BookOpen,
-  CalendarDays,
   CheckCircle2,
   ChevronRight,
   Clock3,
@@ -15,11 +13,15 @@ import {
   LEARNING_PROGRESS_STATUS,
 } from "../utils/learningProgressStatus";
 import { generateSlug } from "../services/learningContentService";
+import {
+  formatEstimatedDuration,
+  getLearningEstimatedMinutes,
+} from "../utils/learningDuration";
 import styles from "./LearningItemPreviewCard.module.css";
 
 function getShortDescription(description) {
   if (!description) {
-    return "Capacitación disponible para clientes de IRRIDELTA.";
+    return "Capacitacion disponible para clientes de IRRIDELTA.";
   }
 
   const normalizedDescription = description.trim();
@@ -31,18 +33,14 @@ function getShortDescription(description) {
   return `${normalizedDescription.slice(0, 177).trim()}...`;
 }
 
-function LearningItemPreviewCard({
-  item,
-  progress,
-  showPublishedDate = true,
-  onDetailClick = null,
-}) {
+function LearningItemPreviewCard({ item, progress, onDetailClick = null }) {
   if (!item) {
     return null;
   }
 
   const moduleCount = item.modulos?.length ?? 0;
   const hasCertification = Boolean(item.certificacion);
+  const estimatedDuration = formatEstimatedDuration(getLearningEstimatedMinutes(item));
   const progressData = progress ?? {
     completedModules: 0,
     totalModules: moduleCount,
@@ -65,7 +63,7 @@ function LearningItemPreviewCard({
       className={`${styles.card} ${isCompleted ? styles.cardCompleted : ""}`}
     >
       <div className={styles.topRow}>
-        <span className={styles.eyebrow}>Capacitación técnica</span>
+        <span className={styles.eyebrow}>Capacitacion tecnica</span>
         <span className={`${styles.statusBadge} ${styles[progressData.status]}`}>
           <StatusIcon className={styles.statusIcon} aria-hidden="true" />
           {LEARNING_PROGRESS_LABELS[progressData.status]}
@@ -77,23 +75,10 @@ function LearningItemPreviewCard({
         <p className={styles.description}>{getShortDescription(item.descripcion)}</p>
       </div>
 
-      <div className={styles.summaryGrid}>
-        <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Avance</span>
-          <strong className={styles.summaryValue}>
-            {progressData.progressPercentage}%
-          </strong>
-        </div>
-        <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Módulos</span>
-          <strong className={styles.summaryValue}>{moduleCount}</strong>
-        </div>
-      </div>
-
       <div className={styles.metaList}>
         <span className={styles.metaItem}>
-          <BookOpen className={styles.metaIcon} aria-hidden="true" />
-          {moduleCount === 1 ? "1 módulo" : `${moduleCount} módulos`}
+          <Clock3 className={styles.metaIcon} aria-hidden="true" />
+          {moduleCount === 1 ? "1 modulo" : `${moduleCount} modulos`} · {estimatedDuration}
         </span>
         {hasCertification && (
           <span className={styles.metaItem}>
@@ -101,18 +86,12 @@ function LearningItemPreviewCard({
             Certificado disponible
           </span>
         )}
-        {showPublishedDate && item.created_at && (
-          <span className={styles.metaItem}>
-            <CalendarDays className={styles.metaIcon} aria-hidden="true" />
-            {new Date(item.created_at).toLocaleDateString("es-AR")}
-          </span>
-        )}
       </div>
 
       <div className={styles.progressBlock}>
         <div className={styles.progressHeader}>
           <span>
-            {progressData.completedModules}/{progressData.totalModules} módulos completados
+            {progressData.completedModules}/{progressData.totalModules} modulos completados
           </span>
           <span className={styles.progressValue}>
             {progressData.progressPercentage}%
