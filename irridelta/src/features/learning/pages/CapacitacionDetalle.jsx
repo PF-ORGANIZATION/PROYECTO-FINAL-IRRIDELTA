@@ -20,7 +20,6 @@ import {
   getModuleRoute,
   isModuleCompleted,
 } from "../utils/learningRuntime";
-import { LEARNING_PROGRESS_STATUS_ORDER } from "../utils/learningProgressStatus";
 import { USER_ROLES } from "../../auth/authRoles";
 import { useSessionStore } from "../../../store/sessionStore";
 import styles from "./CapacitacionDetalle.module.css";
@@ -67,34 +66,6 @@ function CapacitacionDetalle() {
       ? Math.round((completedModulesCount / totalModules) * 100)
       : 0;
   const capacitacionCompleted = isCapacitacionCompleted(modules, completedResourceIds);
-  const orderedModules = modules
-    .map((module, moduleIndex) => {
-      const moduleCompleted = isModuleCompleted(
-        module,
-        completedResourceIds
-      );
-      const moduleStarted = (module.recursos ?? []).some((resource) =>
-        isResourceCompleted(resource, completedResourceIds, module.id)
-      );
-      const statusOrder = moduleCompleted
-        ? LEARNING_PROGRESS_STATUS_ORDER.completado
-        : moduleStarted
-        ? LEARNING_PROGRESS_STATUS_ORDER["en-progreso"]
-        : LEARNING_PROGRESS_STATUS_ORDER.pendiente;
-
-      return {
-        module,
-        moduleIndex,
-        statusOrder,
-      };
-    })
-    .sort((currentModule, nextModule) => {
-      if (currentModule.statusOrder !== nextModule.statusOrder) {
-        return currentModule.statusOrder - nextModule.statusOrder;
-      }
-
-      return currentModule.moduleIndex - nextModule.moduleIndex;
-    });
   const pageTitle = capacitacion
     ? `${capacitacion.titulo} | Capacitaciones | IRRIDELTA`
     : "Detalle de capacitacion | IRRIDELTA";
@@ -181,7 +152,7 @@ function CapacitacionDetalle() {
 
                 {modules.length > 0 && learningStateReady && (
                   <div className="grid gap-5">
-                    {orderedModules.map(({ module, moduleIndex }) => {
+                    {modules.map((module, moduleIndex) => {
                       const moduleUnlocked = isModuleUnlocked(
                         moduleIndex,
                         modules,
@@ -207,72 +178,76 @@ function CapacitacionDetalle() {
                       return (
                         <article
                           key={module.id ?? `${capacitacion.id}-${moduleIndex}`}
-                          className={`learning-card transition duration-200 hover:-translate-y-1 hover:shadow-md ${
+                          className={`${styles.moduleCourseCard} ${
                             moduleCompleted
-                              ? "border-green-300 bg-gray-50"
+                              ? styles.moduleCourseCardCompleted
                               : moduleUnlocked
-                              ? "border-gray-200 bg-white"
-                              : "border-gray-200 bg-gray-100"
+                              ? styles.moduleCourseCardUnlocked
+                              : styles.moduleCourseCardLocked
                           }`}
                         >
-                          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-700">
+                          <div className={styles.moduleCourseContent}>
+                            <div className={styles.moduleCourseHeader}>
+                              <div className={styles.moduleCourseBadges}>
+                                <span
+                                  className={`${styles.moduleNumberBadge} ${
+                                    moduleUnlocked
+                                      ? styles.moduleNumberBadgeUnlocked
+                                      : styles.moduleNumberBadgeLocked
+                                  }`}
+                                >
                                   Modulo {moduleIndex + 1}
                                 </span>
 
                                 {moduleCompleted && (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                                  <span className={styles.moduleStatusCompleted}>
                                     <CheckCircle2 size={12} />
                                     Completado
                                   </span>
                                 )}
 
                                 {!moduleCompleted && moduleUnlocked && (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                                  <span className={styles.moduleStatusInProgress}>
                                     <PlayCircle size={12} />
                                     En progreso
                                   </span>
                                 )}
 
                                 {!moduleUnlocked && (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                                  <span className={styles.moduleStatusLocked}>
                                     <Lock size={12} />
                                     Bloqueado
                                   </span>
                                 )}
                               </div>
 
-                              <h3 className="mt-3 text-2xl font-bold text-gray-900">
+                              <h3 className={styles.moduleCourseTitle}>
                                 {module.titulo}
                               </h3>
 
                               {module.descripcion && (
-                                <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-600">
+                                <p className={styles.moduleCourseDescription}>
                                   {module.descripcion}
                                 </p>
                               )}
 
-                              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                                <p className="text-sm text-gray-600">
-                                  {getModuleResourceSummary(module)}
-                                  {examReady ? " + evaluacion" : ""}
-                                </p>
-                              </div>
+                              <p className={styles.moduleCourseMeta}>
+                                {getModuleResourceSummary(module)}
+                                {examReady ? " + evaluacion" : ""}
+                              </p>
                             </div>
 
-                            <div className="flex w-full flex-col gap-3 lg:w-auto">
+                            <div className={styles.moduleCourseAction}>
                               {moduleUnlocked ? (
                                 <Link
                                   to={modulePath}
-                                  className="learning-button"
+                                  className={styles.moduleCourseButton}
                                 >
                                   {moduleActionLabel}
                                   <ArrowRight size={16} />
                                 </Link>
                               ) : (
-                                <div className="rounded-lg border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-500">
+                                <div className={styles.moduleCourseLockedText}>
                                   Completa el modulo anterior para continuar.
                                 </div>
                               )}

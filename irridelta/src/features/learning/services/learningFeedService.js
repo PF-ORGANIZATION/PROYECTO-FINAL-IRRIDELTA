@@ -163,7 +163,7 @@ async function fetchLightCapacitaciones({
       publicada,
       created_at,
       updated_at,
-      capacitacion_modulos(id, modulo_recursos(id)),
+      capacitacion_modulos(id, modulo_recursos(id, tipo)),
       certificaciones(id)
     `,
       includeCount ? { count: "exact" } : undefined
