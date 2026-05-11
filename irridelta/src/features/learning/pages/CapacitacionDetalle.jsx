@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -6,43 +6,46 @@ import {
   Award,
   CheckCircle2,
   ChevronLeft,
+  ExternalLink,
+  FileText,
+  Lightbulb,
   Lock,
   PlayCircle,
 } from "lucide-react";
 import {
   isCapacitacionCompleted,
   isModuleUnlocked,
+  isResourceUnlocked,
   isResourceCompleted,
 } from "../services/learningProgressService";
-import { generateSlug } from "../services/learningContentService";
 import useCapacitacionProgress from "../hooks/useCapacitacionProgress";
 import {
-  getModuleRoute,
+  areModuleResourcesCompleted,
+  getResourceHref,
+  getResourceLabel,
   isModuleCompleted,
 } from "../utils/learningRuntime";
+import ModuleExam from "../components/ModuleExam";
+import YouTubePlayer from "../components/YouTubePlayer";
+import {
+  EXAM_ATTEMPT_STATUS,
+  EXAM_TYPES,
+} from "../services/examAttemptsService";
 import { USER_ROLES } from "../../auth/authRoles";
 import { useSessionStore } from "../../../store/sessionStore";
 import styles from "./CapacitacionDetalle.module.css";
-
-function getModuleResourceSummary(module) {
-  const resources = module?.recursos ?? [];
-  const videoCount = resources.filter((resource) => resource.tipo === "youtube").length;
-
-  if (resources.length === 0) {
-    return "Sin recursos";
-  }
-
-  if (videoCount > 0 && videoCount === resources.length) {
-    return videoCount === 1 ? "1 video" : `${videoCount} videos`;
-  }
-
-  return resources.length === 1 ? "1 recurso" : `${resources.length} recursos`;
-}
 
 function CapacitacionDetalle() {
   const { capacitacionSlug } = useParams();
   const role = useSessionStore((state) => state.role);
   const onlyPublished = role !== USER_ROLES.ADMIN;
+  const [activeLesson, setActiveLesson] = useState(null);
+  const [activeExamModuleId, setActiveExamModuleId] = useState(null);
+  const [completedAssessmentModuleIds, setCompletedAssessmentModuleIds] =
+    useState(() => new Set());
+  const [openResourceKeys, setOpenResourceKeys] = useState(() => new Set());
+  const [pendingFinalExamScroll, setPendingFinalExamScroll] = useState(false);
+  const finalExamButtonRef = useRef(null);
   const {
     capacitacion,
     completedResourceIds,
@@ -51,7 +54,11 @@ function CapacitacionDetalle() {
     loadingExamAttempts,
     error,
     progressError,
+    examAttempts,
     examAttemptsError,
+    savingResourceId,
+    markResourceAsCompleted,
+    setTrackingReady,
   } = useCapacitacionProgress(capacitacionSlug, { onlyPublished });
 
   const modules = capacitacion?.modulos ?? [];
@@ -66,9 +73,169 @@ function CapacitacionDetalle() {
       ? Math.round((completedModulesCount / totalModules) * 100)
       : 0;
   const capacitacionCompleted = isCapacitacionCompleted(modules, completedResourceIds);
+  const lessons = modules.flatMap((module, moduleIndex) =>
+    (module.recursos ?? []).map((resource, resourceIndex) => ({
+      module,
+      moduleIndex,
+      resource,
+      resourceIndex,
+    }))
+  );
+  const fallbackLesson =
+    lessons.find((lesson) =>
+      isResourceUnlocked(
+        lesson.moduleIndex,
+        lesson.resourceIndex,
+        modules,
+        completedResourceIds
+      )
+    ) ??
+    lessons[0] ??
+    null;
+  const activeLessonData =
+    lessons.find(
+      (lesson) =>
+        lesson.moduleIndex === activeLesson?.moduleIndex &&
+        lesson.resourceIndex === activeLesson?.resourceIndex
+    ) ??
+    fallbackLesson;
+  const activeModule = activeLessonData?.module ?? null;
+  const activeResource = activeLessonData?.resource ?? null;
+  const activeModuleIndex = activeLessonData?.moduleIndex ?? 0;
+  const activeResourceIndex = activeLessonData?.resourceIndex ?? 0;
+  const activeResourceHref = activeResource ? getResourceHref(activeResource) : null;
+  const activeResourceUnlocked = activeLessonData
+    ? isResourceUnlocked(
+        activeModuleIndex,
+        activeResourceIndex,
+        modules,
+        completedResourceIds
+      )
+    : false;
+  const activeResourceCompleted =
+    activeResource && activeModule
+      ? isResourceCompleted(activeResource, completedResourceIds, activeModule.id)
+      : false;
+  const activeModuleResourcesCompleted =
+    learningStateReady && areModuleResourcesCompleted(activeModule, completedResourceIds);
+  const activeModuleHasAssessment =
+    activeModule &&
+    Array.isArray(activeModule.preguntas) &&
+    activeModule.preguntas.length > 0;
+  const activeModuleAssessmentDone = (examAttempts ?? []).some(
+    (attempt) =>
+      attempt.modulo_id === activeModule?.id &&
+      attempt.tipo_examen === EXAM_TYPES.MODULO &&
+      attempt.estado === EXAM_ATTEMPT_STATUS.COMPLETED
+  ) || completedAssessmentModuleIds.has(activeModule?.id);
+  const showActiveModuleExam =
+    activeModuleHasAssessment &&
+    activeModuleResourcesCompleted &&
+    activeExamModuleId === activeModule?.id;
+  const activeModuleAttemptParams = useMemo(() => {
+    if (!capacitacion?.id || !activeModule?.id) {
+      return null;
+    }
+
+    return {
+      tipoExamen: EXAM_TYPES.MODULO,
+      capacitacionId: capacitacion.id,
+      moduloId: activeModule.id,
+      ignoreAttemptLimit: true,
+    };
+  }, [activeModule?.id, capacitacion?.id]);
+  const activeResourceKey =
+    activeModule?.id && activeResource?.id
+      ? `${activeModule.id}:${activeResource.id}`
+      : null;
+  const activeResourceOpened =
+    Boolean(activeResourceKey) && openResourceKeys.has(activeResourceKey);
+  const showActiveYoutube =
+    activeResource?.tipo === "youtube" &&
+    activeResourceUnlocked;
+  const currentLessonFlatIndex = lessons.findIndex(
+    (lesson) =>
+      lesson.moduleIndex === activeModuleIndex &&
+      lesson.resourceIndex === activeResourceIndex
+  );
+  const previousLesson =
+    currentLessonFlatIndex > 0 ? lessons[currentLessonFlatIndex - 1] : null;
+  const nextLesson =
+    currentLessonFlatIndex >= 0 && currentLessonFlatIndex < lessons.length - 1
+      ? lessons[currentLessonFlatIndex + 1]
+      : null;
+  const lastLesson = lessons[lessons.length - 1] ?? null;
   const pageTitle = capacitacion
     ? `${capacitacion.titulo} | Capacitaciones | IRRIDELTA`
     : "Detalle de capacitacion | IRRIDELTA";
+
+  const getLearningHighlights = () => {
+    const lessonTitle = activeResource ? getResourceLabel(activeResource) : "";
+    const moduleTitle = activeModule?.titulo ?? "";
+
+    return [
+      lessonTitle
+        ? `Que es ${lessonTitle.toLowerCase()} y por que es importante.`
+        : `Conceptos principales de ${moduleTitle.toLowerCase()}.`,
+      `Como se relaciona con ${moduleTitle.toLowerCase()}.`,
+      "Que puntos conviene recordar antes de avanzar o rendir la autoevaluacion.",
+    ];
+  };
+
+  useEffect(() => {
+    if (!pendingFinalExamScroll || !finalExamButtonRef.current) {
+      return;
+    }
+
+    finalExamButtonRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+    setPendingFinalExamScroll(false);
+  }, [activeModuleIndex, activeResourceIndex, pendingFinalExamScroll]);
+
+  const selectLesson = (moduleIndex, resourceIndex) => {
+    setActiveLesson({ moduleIndex, resourceIndex });
+    setActiveExamModuleId(null);
+  };
+
+  const markAssessmentDone = (moduleId) => {
+    if (!moduleId) {
+      return;
+    }
+
+    setCompletedAssessmentModuleIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      nextIds.add(moduleId);
+      return nextIds;
+    });
+  };
+
+  const openResource = (resource) => {
+    if (!activeModule?.id || !resource?.id) {
+      return;
+    }
+
+    const resourceKey = `${activeModule.id}:${resource.id}`;
+    setOpenResourceKeys((currentKeys) => {
+      const nextKeys = new Set(currentKeys);
+      nextKeys.add(resourceKey);
+      return nextKeys;
+    });
+  };
+
+  const scrollToFinalExamButton = () => {
+    if (!lastLesson) {
+      return;
+    }
+
+    setActiveLesson({
+      moduleIndex: lastLesson.moduleIndex,
+      resourceIndex: lastLesson.resourceIndex,
+    });
+    setActiveExamModuleId(null);
+    setPendingFinalExamScroll(true);
+  };
 
   return (
     <>
@@ -134,10 +301,6 @@ function CapacitacionDetalle() {
               )}
 
               <section className={styles.section}>
-                <div className="mb-6 border-b-2 border-gray-200 pb-4">
-                  <h2 className="learning-section-title">Contenido del curso</h2>
-                </div>
-
                 {modules.length === 0 && (
                   <p className={styles.emptyText}>
                     Esta capacitacion todavia no tiene modulos publicados.
@@ -151,180 +314,386 @@ function CapacitacionDetalle() {
                 )}
 
                 {modules.length > 0 && learningStateReady && (
-                  <div className="grid gap-5">
-                    {modules.map((module, moduleIndex) => {
-                      const moduleUnlocked = isModuleUnlocked(
-                        moduleIndex,
-                        modules,
-                        completedResourceIds
-                      );
-                      const moduleCompleted = isModuleCompleted(
-                        module,
-                        completedResourceIds
-                      );
-                      const modulePath = getModuleRoute(generateSlug(capacitacion.titulo), moduleIndex);
-                      const moduleStarted = (module.recursos ?? []).some((resource) =>
-                        isResourceCompleted(resource, completedResourceIds, module.id)
-                      );
-                      const moduleActionLabel = moduleCompleted
-                        ? "Revisar"
-                        : moduleStarted
-                        ? "Continuar"
-                        : "Comenzar";
-                      const examReady = Array.isArray(module.preguntas)
-                        ? module.preguntas.length > 0
-                        : false;
+                  <div className={styles.learningShell}>
+                    <aside className={styles.lessonSidebar}>
+                      <div className={styles.sidebarCourseCard}>
+                        <div className={styles.sidebarHeader}>
+                          <span>Contenido del curso</span>
+                        </div>
 
-                      return (
-                        <article
-                          key={module.id ?? `${capacitacion.id}-${moduleIndex}`}
-                          className={`${styles.moduleCourseCard} ${
-                            moduleCompleted
-                              ? styles.moduleCourseCardCompleted
-                              : moduleUnlocked
-                              ? styles.moduleCourseCardUnlocked
-                              : styles.moduleCourseCardLocked
-                          }`}
-                        >
-                          <div className={styles.moduleCourseContent}>
-                            <div className={styles.moduleCourseHeader}>
-                              <div className={styles.moduleCourseBadges}>
-                                <span
-                                  className={`${styles.moduleNumberBadge} ${
-                                    moduleUnlocked
-                                      ? styles.moduleNumberBadgeUnlocked
-                                      : styles.moduleNumberBadgeLocked
-                                  }`}
-                                >
-                                  Modulo {moduleIndex + 1}
-                                </span>
+                        <div className={styles.sidebarModules}>
+                          {modules.map((module, moduleIndex) => {
+                            const moduleUnlocked = isModuleUnlocked(
+                              moduleIndex,
+                              modules,
+                              completedResourceIds
+                            );
+                            const moduleCompleted = isModuleCompleted(
+                              module,
+                              completedResourceIds
+                            );
 
-                                {moduleCompleted && (
-                                  <span className={styles.moduleStatusCompleted}>
-                                    <CheckCircle2 size={12} />
-                                    Completado
-                                  </span>
-                                )}
-
-                                {!moduleCompleted && moduleUnlocked && (
-                                  <span className={styles.moduleStatusInProgress}>
-                                    <PlayCircle size={12} />
-                                    En progreso
-                                  </span>
-                                )}
-
-                                {!moduleUnlocked && (
-                                  <span className={styles.moduleStatusLocked}>
-                                    <Lock size={12} />
-                                    Bloqueado
-                                  </span>
-                                )}
+                          return (
+                            <article
+                              key={module.id ?? `${capacitacion.id}-${moduleIndex}`}
+                              className={`${styles.sidebarModule} ${
+                                moduleIndex === activeModuleIndex
+                                  ? styles.sidebarModuleActive
+                                  : ""
+                              } ${
+                                !moduleUnlocked ? styles.sidebarModuleLocked : ""
+                              }`}
+                            >
+                              <div className={styles.sidebarModuleHeader}>
+                                <div className={styles.sidebarModuleTopRow}>
+                                  <span>Modulo {moduleIndex + 1}</span>
+                                  {moduleCompleted ? (
+                                    <span
+                                      className={`${styles.sidebarModuleState} ${styles.sidebarModuleStateCompleted}`}
+                                    >
+                                      <CheckCircle2 size={12} />
+                                      Completado
+                                    </span>
+                                  ) : moduleUnlocked ? (
+                                    <span
+                                      className={`${styles.sidebarModuleState} ${styles.sidebarModuleStateProgress}`}
+                                    >
+                                      <PlayCircle size={12} />
+                                      En progreso
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className={`${styles.sidebarModuleState} ${styles.sidebarModuleStateLocked}`}
+                                    >
+                                      <Lock size={12} />
+                                      Bloqueado
+                                    </span>
+                                  )}
+                                </div>
+                                <h2>{module.titulo}</h2>
                               </div>
 
-                              <h3 className={styles.moduleCourseTitle}>
-                                {module.titulo}
-                              </h3>
+                              {moduleUnlocked && (
+                              <div className={styles.sidebarLessons}>
+                                {(module.recursos ?? []).map(
+                                  (resource, resourceIndex) => {
+                                      const resourceUnlocked = isResourceUnlocked(
+                                        moduleIndex,
+                                        resourceIndex,
+                                        modules,
+                                        completedResourceIds
+                                      );
+                                      const resourceCompleted = isResourceCompleted(
+                                        resource,
+                                        completedResourceIds,
+                                        module.id
+                                      );
+                                      const isActive =
+                                        moduleIndex === activeModuleIndex &&
+                                        resourceIndex === activeResourceIndex;
+                                      const lessonLabel = `${moduleIndex + 1}.${
+                                        resourceIndex + 1
+                                      }`;
 
-                              {module.descripcion && (
-                                <p className={styles.moduleCourseDescription}>
-                                  {module.descripcion}
-                                </p>
+                                      return (
+                                        <button
+                                          key={resource.id ?? resourceIndex}
+                                          type="button"
+                                          className={`${styles.sidebarLesson} ${
+                                            isActive
+                                              ? styles.sidebarLessonActive
+                                              : ""
+                                          } ${
+                                            resourceCompleted
+                                              ? styles.sidebarLessonCompleted
+                                              : ""
+                                          }`}
+                                          disabled={!resourceUnlocked}
+                                          onClick={() =>
+                                            selectLesson(
+                                              moduleIndex,
+                                              resourceIndex
+                                            )
+                                          }
+                                        >
+                                          <span className={styles.lessonIcon}>
+                                            {resourceUnlocked ? (
+                                              <PlayCircle size={15} />
+                                            ) : (
+                                              <Lock size={14} />
+                                            )}
+                                          </span>
+                                          <span className={styles.lessonName}>
+                                            {lessonLabel}{" "}
+                                            {getResourceLabel(resource)}
+                                          </span>
+                                        </button>
+                                      );
+                                    }
+                                  )}
+                              </div>
                               )}
+                            </article>
+                          );
+                        })}
+                        </div>
+                      </div>
 
-                              <p className={styles.moduleCourseMeta}>
-                                {getModuleResourceSummary(module)}
-                                {examReady ? " + evaluacion" : ""}
-                              </p>
+                      {certification && (
+                        capacitacionCompleted ? (
+                          <button
+                            type="button"
+                            onClick={scrollToFinalExamButton}
+                            className={`${styles.sidebarCertification} ${styles.sidebarCertificationAvailable}`}
+                          >
+                            <Award size={22} />
+                            <div>
+                              <h2>Certificacion final</h2>
+                              <p>Disponible</p>
                             </div>
+                          </button>
+                        ) : (
+                          <article className={styles.sidebarCertification}>
+                            <Award size={22} />
+                            <div>
+                              <h2>Certificacion final</h2>
+                              <p>Bloqueada</p>
+                            </div>
+                          </article>
+                        )
+                      )}
+                    </aside>
 
-                            <div className={styles.moduleCourseAction}>
-                              {moduleUnlocked ? (
-                                <Link
-                                  to={modulePath}
+                    <main className={styles.lessonPanel}>
+                      {activeResource ? (
+                        <>
+                          <div className={styles.lessonPanelHeader}>
+                            <h2>
+                              {activeModuleIndex + 1}.{activeResourceIndex + 1}{" "}
+                              {getResourceLabel(activeResource)}
+                            </h2>
+                            <p>{activeModule?.titulo}</p>
+                          </div>
+
+                          {!activeResourceHref && (
+                            <div className={styles.lessonEmpty}>
+                              Este recurso no tiene un enlace configurado.
+                            </div>
+                          )}
+
+                          {activeResourceHref && !activeResourceUnlocked && (
+                            <div className={styles.lessonEmpty}>
+                              <Lock size={30} />
+                              <strong>Leccion bloqueada</strong>
+                              <span>Completa la leccion anterior para continuar.</span>
+                            </div>
+                          )}
+
+                          {activeResourceHref &&
+                            activeResourceUnlocked &&
+                            activeResource.tipo === "youtube" &&
+                            (showActiveYoutube ? (
+                              <YouTubePlayer
+                                youtubeUrl={activeResourceHref}
+                                onComplete={() =>
+                                  markResourceAsCompleted(activeModule, activeResource)
+                                }
+                                onTrackingReady={(isReady) =>
+                                  setTrackingReady(activeResource.id, isReady)
+                                }
+                                showControls={false}
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                className={styles.videoCover}
+                                onClick={() => openResource(activeResource)}
+                              >
+                                <span>
+                                  <PlayCircle size={48} />
+                                </span>
+                              </button>
+                            ))}
+
+                          {activeResourceHref &&
+                            activeResourceUnlocked &&
+                            activeResource.tipo !== "youtube" && (
+                              <div className={styles.fileLesson}>
+                                <a
+                                  href={activeResourceHref}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
                                   className={styles.moduleCourseButton}
                                 >
-                                  {moduleActionLabel}
-                                  <ArrowRight size={16} />
-                                </Link>
-                              ) : (
-                                <div className={styles.moduleCourseLockedText}>
-                                  Completa el modulo anterior para continuar.
+                                  <FileText size={16} />
+                                  Abrir recurso
+                                  <ExternalLink size={15} />
+                                </a>
+                                {!activeResourceCompleted && (
+                                  <button
+                                    type="button"
+                                    className={styles.markSeenButton}
+                                    disabled={
+                                      savingResourceId === activeResource.id ||
+                                      loadingProgress
+                                    }
+                                    onClick={() =>
+                                      markResourceAsCompleted(
+                                        activeModule,
+                                        activeResource
+                                      )
+                                    }
+                                  >
+                                    {savingResourceId === activeResource.id
+                                      ? "Guardando..."
+                                      : "Marcar como visto"}
+                                  </button>
+                                )}
+                              </div>
+                            )}
+
+                          {activeResourceUnlocked && (
+                            <section className={styles.lessonLearningNotes}>
+                              <div>
+                                <h3>Sobre esta leccion</h3>
+                                <p>
+                                  {activeModule?.descripcion ||
+                                    `En esta leccion vas a revisar los conceptos clave de ${activeModule?.titulo?.toLowerCase() ?? "este modulo"} para aplicarlos en el recorrido de capacitacion.`}
+                                </p>
+                              </div>
+
+                              <div className={styles.lessonHighlights}>
+                                <h4>En esta leccion aprenderas:</h4>
+                                <ul>
+                                  {getLearningHighlights().map((item) => (
+                                    <li key={item}>
+                                      <CheckCircle2 size={15} />
+                                      <span>{item}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+
+                              <div className={styles.lessonTip}>
+                                <Lightbulb size={24} aria-hidden="true" />
+                                <div>
+                                  <span>Consejo</span>
+                                  <p>
+                                    Toma nota de los conceptos principales. Te van a servir para la autoevaluacion del modulo.
+                                  </p>
                                 </div>
-                              )}
-                            </div>
+                              </div>
+                            </section>
+                          )}
+
+                          {activeModuleHasAssessment &&
+                            activeModuleResourcesCompleted &&
+                            !activeModuleAssessmentDone &&
+                            !showActiveModuleExam && (
+                              <section className={styles.moduleExamPrompt}>
+                                <div>
+                                  <span>Evaluacion disponible</span>
+                                  <h3>Rendir autoevaluacion del modulo</h3>
+                                  <p>
+                                    {activeModule?.titulo} ·{" "}
+                                    {activeModule?.preguntas?.length ?? 0} preguntas
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  className={styles.lessonNextButton}
+                                  onClick={() =>
+                                    setActiveExamModuleId(activeModule?.id ?? null)
+                                  }
+                                >
+                                  Rendir autoevaluacion
+                                  <ArrowRight size={16} />
+                                </button>
+                              </section>
+                            )}
+
+                          {showActiveModuleExam && (
+                              <section className={styles.moduleExamPanel}>
+                                <ModuleExam
+                                  module={activeModule}
+                                  isUnlocked={activeModuleResourcesCompleted}
+                                  variant="inline"
+                                  courseTitle={capacitacion?.titulo}
+                                  attemptParams={activeModuleAttemptParams}
+                                  onComplete={() => markAssessmentDone(activeModule?.id)}
+                                />
+                              </section>
+                            )}
+
+                          <div className={styles.lessonNav}>
+                            {previousLesson ? (
+                              <button
+                                type="button"
+                                className={styles.lessonNavButton}
+                                onClick={() =>
+                                  selectLesson(
+                                    previousLesson.moduleIndex,
+                                    previousLesson.resourceIndex
+                                  )
+                                }
+                              >
+                                Leccion anterior
+                              </button>
+                            ) : (
+                              <span />
+                            )}
+
+                            {nextLesson &&
+                            isResourceUnlocked(
+                              nextLesson.moduleIndex,
+                              nextLesson.resourceIndex,
+                              modules,
+                              completedResourceIds
+                            ) ? (
+                          <button
+                            type="button"
+                            className={`${styles.lessonNextButton} ${
+                              activeResourceCompleted ||
+                              activeModuleResourcesCompleted ||
+                              activeModuleAssessmentDone
+                                ? styles.lessonNextButtonPulse
+                                : ""
+                            }`}
+                            onClick={() =>
+                              selectLesson(
+                                nextLesson.moduleIndex,
+                                    nextLesson.resourceIndex
+                                  )
+                                }
+                              >
+                                Siguiente leccion
+                                <ArrowRight size={16} />
+                              </button>
+                            ) : nextLesson ? (
+                              <p className={styles.nextLockedText}>
+                                La siguiente leccion se habilita cuando completes esta.
+                              </p>
+                            ) : certification && capacitacionCompleted ? (
+                              <Link
+                                ref={finalExamButtonRef}
+                                to={`/certificaciones/${certification.id}`}
+                                className={`${styles.lessonNextButton} ${styles.lessonNextButtonPulse}`}
+                              >
+                                Rendir examen final
+                                <Award size={16} />
+                              </Link>
+                            ) : null}
                           </div>
-                        </article>
-                      );
-                    })}
+                        </>
+                      ) : (
+                        <div className={styles.lessonEmpty}>
+                          Esta capacitacion no tiene lecciones cargadas.
+                        </div>
+                      )}
+                    </main>
                   </div>
                 )}
               </section>
-
-              {certification && (
-              <section className={styles.section}>
-                {certification && !learningStateReady ? (
-                  <div className="learning-empty">
-                    Cargando estado de certificacion...
-                  </div>
-                ) : certification ? (
-                  <div
-                    className={`${styles.finalCertificationCard} ${
-                      capacitacionCompleted
-                        ? styles.finalCertificationAvailable
-                        : styles.finalCertificationLocked
-                    }`}
-                  >
-                    <div className={styles.finalCertificationInner}>
-                      <div className={styles.finalCertificationIcon}>
-                        <Award size={30} aria-hidden="true" />
-                      </div>
-                      <div className={styles.finalCertificationContent}>
-                        <div className={styles.finalCertificationHeader}>
-                          <span className={styles.finalCertificationBadge}>
-                            {capacitacionCompleted
-                              ? "Certificacion disponible"
-                              : "Bloqueada"}
-                          </span>
-                        </div>
-
-                        <h2 className={styles.finalCertificationTitle}>
-                          {capacitacionCompleted
-                            ? "Certificacion final disponible"
-                            : "Certificacion final"}
-                        </h2>
-
-                        <p className={styles.finalCertificationText}>
-                          {capacitacionCompleted
-                            ? "Ya podes acceder al examen final para obtener tu certificado."
-                            : "Completa todos los modulos para habilitar el examen final."}
-                        </p>
-
-                        <div className={styles.finalCertificationActions}>
-                          {capacitacionCompleted ? (
-                            <Link
-                              to={`/certificaciones/${certification.id}`}
-                              className={styles.finalCertificationButton}
-                            >
-                              <Award size={18} />
-                              Ir al examen final
-                            </Link>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled
-                              className={styles.finalCertificationButtonDisabled}
-                            >
-                              <Lock size={18} />
-                              Examen bloqueado
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-              </section>
-              )}
             </>
           )}
         </div>

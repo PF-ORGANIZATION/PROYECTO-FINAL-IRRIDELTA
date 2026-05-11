@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock3,
+  FileCheck2,
   PlayCircle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -48,19 +49,29 @@ function LearningItemPreviewCard({ item, progress, onDetailClick = null }) {
     status: LEARNING_PROGRESS_STATUS.PENDING,
   };
   const isCompleted = progressData.status === LEARNING_PROGRESS_STATUS.COMPLETED;
+  const isPendingCertification =
+    progressData.status === LEARNING_PROGRESS_STATUS.PENDING_CERTIFICATION;
+  const isCompact = isCompleted;
+  const detailPath = isPendingCertification
+    ? `/certificaciones/${item.certificacion?.id}`
+    : `/capacitaciones/${generateSlug(item.titulo)}`;
   const detailLabel =
     LEARNING_PROGRESS_ACTION_LABELS[progressData.status] ??
     LEARNING_PROGRESS_ACTION_LABELS[LEARNING_PROGRESS_STATUS.PENDING];
   const StatusIcon =
     progressData.status === LEARNING_PROGRESS_STATUS.COMPLETED
       ? CheckCircle2
+      : progressData.status === LEARNING_PROGRESS_STATUS.PENDING_CERTIFICATION
+      ? FileCheck2
       : progressData.status === LEARNING_PROGRESS_STATUS.IN_PROGRESS
       ? PlayCircle
       : Clock3;
 
   return (
     <article
-      className={`${styles.card} ${isCompleted ? styles.cardCompleted : ""}`}
+      className={`${styles.card} ${isCompleted ? styles.cardCompleted : ""} ${
+        isCompact ? styles.cardCompact : ""
+      }`}
     >
       <div className={styles.topRow}>
         <span className={styles.eyebrow}>Capacitacion tecnica</span>
@@ -72,7 +83,9 @@ function LearningItemPreviewCard({ item, progress, onDetailClick = null }) {
 
       <div className={styles.content}>
         <h2 className={styles.title}>{item.titulo}</h2>
-        <p className={styles.description}>{getShortDescription(item.descripcion)}</p>
+        {!isCompact && (
+          <p className={styles.description}>{getShortDescription(item.descripcion)}</p>
+        )}
       </div>
 
       <div className={styles.metaList}>
@@ -123,7 +136,7 @@ function LearningItemPreviewCard({ item, progress, onDetailClick = null }) {
             <ChevronRight size={18} aria-hidden="true" />
           </button>
         ) : (
-          <Link to={`/capacitaciones/${generateSlug(item.titulo)}`} className={styles.detailLink}>
+          <Link to={detailPath} className={styles.detailLink}>
             {detailLabel}
             <ChevronRight size={18} aria-hidden="true" />
           </Link>
