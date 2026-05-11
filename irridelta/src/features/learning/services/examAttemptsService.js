@@ -101,7 +101,13 @@ export async function getAttemptSummary(params) {
 
 export async function startExamAttempt(params) {
   const userId = await getCurrentExamUserId();
-  const summary = await getAttemptSummary(params);
+  const summary = params.ignoreAttemptLimit
+    ? {
+        allAttempts: await fetchExamAttempts(params),
+        maxAttempts: DEFAULT_MAX_ATTEMPTS,
+        canStart: true,
+      }
+    : await getAttemptSummary(params);
   const allAttempts = summary.allAttempts ?? summary.attempts;
 
   if (!summary.canStart) {

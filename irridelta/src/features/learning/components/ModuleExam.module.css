@@ -65,6 +65,34 @@
   font-weight: 900;
 }
 
+.inlineExamHeader {
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 1rem;
+}
+
+.inlineExamHeader span {
+  color: #15803d;
+  font-size: 0.75rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.inlineExamHeader h2 {
+  margin-top: 0.35rem;
+  color: #111827;
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.inlineExamHeader p {
+  margin-top: 0.35rem;
+  color: #6b7280;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
 .introActions,
 .examActions,
 .modalActions {
@@ -110,6 +138,13 @@
 
 .finishAction {
   min-width: min(100%, 18rem);
+}
+
+.retryAction {
+  width: fit-content;
+  align-self: center;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
 }
 
 .exitAction {
@@ -286,6 +321,42 @@
   color: #6b7280;
   font-size: 0.9rem;
   font-weight: 700;
+}
+
+.incorrectAnswers {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.incorrectAnswers h3 {
+  color: #111827;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.incorrectAnswer {
+  border: 1px solid #fecaca;
+  border-radius: 0.75rem;
+  background: #fef2f2;
+  color: #4b5563;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  padding: 0.9rem 1rem;
+}
+
+.incorrectQuestion {
+  color: #111827;
+  font-weight: 850;
+}
+
+.incorrectAnswer p + p {
+  margin-top: 0.45rem;
+}
+
+.incorrectAnswer span {
+  color: #991b1b;
+  font-weight: 850;
 }
 
 .modalActions {

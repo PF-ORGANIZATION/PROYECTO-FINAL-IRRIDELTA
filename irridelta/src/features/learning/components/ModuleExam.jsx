@@ -5,7 +5,6 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
-  XCircle,
 } from "lucide-react";
 import { QUESTION_TYPES } from "../../certifications/utils/assessments";
 import {
@@ -155,6 +154,7 @@ function ModuleExam({
     : null;
   const canStartAttempt = !attemptSummary || attemptSummary.canStart;
   const attemptsExhausted =
+    !isInline &&
     Boolean(attemptSummary) &&
     !attemptSummary.canStart &&
     !attemptSummary.hasApprovedAttempt &&
@@ -392,12 +392,20 @@ function ModuleExam({
     setTimerStarted(false);
     setSavingAttempt(true);
 
-    const completedAttempt = activeAttempt;
+    let completedAttempt = activeAttempt;
     const finishedAt = new Date();
     const answerDetails = buildAnswerDetails(examQuestions, answers);
-    const durationSeconds = getAttemptDurationSeconds(completedAttempt, finishedAt);
+    let durationSeconds = getAttemptDurationSeconds(completedAttempt, finishedAt);
 
     try {
+      if (!completedAttempt?.id && attemptParams) {
+        completedAttempt = await startExamAttempt({
+          ...attemptParams,
+          attemptsSince,
+        });
+        durationSeconds = getAttemptDurationSeconds(completedAttempt, finishedAt);
+      }
+
       if (completedAttempt?.id) {
         await completeExamAttempt(completedAttempt.id, {
           porcentaje: percentage,
@@ -422,6 +430,7 @@ function ModuleExam({
       passed,
       passingScore,
       minimumCorrectAnswers,
+      answerDetails,
       isTimeExpired,
       attemptId: completedAttempt?.id ?? null,
       durationSeconds,
@@ -429,8 +438,13 @@ function ModuleExam({
     setExamStarted(false);
     setActiveAttempt(null);
 
-    if (passed && onComplete) {
-      onComplete({ percentage, passed });
+    if (onComplete) {
+      onComplete({
+        percentage,
+        passed,
+        correctAnswers,
+        totalQuestions: examQuestions.length,
+      });
     }
   }
 
@@ -659,6 +673,17 @@ function ModuleExam({
               : "border-t border-gray-200 px-6 py-4"
           }
         >
+          {isInline && (
+            <div className={styles.inlineExamHeader}>
+              <span>Chequeo de comprension</span>
+              <h2>Autoevaluacion del modulo</h2>
+              <p>
+                Responde estas preguntas para comprobar que entendiste el
+                contenido antes de seguir.
+              </p>
+            </div>
+          )}
+
           <div className="mb-6 space-y-6">
             {examQuestions.map((question, questionIndex) => (
               <div key={question.id} className="learning-card-compact">
@@ -780,49 +805,49 @@ function ModuleExam({
           }
         >
           <div
-            className={`mb-4 rounded-lg px-4 py-3 text-center ${
-              result.passed ? "bg-green-100" : "bg-red-100"
-            }`}
+            className="mb-4 rounded-lg bg-green-100 px-4 py-3 text-center"
           >
             <div className="flex items-center justify-center gap-2">
-              {result.passed ? (
-                <>
-                  <CheckCircle size={24} className="text-green-700" />
-                  <span className="text-lg font-bold text-green-700">
-                    Aprobado
-                  </span>
-                </>
-              ) : (
-                <>
-                  <XCircle size={24} className="text-red-700" />
-                  <span className="text-lg font-bold text-red-700">
-                    No aprobado
-                  </span>
-                </>
-              )}
+              <CheckCircle size={24} className="text-green-700" />
+              <span className="text-lg font-bold text-green-700">
+                {result.correctAnswers === result.totalQuestions
+                  ? `Felicitaciones, acertaste las ${result.totalQuestions} preguntas`
+                  : "Autoevaluacion completada"}
+              </span>
             </div>
           </div>
 
-          <div className="mb-4 grid grid-cols-3 gap-3 text-sm">
+          <div className="mb-4 grid gap-3 text-sm sm:grid-cols-1">
             <div className="rounded-lg bg-gray-50 p-3 text-center">
               <p className="text-gray-600">Respuestas correctas</p>
               <p className="text-xl font-bold text-gray-900">
                 {result.correctAnswers}/{result.totalQuestions}
               </p>
             </div>
-            <div className="rounded-lg bg-gray-50 p-3 text-center">
-              <p className="text-gray-600">Porcentaje requerido</p>
-              <p className="text-xl font-bold text-gray-900">
-                {result.passingScore}%
-              </p>
-            </div>
-            <div className="rounded-lg bg-gray-50 p-3 text-center">
-              <p className="text-gray-600">Tu resultado</p>
-              <p className="text-xl font-bold text-gray-900">
-                {result.percentage}%
-              </p>
-            </div>
           </div>
+
+          {(result.answerDetails ?? []).some((answer) => !answer.correcta) && (
+            <div className={styles.incorrectAnswers}>
+              <h3>Respuestas para revisar</h3>
+              {(result.answerDetails ?? [])
+                .filter((answer) => !answer.correcta)
+                .map((answer) => (
+                  <article key={answer.question_id} className={styles.incorrectAnswer}>
+                    <p className={styles.incorrectQuestion}>
+                      {answer.question_number}. {answer.enunciado}
+                    </p>
+                    <p>
+                      <span>Tu respuesta:</span>{" "}
+                      {answer.respuesta_usuario ?? "Sin responder"}
+                    </p>
+                    <p>
+                      <span>Respuesta correcta:</span>{" "}
+                      {answer.respuesta_correcta ?? "No configurada"}
+                    </p>
+                  </article>
+                ))}
+            </div>
+          )}
 
           {result.isTimeExpired && (
             <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -832,19 +857,25 @@ function ModuleExam({
 
           <div className={`flex ${isStandalone ? "flex-col gap-3 sm:flex-row" : ""}`}>
             {(!result.passed || result.percentage < 100) &&
-              canStartAttempt &&
+              (isInline || canStartAttempt) &&
               !cooldownActive &&
               !attemptsExhausted && (
               <button
                 type="button"
                 onClick={resetExam}
-                className={`${isStandalone ? "flex-1" : "w-full"} learning-button-secondary`}
+                className={`${
+                  isStandalone
+                    ? "flex-1"
+                    : isInline
+                    ? styles.retryAction
+                    : "w-full"
+                } learning-button-secondary`}
               >
                 Intentar de nuevo
               </button>
             )}
 
-            {attemptsExhausted && result.percentage < 100 && (
+            {!isInline && attemptsExhausted && result.percentage < 100 && (
               <button
                 type="button"
                 onClick={requestAttemptUnlock}

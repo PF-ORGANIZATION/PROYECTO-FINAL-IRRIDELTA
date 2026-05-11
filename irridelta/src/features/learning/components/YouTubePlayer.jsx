@@ -63,7 +63,12 @@ function loadYouTubeIframeApi() {
   return youtubeApiPromise;
 }
 
-function YouTubePlayer({ youtubeUrl, onComplete, onTrackingReady }) {
+function YouTubePlayer({
+  youtubeUrl,
+  onComplete,
+  onTrackingReady,
+  showControls = true,
+}) {
   const containerRef = useRef(null);
   const playerRef = useRef(null);
   const intervalRef = useRef(null);
@@ -141,6 +146,7 @@ function YouTubePlayer({ youtubeUrl, onComplete, onTrackingReady }) {
           playerVars: {
             playsinline: 1,
             rel: 0,
+            controls: showControls ? 1 : 0,
           },
           events: {
             onReady: () => {
