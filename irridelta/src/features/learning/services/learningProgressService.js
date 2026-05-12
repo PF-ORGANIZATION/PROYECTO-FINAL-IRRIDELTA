@@ -1,4 +1,5 @@
 import { supabase } from "../../../supabaseClient";
+import { RESOURCE_TYPES } from "./learningContentService";
 
 const PROGRESO_RECURSOS_TABLE = "progreso_recursos";
 
@@ -23,8 +24,17 @@ function getModuleResources(module) {
   return module?.recursos ?? [];
 }
 
-function isModuleCompleted(module, completedResourceIds) {
+function getRequiredModuleResources(module) {
   const resources = getModuleResources(module);
+  const primaryResources = resources.filter(
+    (resource) => resource?.tipo !== RESOURCE_TYPES.ARCHIVO
+  );
+
+  return primaryResources.length > 0 ? primaryResources : resources;
+}
+
+function isModuleCompleted(module, completedResourceIds) {
+  const resources = getRequiredModuleResources(module);
   return resources.every((resource) =>
     isResourceCompleted(resource, completedResourceIds, module.id)
   );
@@ -184,7 +194,7 @@ export function isCapacitacionCompleted(
   }
 
   return moduleList.every((module) =>
-    getModuleResources(module).every((resource) =>
+    getRequiredModuleResources(module).every((resource) =>
       isResourceCompleted(resource, completedResourceIds, module.id)
     )
   );

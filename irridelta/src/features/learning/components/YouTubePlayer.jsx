@@ -195,7 +195,7 @@ function YouTubePlayer({
 
       playerRef.current = null;
     };
-  }, [youtubeUrl]);
+  }, [showControls, youtubeUrl]);
 
   return (
     <div className="w-full">
