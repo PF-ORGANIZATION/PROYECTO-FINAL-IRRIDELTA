@@ -98,7 +98,7 @@ function LearningCatalog({ title, emptyMessage }) {
 
   return (
     <section className="learning-page">
-      <div className="learning-container">
+      <div className={styles.catalogContainer}>
         <header className="learning-header">
           <div>
             <h1 className="learning-title">{title}</h1>

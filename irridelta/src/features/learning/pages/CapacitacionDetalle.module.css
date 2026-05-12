@@ -9,6 +9,12 @@
   margin: 0 auto;
 }
 
+.detailContainer {
+  width: min(100%, 92rem);
+  margin: 0 auto;
+  padding-inline: 1.25rem;
+}
+
 .backLink {
   display: inline-flex;
   align-items: center;
@@ -687,8 +693,8 @@
 
 .learningShell {
   display: grid;
-  grid-template-columns: minmax(18rem, 21rem) minmax(0, 1fr);
-  gap: 1.75rem;
+  grid-template-columns: minmax(16rem, 19rem) minmax(0, 1.55fr) minmax(20rem, 24rem);
+  gap: 1.5rem;
   align-items: start;
 }
 
@@ -711,7 +717,7 @@
   display: grid;
   gap: 0.35rem;
   padding: 0 0.25rem 0.8rem;
-  color: #6b7280;
+  color: #15803d;
   font-size: 0.82rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -1036,6 +1042,44 @@
   border-top: 1px solid #e5e7eb;
 }
 
+.lessonTabs {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.lessonTabs button {
+  position: relative;
+  border: 0;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 850;
+  padding: 0 0 0.85rem;
+}
+
+.lessonTabs button::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.lessonTabs button:hover,
+.lessonTabs .lessonTabActive {
+  color: #15803d;
+}
+
+.lessonTabs .lessonTabActive::after {
+  background: #22c55e;
+}
+
 .lessonLearningNotes h3 {
   color: #111827;
   font-size: 1rem;
@@ -1112,10 +1156,153 @@
   font-size: 0.86rem;
 }
 
+.lessonResourcesHint {
+  width: fit-content;
+  border-radius: 999px;
+  background: #f0fdf4;
+  color: #15803d;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 0.5rem 0.8rem;
+}
+
+.lessonResourcesList {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.lessonResourceItem {
+  display: grid;
+  align-items: center;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background: #f9fafb;
+  color: #374151;
+  padding: 0.85rem;
+  text-decoration: none;
+  transition: border-color var(--transition-base), background var(--transition-base),
+    box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+.lessonResourceItem:hover {
+  border-color: #bbf7d0;
+  background: #ffffff;
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.lessonResourceIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 0.55rem;
+  background: #ffffff;
+  color: #15803d;
+  box-shadow: var(--shadow-sm);
+}
+
+.lessonResourceText {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.lessonResourceText strong {
+  overflow: hidden;
+  color: #111827;
+  font-size: 0.88rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lessonResourceText small {
+  color: #6b7280;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.lessonResourcesEmpty {
+  border: 1px dashed #d1d5db;
+  border-radius: 0.75rem;
+  background: #f9fafb;
+  color: #6b7280;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 1rem;
+}
+
 .moduleExamPanel {
   margin-top: 1.5rem;
   padding-top: 1.5rem;
   border-top: 1px solid #e5e7eb;
+}
+
+.moduleAssessmentPanel {
+  position: sticky;
+  top: 6rem;
+  display: grid;
+  gap: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.85rem;
+  background: #ffffff;
+  box-shadow: var(--shadow-sm);
+  padding: 1rem;
+}
+
+.moduleAssessmentHeader {
+  display: grid;
+  gap: 0.35rem;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.75rem;
+}
+
+.moduleAssessmentTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.moduleAssessmentTopRow span {
+  color: #15803d;
+  font-size: 0.75rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.moduleAssessmentTopRow strong {
+  border: 1px solid #fde68a;
+  border-radius: 999px;
+  background: #fffbeb;
+  color: #b45309;
+  font-size: 0.68rem;
+  font-weight: 850;
+  padding: 0.32rem 0.55rem;
+}
+
+.moduleAssessmentHeader h3 {
+  color: #111827;
+  font-size: 1.05rem;
+  font-weight: 900;
+  line-height: 1.3;
+}
+
+.moduleAssessmentDone {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid #bbf7d0;
+  border-radius: 0.75rem;
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 0.9rem;
+  font-weight: 850;
+  padding: 0.85rem;
 }
 
 .moduleExamPrompt {
@@ -1229,6 +1416,10 @@
   }
 
   .lessonSidebar {
+    position: static;
+  }
+
+  .moduleAssessmentPanel {
     position: static;
   }
 

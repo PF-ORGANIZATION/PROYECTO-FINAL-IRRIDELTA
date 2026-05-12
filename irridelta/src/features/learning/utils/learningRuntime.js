@@ -20,8 +20,17 @@ export function getResourceLabel(resource) {
   return resource?.titulo || "Ver YouTube";
 }
 
-export function areModuleResourcesCompleted(module, completedResourceIds) {
+export function getRequiredModuleResources(module) {
   const resources = module?.recursos ?? [];
+  const primaryResources = resources.filter(
+    (resource) => resource?.tipo !== RESOURCE_TYPES.ARCHIVO
+  );
+
+  return primaryResources.length > 0 ? primaryResources : resources;
+}
+
+export function areModuleResourcesCompleted(module, completedResourceIds) {
+  const resources = getRequiredModuleResources(module);
 
   return resources.every(
     (resource) =>

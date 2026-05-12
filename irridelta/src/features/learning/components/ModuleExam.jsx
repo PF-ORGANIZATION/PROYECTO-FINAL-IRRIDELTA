@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   CheckCircle,
@@ -10,6 +10,7 @@ import { QUESTION_TYPES } from "../../certifications/utils/assessments";
 import {
   abandonExamAttempt,
   completeExamAttempt,
+  EXAM_ATTEMPT_STATUS,
   getCurrentExamUserId,
   getAttemptSummary,
   startExamAttempt,
@@ -93,6 +94,190 @@ function buildSelectedQuestions(questions, questionCount) {
     }));
 }
 
+function getLatestCompletedAttempt(attemptSummary) {
+  return (attemptSummary?.allAttempts ?? attemptSummary?.attempts ?? [])
+    .filter((attempt) => attempt.estado === EXAM_ATTEMPT_STATUS.COMPLETED)
+    .sort(
+      (a, b) =>
+        new Date(b.fecha_fin ?? b.created_at ?? 0).getTime() -
+        new Date(a.fecha_fin ?? a.created_at ?? 0).getTime()
+    )[0];
+}
+
+function buildSavedResult(attempt) {
+  const answerDetails = Array.isArray(attempt?.respuestas_detalle)
+    ? attempt.respuestas_detalle
+    : [];
+  const correctAnswers = answerDetails.filter((answer) => answer.correcta).length;
+  const totalQuestions = answerDetails.length;
+
+  return {
+    correctAnswers,
+    totalQuestions,
+    answerDetails,
+  };
+}
+
+function hasIncorrectAnswers(answerDetails) {
+  return (answerDetails ?? []).some((answer) => !answer.correcta);
+}
+
+function ResultScore({ correctAnswers, totalQuestions }) {
+  return (
+    <div className="mb-4 grid gap-3 text-sm sm:grid-cols-1">
+      <div className="rounded-lg bg-gray-50 p-3 text-center">
+        <p className="text-gray-600">Respuestas correctas</p>
+        <p className="text-xl font-bold text-gray-900">
+          {correctAnswers}/{totalQuestions}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function IncorrectAnswersReview({ answerDetails }) {
+  const incorrectAnswers = (answerDetails ?? []).filter(
+    (answer) => !answer.correcta
+  );
+
+  if (incorrectAnswers.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className={styles.incorrectAnswers}>
+      <h3>Respuestas para revisar</h3>
+      {incorrectAnswers.map((answer) => (
+        <article key={answer.question_id} className={styles.incorrectAnswer}>
+          <p className={styles.incorrectQuestion}>
+            {answer.question_number}. {answer.enunciado}
+          </p>
+          <div className={styles.reviewOptions}>
+            {(answer.opciones ?? []).map((option, optionIndex) => (
+              <div
+                key={`${answer.question_id}-${optionIndex}`}
+                className={`${styles.reviewOption} ${
+                  optionIndex === answer.respuesta_usuario_index
+                    ? styles.reviewOptionWrong
+                    : ""
+                }`}
+              >
+                <span className={styles.reviewRadio} />
+                <span>{option}</span>
+              </div>
+            ))}
+          </div>
+          <p className={styles.correctAnswerHint}>
+            {`La respuesta correcta es "${
+              answer.respuesta_correcta ?? "No configurada"
+            }"`}
+          </p>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function CompletionBanner({ children, size = "sm" }) {
+  return (
+    <div className="mb-4 rounded-lg bg-green-100 px-4 py-3 text-center">
+      <div className="flex items-center justify-center gap-2">
+        <CheckCircle
+          size={size === "lg" ? 24 : 20}
+          className="text-green-700"
+        />
+        <span
+          className={`font-bold text-green-700 ${
+            size === "lg" ? "text-lg" : "text-sm"
+          }`}
+        >
+          {children}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function CompletedInlineResult({
+  latestCompletedAttempt,
+  savedResult,
+  showSavedResult,
+  onHide,
+  onShow,
+}) {
+  const savedResultHasDetails = savedResult.totalQuestions > 0;
+  const savedResultHasErrors = hasIncorrectAnswers(savedResult.answerDetails);
+
+  return (
+    <div>
+      <CompletionBanner>Autoevaluacion finalizada</CompletionBanner>
+
+      {savedResultHasDetails && !savedResultHasErrors ? (
+        <>
+          <ResultScore
+            correctAnswers={savedResult.correctAnswers}
+            totalQuestions={savedResult.totalQuestions}
+          />
+          <p className={styles.savedResultSuccess}>
+            Todas las respuestas fueron correctas.
+          </p>
+        </>
+      ) : showSavedResult && latestCompletedAttempt ? (
+        <>
+          <ResultScore
+            correctAnswers={savedResult.correctAnswers}
+            totalQuestions={savedResult.totalQuestions}
+          />
+          <IncorrectAnswersReview answerDetails={savedResult.answerDetails} />
+          <button
+            type="button"
+            className={`${styles.secondaryAction} ${styles.savedResultAction}`}
+            onClick={onHide}
+          >
+            Ocultar
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          className={`${styles.secondaryAction} ${styles.savedResultAction}`}
+          disabled={!latestCompletedAttempt || !savedResultHasErrors}
+          onClick={onShow}
+        >
+          Mostrar respuestas
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CurrentAttemptResult({ result }) {
+  const allCorrect = result.correctAnswers === result.totalQuestions;
+
+  return (
+    <>
+      <CompletionBanner size="lg">
+        {allCorrect
+          ? `Felicitaciones, acertaste las ${result.totalQuestions} preguntas`
+          : "Autoevaluacion finalizada"}
+      </CompletionBanner>
+
+      <ResultScore
+        correctAnswers={result.correctAnswers}
+        totalQuestions={result.totalQuestions}
+      />
+
+      <IncorrectAnswersReview answerDetails={result.answerDetails} />
+
+      {result.isTimeExpired && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          El tiempo se acabo antes de que terminaras.
+        </div>
+      )}
+    </>
+  );
+}
+
 function ModuleExam({
   module,
   isUnlocked = false,
@@ -124,6 +309,9 @@ function ModuleExam({
   const [cooldownUntil, setCooldownUntil] = useState(null);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [showCooldownModal, setShowCooldownModal] = useState(false);
+  const [showSavedResult, setShowSavedResult] = useState(false);
+  const [answerValidationError, setAnswerValidationError] = useState("");
+  const finishExamRef = useRef(null);
 
   const assessment = module ?? {};
   const questions = useMemo(
@@ -138,7 +326,12 @@ function ModuleExam({
     questions.length
   );
   const minimumCorrectAnswers = Math.ceil((questionCount * passingScore) / 100);
-  const showIntro = !examStarted && !result && isUnlocked && (isStandalone || isExpanded);
+  const showIntro =
+    !isCompleted &&
+    !examStarted &&
+    !result &&
+    isUnlocked &&
+    (isStandalone || isExpanded);
   const canShowHeaderToggle =
     !isStandalone && !isInline && !examStarted && !result && isUnlocked && !isCompleted;
   const wrapperClass = isStandalone
@@ -159,6 +352,14 @@ function ModuleExam({
     !attemptSummary.canStart &&
     !attemptSummary.hasApprovedAttempt &&
     !cooldownActive;
+  const latestCompletedAttempt = useMemo(
+    () => getLatestCompletedAttempt(attemptSummary),
+    [attemptSummary]
+  );
+  const savedResult = useMemo(
+    () => buildSavedResult(latestCompletedAttempt),
+    [latestCompletedAttempt]
+  );
 
   useEffect(() => {
     if (!timerStarted || secondsRemaining === null) {
@@ -166,7 +367,7 @@ function ModuleExam({
     }
 
     if (secondsRemaining <= 0) {
-      finishExam({ isTimeExpired: true });
+      finishExamRef.current?.({ isTimeExpired: true });
       setTimerStarted(false);
       return undefined;
     }
@@ -183,6 +384,7 @@ function ModuleExam({
       !isInline ||
       !hasQuestions ||
       !isUnlocked ||
+      isCompleted ||
       result ||
       examStarted ||
       examQuestions.length > 0
@@ -200,6 +402,7 @@ function ModuleExam({
     examQuestions.length,
     examStarted,
     hasQuestions,
+    isCompleted,
     isInline,
     isUnlocked,
     questionCount,
@@ -377,6 +580,17 @@ function ModuleExam({
   async function finishExam({ isTimeExpired = false } = {}) {
     if (examQuestions.length === 0) return;
 
+    const answeredQuestions = Object.keys(answers).length;
+
+    if (!isTimeExpired && answeredQuestions < examQuestions.length) {
+      setAnswerValidationError(
+        "Selecciona una respuesta en cada pregunta antes de finalizar el intento."
+      );
+      return;
+    }
+
+    setAnswerValidationError("");
+
     const correctAnswers = examQuestions.reduce((total, question) => {
       const userAnswer = answers[question.id];
       const correctIndex = question.opciones_shuffled.findIndex(
@@ -439,7 +653,7 @@ function ModuleExam({
     setActiveAttempt(null);
 
     if (onComplete) {
-      onComplete({
+      await onComplete({
         percentage,
         passed,
         correctAnswers,
@@ -449,6 +663,7 @@ function ModuleExam({
   }
 
   function handleAnswerChange(questionId, optionIndex) {
+    setAnswerValidationError("");
     setAnswers((prev) => ({
       ...prev,
       [questionId]: optionIndex,
@@ -520,6 +735,8 @@ function ModuleExam({
     onExit?.();
   }
 
+  finishExamRef.current = finishExam;
+
   const isTimeWarning = secondsRemaining !== null && secondsRemaining < 300;
   const isTimeDanger = secondsRemaining !== null && secondsRemaining < 60;
 
@@ -569,7 +786,7 @@ function ModuleExam({
         >
           <div className="flex items-center gap-3">
             <span className="font-semibold text-gray-900">
-              Autoevaluacion del modulo
+              Autoevaluacion {module.titulo}
             </span>
             {isCompleted && (
               <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">
@@ -673,28 +890,17 @@ function ModuleExam({
               : "border-t border-gray-200 px-6 py-4"
           }
         >
-          {isInline && (
-            <div className={styles.inlineExamHeader}>
-              <span>Chequeo de comprension</span>
-              <h2>Autoevaluacion del modulo</h2>
-              <p>
-                Responde estas preguntas para comprobar que entendiste el
-                contenido antes de seguir.
-              </p>
-            </div>
-          )}
-
-          <div className="mb-6 space-y-6">
+          <div className={styles.inlineQuestionList}>
             {examQuestions.map((question, questionIndex) => (
-              <div key={question.id} className="learning-card-compact">
-                <p className="mb-3 font-semibold text-gray-900">
+              <div key={question.id} className={styles.inlineQuestionCard}>
+                <p className={styles.inlineQuestionTitle}>
                   {questionIndex + 1}. {question.enunciado}
                 </p>
-                <div className="space-y-2">
+                <div className={styles.inlineOptions}>
                   {(question.opciones_shuffled ?? []).map((option, optionIndex) => (
                     <label
                       key={optionIndex}
-                      className="flex cursor-pointer items-center gap-3 rounded-lg p-3 hover:bg-gray-50"
+                      className={styles.inlineOption}
                     >
                       <input
                         type="radio"
@@ -702,15 +908,20 @@ function ModuleExam({
                         value={optionIndex}
                         checked={answers[question.id] === optionIndex}
                         onChange={() => handleAnswerChange(question.id, optionIndex)}
-                        className="h-4 w-4"
                       />
-                      <span className="text-gray-700">{option}</span>
+                      <span>{option}</span>
                     </label>
                   ))}
                 </div>
               </div>
             ))}
           </div>
+
+          {answerValidationError && (
+            <div className={styles.answerValidationError}>
+              {answerValidationError}
+            </div>
+          )}
 
           <div className={styles.examActions}>
             <button
@@ -794,6 +1005,16 @@ function ModuleExam({
         </div>
       )}
 
+      {isInline && isCompleted && !result && (
+        <CompletedInlineResult
+          latestCompletedAttempt={latestCompletedAttempt}
+          savedResult={savedResult}
+          showSavedResult={showSavedResult}
+          onHide={() => setShowSavedResult(false)}
+          onShow={() => setShowSavedResult(true)}
+        />
+      )}
+
       {result && (
         <div
           className={
@@ -804,59 +1025,11 @@ function ModuleExam({
               : "border-t border-gray-200 px-6 py-4"
           }
         >
-          <div
-            className="mb-4 rounded-lg bg-green-100 px-4 py-3 text-center"
-          >
-            <div className="flex items-center justify-center gap-2">
-              <CheckCircle size={24} className="text-green-700" />
-              <span className="text-lg font-bold text-green-700">
-                {result.correctAnswers === result.totalQuestions
-                  ? `Felicitaciones, acertaste las ${result.totalQuestions} preguntas`
-                  : "Autoevaluacion completada"}
-              </span>
-            </div>
-          </div>
-
-          <div className="mb-4 grid gap-3 text-sm sm:grid-cols-1">
-            <div className="rounded-lg bg-gray-50 p-3 text-center">
-              <p className="text-gray-600">Respuestas correctas</p>
-              <p className="text-xl font-bold text-gray-900">
-                {result.correctAnswers}/{result.totalQuestions}
-              </p>
-            </div>
-          </div>
-
-          {(result.answerDetails ?? []).some((answer) => !answer.correcta) && (
-            <div className={styles.incorrectAnswers}>
-              <h3>Respuestas para revisar</h3>
-              {(result.answerDetails ?? [])
-                .filter((answer) => !answer.correcta)
-                .map((answer) => (
-                  <article key={answer.question_id} className={styles.incorrectAnswer}>
-                    <p className={styles.incorrectQuestion}>
-                      {answer.question_number}. {answer.enunciado}
-                    </p>
-                    <p>
-                      <span>Tu respuesta:</span>{" "}
-                      {answer.respuesta_usuario ?? "Sin responder"}
-                    </p>
-                    <p>
-                      <span>Respuesta correcta:</span>{" "}
-                      {answer.respuesta_correcta ?? "No configurada"}
-                    </p>
-                  </article>
-                ))}
-            </div>
-          )}
-
-          {result.isTimeExpired && (
-            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-              El tiempo se acabo antes de que terminaras.
-            </div>
-          )}
+          <CurrentAttemptResult result={result} />
 
           <div className={`flex ${isStandalone ? "flex-col gap-3 sm:flex-row" : ""}`}>
-            {(!result.passed || result.percentage < 100) &&
+            {!isInline &&
+              (!result.passed || result.percentage < 100) &&
               (isInline || canStartAttempt) &&
               !cooldownActive &&
               !attemptsExhausted && (

@@ -1,4 +1,5 @@
 import { supabase } from "../../../supabaseClient";
+import { RESOURCE_TYPES } from "./learningContentService";
 import {
   getCompletedResourceIds,
   isCapacitacionCompleted,
@@ -42,6 +43,15 @@ function getModuleResources(module) {
   return module?.recursos ?? [];
 }
 
+function getRequiredModuleResources(module) {
+  const resources = getModuleResources(module);
+  const primaryResources = resources.filter(
+    (resource) => resource?.tipo !== RESOURCE_TYPES.ARCHIVO
+  );
+
+  return primaryResources.length > 0 ? primaryResources : resources;
+}
+
 function mapLightCapacitacion(item) {
   return {
     ...item,
@@ -60,12 +70,12 @@ function getItemProgress(item, progressItems = []) {
   const modules = item?.modulos ?? [];
   const completedResourceIds = getCompletedResourceIds(progressItems);
   const startedModules = modules.filter((module) =>
-    getModuleResources(module).some((resource) =>
+    getRequiredModuleResources(module).some((resource) =>
       isResourceCompleted(resource, completedResourceIds, module.id)
     )
   ).length;
   const completedModules = modules.filter((module) => {
-    const resources = getModuleResources(module);
+    const resources = getRequiredModuleResources(module);
     return resources.every((resource) =>
       isResourceCompleted(resource, completedResourceIds, module.id)
     );

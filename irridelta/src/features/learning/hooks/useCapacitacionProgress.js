@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchLearningItemById, fetchLearningItemBySlug } from "../services/learningContentService";
 import {
   fetchUserLearningProgress,
@@ -13,7 +13,7 @@ import {
 } from "../services/examAttemptsService";
 
 function useCapacitacionProgress(capacitacionIdOrSlug, options = {}) {
-  const { onlyPublished = true } = options;
+  const { onlyPublished = true, userId = null } = options;
   const [capacitacion, setCapacitacion] = useState(null);
   const [progressItems, setProgressItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,6 +26,8 @@ function useCapacitacionProgress(capacitacionIdOrSlug, options = {}) {
   const [savingResourceId, setSavingResourceId] = useState(null);
   const [automaticTrackingResourceIds, setAutomaticTrackingResourceIds] =
     useState(() => new Set());
+  const progressRequestIdRef = useRef(0);
+  const examAttemptsRequestIdRef = useRef(0);
 
   useEffect(() => {
     let ignore = false;
@@ -63,80 +65,88 @@ function useCapacitacionProgress(capacitacionIdOrSlug, options = {}) {
     };
   }, [capacitacionIdOrSlug, onlyPublished]);
 
-  useEffect(() => {
-    let ignore = false;
+  const refreshProgress = useCallback(async () => {
+    const requestId = progressRequestIdRef.current + 1;
+    progressRequestIdRef.current = requestId;
 
-    const loadProgress = async () => {
-      if (!capacitacion?.id) {
-        return;
+    if (!capacitacion?.id) {
+      setProgressItems([]);
+      setLoadingProgress(false);
+      return [];
+    }
+
+    setLoadingProgress(true);
+    setProgressError("");
+
+    try {
+      const data = await fetchUserLearningProgress(capacitacion.id);
+
+      if (progressRequestIdRef.current === requestId) {
+        setProgressItems(data);
       }
 
-      setLoadingProgress(true);
-      setProgressError("");
+      return data;
+    } catch (loadError) {
+      console.error("No se pudo cargar el progreso", loadError);
 
-      try {
-        const data = await fetchUserLearningProgress(capacitacion.id);
-
-        if (!ignore) {
-          setProgressItems(data);
-        }
-      } catch (loadError) {
-        if (!ignore) {
-          console.error("No se pudo cargar el progreso", loadError);
-          setProgressError("No se pudo cargar tu progreso.");
-        }
-      } finally {
-        if (!ignore) {
-          setLoadingProgress(false);
-        }
+      if (progressRequestIdRef.current === requestId) {
+        setProgressError("No se pudo cargar tu progreso.");
       }
-    };
 
-    loadProgress();
+      return [];
+    } finally {
+      if (progressRequestIdRef.current === requestId) {
+        setLoadingProgress(false);
+      }
+    }
+  }, [capacitacion?.id]);
 
-    return () => {
-      ignore = true;
-    };
+  const refreshExamAttempts = useCallback(async () => {
+    const requestId = examAttemptsRequestIdRef.current + 1;
+    examAttemptsRequestIdRef.current = requestId;
+
+    if (!capacitacion?.id) {
+      setExamAttempts([]);
+      setLoadingExamAttempts(false);
+      return [];
+    }
+
+    setLoadingExamAttempts(true);
+    setExamAttemptsError("");
+
+    try {
+      const data = await fetchExamAttempts({
+        tipoExamen: EXAM_TYPES.MODULO,
+        capacitacionId: capacitacion.id,
+      });
+
+      if (examAttemptsRequestIdRef.current === requestId) {
+        setExamAttempts(data);
+      }
+
+      return data;
+    } catch (loadError) {
+      console.error("No se pudieron cargar los examenes de modulo", loadError);
+
+      if (examAttemptsRequestIdRef.current === requestId) {
+        setExamAttemptsError("No se pudo cargar el avance de evaluaciones.");
+      }
+
+      return [];
+    } finally {
+      if (examAttemptsRequestIdRef.current === requestId) {
+        setLoadingExamAttempts(false);
+      }
+    }
   }, [capacitacion?.id]);
 
   useEffect(() => {
-    let ignore = false;
+    refreshProgress();
+  }, [refreshProgress, userId]);
 
-    const loadExamAttempts = async () => {
-      if (!capacitacion?.id) {
-        return;
-      }
-
-      setLoadingExamAttempts(true);
-      setExamAttemptsError("");
-
-      try {
-        const data = await fetchExamAttempts({
-          tipoExamen: EXAM_TYPES.MODULO,
-          capacitacionId: capacitacion.id,
-        });
-
-        if (!ignore) {
-          setExamAttempts(data);
-        }
-      } catch (loadError) {
-        if (!ignore) {
-          console.error("No se pudieron cargar los examenes de modulo", loadError);
-          setExamAttemptsError("No se pudo cargar el avance de evaluaciones.");
-        }
-      } finally {
-        if (!ignore) {
-          setLoadingExamAttempts(false);
-        }
-      }
-    };
-
-    loadExamAttempts();
-
-    return () => {
-      ignore = true;
-    };
-  }, [capacitacion?.id]);
+  useEffect(() => {
+    refreshExamAttempts();
+  }, [refreshExamAttempts, userId]);
 
   const completedResourceIds = useMemo(
     () => getCompletedResourceIds(progressItems),
@@ -239,6 +249,8 @@ function useCapacitacionProgress(capacitacionIdOrSlug, options = {}) {
     savingResourceId,
     automaticTrackingResourceIds,
     markResourceAsCompleted,
+    refreshExamAttempts,
+    refreshProgress,
     setTrackingReady,
   };
 }
