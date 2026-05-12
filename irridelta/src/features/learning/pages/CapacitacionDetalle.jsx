@@ -113,13 +113,14 @@ function hasCompletedModuleAssessment({ moduleId, examAttempts }) {
 }
 
 function getLearningHighlights(activeModule, activeResource) {
-  const lessonTitle = activeResource ? getResourceLabel(activeResource) : "";
+  const lessonTitle = activeResource ? getResourceLabel(activeResource, "") : "";
   const moduleTitle = activeModule?.titulo ?? "este modulo";
-  const normalizedLessonTitle = lessonTitle.toLowerCase();
+  const highlightTitle = lessonTitle || moduleTitle;
+  const normalizedLessonTitle = highlightTitle.toLowerCase();
   const normalizedModuleTitle = moduleTitle.toLowerCase();
 
   return [
-    lessonTitle
+    highlightTitle
       ? `Que es ${normalizedLessonTitle} y por que es importante.`
       : `Conceptos principales de ${normalizedModuleTitle}.`,
     `Como se relaciona con ${normalizedModuleTitle}.`,
@@ -128,7 +129,8 @@ function getLearningHighlights(activeModule, activeResource) {
 }
 
 function getFileTypeLabel(resource) {
-  const extension = resource?.extension || resource?.archivo_nombre?.split(".").pop();
+  const extension =
+    resource?.extension || resource?.archivo_nombre?.split(".").pop();
 
   if (!extension) {
     return "Archivo";
@@ -252,6 +254,7 @@ function SidebarLessonButton({
     module.id
   );
   const lessonLabel = `${moduleIndex + 1}.${resourceIndex + 1}`;
+  const resourceLabel = getResourceLabel(resource, module.titulo);
 
   return (
     <button
@@ -266,7 +269,7 @@ function SidebarLessonButton({
         {resourceUnlocked ? <PlayCircle size={15} /> : <Lock size={14} />}
       </span>
       <span className={styles.lessonName}>
-        {lessonLabel} {getResourceLabel(resource)}
+        {lessonLabel} {resourceLabel}
       </span>
     </button>
   );
@@ -330,10 +333,7 @@ function SidebarModule({
   );
 }
 
-function CertificationSidebarCard({
-  capacitacionCompleted,
-  certification,
-}) {
+function CertificationSidebarCard({ capacitacionCompleted, certification }) {
   if (!certification) {
     return null;
   }
@@ -580,18 +580,17 @@ function ModuleAssessmentPanel({
         </div>
       )}
 
-      {activeModuleHasAssessment &&
-        activeModuleResourcesCompleted && (
-          <ModuleExam
-            module={activeModule}
-            isCompleted={activeModuleAssessmentDone}
-            isUnlocked={activeModuleResourcesCompleted}
-            variant="inline"
-            courseTitle={courseTitle}
-            attemptParams={activeModuleAttemptParams}
-            onComplete={onAssessmentComplete}
-          />
-        )}
+      {activeModuleHasAssessment && activeModuleResourcesCompleted && (
+        <ModuleExam
+          module={activeModule}
+          isCompleted={activeModuleAssessmentDone}
+          isUnlocked={activeModuleResourcesCompleted}
+          variant="inline"
+          courseTitle={courseTitle}
+          attemptParams={activeModuleAttemptParams}
+          onComplete={onAssessmentComplete}
+        />
+      )}
     </aside>
   );
 }
@@ -958,7 +957,10 @@ function CapacitacionDetalle() {
                           <div className={styles.lessonPanelHeader}>
                             <h2>
                               {activeModuleIndex + 1}.{activeResourceIndex + 1}{" "}
-                              {getResourceLabel(activeResource)}
+                              {getResourceLabel(
+                                activeResource,
+                                activeModule?.titulo
+                              )}
                             </h2>
                             <p>{activeModule?.titulo}</p>
                           </div>

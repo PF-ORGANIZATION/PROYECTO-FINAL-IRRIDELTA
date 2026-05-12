@@ -12,12 +12,46 @@ export function getResourceHref(resource) {
   return null;
 }
 
-export function getResourceLabel(resource) {
-  if (resource?.tipo === RESOURCE_TYPES.ARCHIVO) {
-    return resource.archivo_nombre || resource.titulo || "Abrir archivo";
+function isUrlLike(value) {
+  if (typeof value !== "string") {
+    return false;
   }
 
-  return resource?.titulo || "Ver YouTube";
+  const normalizedValue = value.trim();
+
+  return (
+    /^https?:\/\//i.test(normalizedValue) ||
+    /(?:youtube\.com|youtu\.be)/i.test(normalizedValue)
+  );
+}
+
+function getCleanLabel(candidates) {
+  for (const candidate of candidates) {
+    const normalizedCandidate =
+      typeof candidate === "string" ? candidate.trim() : "";
+
+    if (normalizedCandidate && !isUrlLike(normalizedCandidate)) {
+      return normalizedCandidate;
+    }
+  }
+
+  return null;
+}
+
+export function getResourceLabel(resource, fallbackLabel = null) {
+  if (resource?.tipo === RESOURCE_TYPES.ARCHIVO) {
+    return (
+      getCleanLabel([resource.archivo_nombre, resource.titulo]) ||
+      fallbackLabel ||
+      "Abrir archivo"
+    );
+  }
+
+  return (
+    getCleanLabel([resource?.titulo, resource?.nombre, resource?.descripcion]) ||
+    fallbackLabel ||
+    "Video"
+  );
 }
 
 export function getRequiredModuleResources(module) {
