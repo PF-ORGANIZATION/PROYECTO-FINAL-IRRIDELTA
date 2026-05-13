@@ -31,9 +31,11 @@ import {
 } from "../services/learningProgressService";
 import {
   areModuleResourcesCompleted,
+  getResourceExtension,
   getResourceHref,
   getResourceLabel,
   isModuleCompleted,
+  isVideoResource,
 } from "../utils/learningRuntime";
 import styles from "./CapacitacionDetalle.module.css";
 
@@ -46,13 +48,20 @@ function buildLessons(modules) {
         resource,
         resourceIndex,
       }))
-      .filter((lesson) => lesson.resource?.tipo === RESOURCE_TYPES.YOUTUBE)
+      .filter((lesson) => isVideoResource(lesson.resource))
   );
+}
+
+function getModuleLessonResources(module) {
+  return (module?.recursos ?? [])
+    .map((resource, resourceIndex) => ({ resource, resourceIndex }))
+    .filter(({ resource }) => isVideoResource(resource));
 }
 
 function getModuleFileResources(module) {
   return (module?.recursos ?? []).filter(
-    (resource) => resource?.tipo === RESOURCE_TYPES.ARCHIVO
+    (resource) =>
+      resource?.tipo === RESOURCE_TYPES.ARCHIVO && !isVideoResource(resource)
   );
 }
 
@@ -129,8 +138,7 @@ function getLearningHighlights(activeModule, activeResource) {
 }
 
 function getFileTypeLabel(resource) {
-  const extension =
-    resource?.extension || resource?.archivo_nombre?.split(".").pop();
+  const extension = getResourceExtension(resource);
 
   if (!extension) {
     return "Archivo";
@@ -291,6 +299,7 @@ function SidebarModule({
     completedResourceIds
   );
   const moduleCompleted = isModuleCompleted(module, completedResourceIds);
+  const lessonResources = getModuleLessonResources(module);
 
   return (
     <article
@@ -311,7 +320,7 @@ function SidebarModule({
 
       {moduleUnlocked && (
         <div className={styles.sidebarLessons}>
-          {(module.recursos ?? []).map((resource, resourceIndex) => (
+          {lessonResources.map(({ resource, resourceIndex }) => (
             <SidebarLessonButton
               key={resource.id ?? `${capacitacionId}-${moduleIndex}-${resourceIndex}`}
               completedResourceIds={completedResourceIds}
@@ -495,6 +504,13 @@ function LessonSupportTabs({
   onDownloadResource,
 }) {
   const [activeTab, setActiveTab] = useState("contenido");
+  const hasResources = fileResources.length > 0;
+
+  useEffect(() => {
+    if (!hasResources && activeTab === "recursos") {
+      setActiveTab("contenido");
+    }
+  }, [activeTab, hasResources]);
 
   return (
     <section className={styles.lessonLearningNotes}>
@@ -510,13 +526,15 @@ function LessonSupportTabs({
         >
           Contenido
         </button>
-        <button
-          type="button"
-          className={activeTab === "recursos" ? styles.lessonTabActive : ""}
-          onClick={() => setActiveTab("recursos")}
-        >
-          Recursos
-        </button>
+        {hasResources && (
+          <button
+            type="button"
+            className={activeTab === "recursos" ? styles.lessonTabActive : ""}
+            onClick={() => setActiveTab("recursos")}
+          >
+            Recursos
+          </button>
+        )}
       </div>
 
       {activeTab === "contenido" && (
@@ -538,7 +556,7 @@ function LessonSupportTabs({
         </>
       )}
 
-      {activeTab === "recursos" && (
+      {hasResources && activeTab === "recursos" && (
         <LessonResources
           resources={fileResources}
           onDownloadResource={onDownloadResource}
@@ -595,6 +613,55 @@ function ModuleAssessmentPanel({
   );
 }
 
+function LocalVideoPlayer({
+  activeModule,
+  activeResource,
+  activeResourceCompleted,
+  activeResourceHref,
+  markResourceAsCompleted,
+}) {
+  const [completionSaved, setCompletionSaved] = useState(activeResourceCompleted);
+
+  useEffect(() => {
+    setCompletionSaved(activeResourceCompleted);
+  }, [activeResourceCompleted, activeResource?.id]);
+
+  const saveProgress = () => {
+    if (completionSaved) {
+      return;
+    }
+
+    setCompletionSaved(true);
+    markResourceAsCompleted(activeModule, activeResource);
+  };
+
+  const handleTimeUpdate = (event) => {
+    const video = event.currentTarget;
+
+    if (!video.duration) {
+      return;
+    }
+
+    if (video.currentTime / video.duration >= 0.9) {
+      saveProgress();
+    }
+  };
+
+  return (
+    <video
+      key={`${activeModule.id}-${activeResource.id}`}
+      className={styles.localVideoPlayer}
+      src={activeResourceHref}
+      controls
+      preload="metadata"
+      onEnded={saveProgress}
+      onTimeUpdate={handleTimeUpdate}
+    >
+      Tu navegador no puede reproducir este video.
+    </video>
+  );
+}
+
 function LessonResource({
   activeModule,
   activeResource,
@@ -633,6 +700,18 @@ function LessonResource({
         onTrackingReady={(isReady) =>
           setTrackingReady(activeResource.id, isReady)
         }
+      />
+    );
+  }
+
+  if (isVideoResource(activeResource)) {
+    return (
+      <LocalVideoPlayer
+        activeModule={activeModule}
+        activeResource={activeResource}
+        activeResourceCompleted={activeResourceCompleted}
+        activeResourceHref={activeResourceHref}
+        markResourceAsCompleted={markResourceAsCompleted}
       />
     );
   }
@@ -962,7 +1041,6 @@ function CapacitacionDetalle() {
                                 activeModule?.titulo
                               )}
                             </h2>
-                            <p>{activeModule?.titulo}</p>
                           </div>
 
                           <LessonResource

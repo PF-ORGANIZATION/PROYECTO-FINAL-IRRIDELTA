@@ -1,10 +1,10 @@
 import { supabase } from "../../../supabaseClient";
-import { RESOURCE_TYPES } from "./learningContentService";
 import {
   getCompletedResourceIds,
   isCapacitacionCompleted,
   isResourceCompleted,
 } from "./learningProgressService";
+import { getRequiredModuleResources } from "../utils/learningRuntime";
 import {
   getLearningProgressStatus,
   LEARNING_PROGRESS_STATUS,
@@ -37,19 +37,6 @@ function paginateItems(items, cursor, limit) {
     nextCursor: nextOffset < items.length ? String(nextOffset) : null,
     hasMore: nextOffset < items.length,
   };
-}
-
-function getModuleResources(module) {
-  return module?.recursos ?? [];
-}
-
-function getRequiredModuleResources(module) {
-  const resources = getModuleResources(module);
-  const primaryResources = resources.filter(
-    (resource) => resource?.tipo !== RESOURCE_TYPES.ARCHIVO
-  );
-
-  return primaryResources.length > 0 ? primaryResources : resources;
 }
 
 function mapLightCapacitacion(item) {
