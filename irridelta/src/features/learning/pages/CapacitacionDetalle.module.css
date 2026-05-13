@@ -995,6 +995,17 @@
   box-shadow: var(--shadow-md);
 }
 
+.localVideoPlayer {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin-top: 1.5rem;
+  border: 0;
+  border-radius: 0.85rem;
+  background: #111827;
+  box-shadow: var(--shadow-lg);
+}
+
 .fileLesson,
 .lessonEmpty {
   margin-top: 1.5rem;

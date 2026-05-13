@@ -1,5 +1,7 @@
 import { RESOURCE_TYPES } from "../services/learningContentService";
 
+const VIDEO_FILE_EXTENSIONS = new Set(["mp4", "webm", "mov", "m4v"]);
+
 export function getResourceHref(resource) {
   if (resource?.tipo === RESOURCE_TYPES.ARCHIVO) {
     return resource.archivo_url;
@@ -10,6 +12,26 @@ export function getResourceHref(resource) {
   }
 
   return null;
+}
+
+export function getResourceExtension(resource) {
+  const rawExtension =
+    resource?.extension ||
+    resource?.archivo_nombre?.split(".").pop() ||
+    resource?.archivo_url?.split("?")[0]?.split(".").pop();
+
+  return typeof rawExtension === "string" ? rawExtension.toLowerCase() : "";
+}
+
+export function isVideoResource(resource) {
+  if (resource?.tipo === RESOURCE_TYPES.YOUTUBE) {
+    return true;
+  }
+
+  return (
+    resource?.tipo === RESOURCE_TYPES.ARCHIVO &&
+    VIDEO_FILE_EXTENSIONS.has(getResourceExtension(resource))
+  );
 }
 
 function isUrlLike(value) {
@@ -56,8 +78,8 @@ export function getResourceLabel(resource, fallbackLabel = null) {
 
 export function getRequiredModuleResources(module) {
   const resources = module?.recursos ?? [];
-  const primaryResources = resources.filter(
-    (resource) => resource?.tipo !== RESOURCE_TYPES.ARCHIVO
+  const primaryResources = resources.filter((resource) =>
+    isVideoResource(resource)
   );
 
   return primaryResources.length > 0 ? primaryResources : resources;
