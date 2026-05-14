@@ -21,9 +21,14 @@ let instance = null;
  */
 export async function getEmbedder(progressCallback = null) {
   if (!instance) {
-    instance = pipeline("feature-extraction", "Supabase/gte-small", {
-      progress_callback: progressCallback,
-    });
+    try {
+      instance = await pipeline("feature-extraction", "Supabase/gte-small", {
+        progress_callback: progressCallback,
+      });
+    } catch (err) {
+      instance = null;
+      throw err;
+    }
   }
   return instance;
 }
