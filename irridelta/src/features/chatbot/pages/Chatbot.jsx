@@ -88,6 +88,7 @@ function Chatbot() {
           ...prev,
           { id: Date.now() + 1, sender: "bot", text: OFF_TOPIC_RESPONSE },
         ]);
+        setIsLoading(false);
         return;
       }
 
@@ -135,8 +136,13 @@ function Chatbot() {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        console.error("Error en la Edge Function:", errData);
-        throw new Error("No se pudo conectar con la IA. Intenta de nuevo en unos segundos.");
+        console.error("Error en la Edge Function:", response.status, errData);
+        const detail = errData?.details?.error?.message || errData?.error || "";
+        throw new Error(
+          response.status === 429
+            ? "El servicio está saturado. Intentá de nuevo en unos segundos."
+            : `Error del asistente${detail ? `: ${detail}` : ". Intentá de nuevo."}`
+        );
       }
 
       // 5. Leer el stream SSE token por token (con buffer para chunks parciales)

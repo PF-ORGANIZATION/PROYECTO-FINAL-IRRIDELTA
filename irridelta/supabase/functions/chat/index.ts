@@ -5,6 +5,7 @@
 // Supports both streaming (stream: true) and non-streaming responses.
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const FALLBACK_MODEL = "llama-3.1-8b-instant";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",   // tighten to your domain in production
@@ -50,7 +51,7 @@ Deno.serve(async (req: Request) => {
 
     // ── Streaming mode ──
     if (stream) {
-      const groqResponse = await fetch(GROQ_API_URL, {
+      let groqResponse = await fetch(GROQ_API_URL, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${groqApiKey}`,
@@ -58,6 +59,20 @@ Deno.serve(async (req: Request) => {
         },
         body: JSON.stringify(groqBody),
       });
+
+      // If the model fails (e.g. deprecated), retry with fallback
+      if ([400, 404].includes(groqResponse.status)) {
+        console.warn(`Modelo ${groqBody.model} falló, reintentando con ${FALLBACK_MODEL}`);
+        groqBody.model = FALLBACK_MODEL;
+        groqResponse = await fetch(GROQ_API_URL, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${groqApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(groqBody),
+        });
+      }
 
       if (!groqResponse.ok) {
         const errData = await groqResponse.json();
@@ -104,6 +119,20 @@ Deno.serve(async (req: Request) => {
       if (attempt < MAX_RETRIES) {
         await new Promise((r) => setTimeout(r, 2000 * attempt));
       }
+    }
+
+    if (groqResponse && [400, 404].includes(groqResponse.status)) {
+      console.warn(`Modelo ${groqBody.model} falló (non-streaming), reintentando con ${FALLBACK_MODEL}`);
+      groqBody.model = FALLBACK_MODEL;
+      groqResponse = await fetch(GROQ_API_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${groqApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(groqBody),
+      });
+      groqData = await groqResponse.json();
     }
 
     if (!groqResponse!.ok) {
