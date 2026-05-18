@@ -140,15 +140,12 @@ export function getModuleResourceCounts(module) {
     .map((link) => link.trim())
     .filter(Boolean);
 
-  const existingYoutubeCount = existingResources.filter(
-    (resource) => resource.tipo === "youtube"
-  ).length;
   const existingFileCount = existingResources.filter(
     (resource) => resource.tipo === "archivo"
   ).length;
 
   return {
-    videos: existingYoutubeCount + youtubeLines.length,
+    videos: youtubeLines.length,
     archivos: existingFileCount + selectedFiles.length,
   };
 }
