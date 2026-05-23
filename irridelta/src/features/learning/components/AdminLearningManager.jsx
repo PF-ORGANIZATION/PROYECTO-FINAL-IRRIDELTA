@@ -651,29 +651,34 @@ function AdminLearningManager({
                   ? publishBlockInfo.message
                   : undefined
               }
-              className={`inline-flex min-h-[50px] items-center gap-1 rounded-lg border border-gray-300 bg-gray-100 p-1 text-sm font-extrabold shadow-sm transition ${
+              className={`inline-flex min-h-[50px] items-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-extrabold text-gray-700 shadow-sm transition ${
                 isPublishDisabled
                   ? "cursor-not-allowed opacity-60"
-                  : "hover:border-gray-400"
+                  : "hover:border-gray-400 hover:bg-gray-50"
               }`}
             >
               <span
-                className={`rounded-md px-3 py-2 transition ${
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${
                   form.publicada
-                    ? "text-gray-600"
-                    : "bg-gray-700 text-white shadow-sm"
+                    ? "bg-green-600"
+                    : "bg-gray-300"
                 }`}
+                aria-hidden="true"
               >
-                Borrador
+                <span
+                  className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                    form.publicada ? "translate-x-5" : "translate-x-0.5"
+                  }`}
+                />
               </span>
               <span
-                className={`rounded-md px-3 py-2 transition ${
+                className={`transition ${
                   form.publicada
-                    ? "bg-green-600 text-white shadow-sm"
+                    ? "text-green-700"
                     : "text-gray-600"
                 }`}
               >
-                Publicada
+                {form.publicada ? "Publicada" : "Borrador"}
               </span>
             </button>
 
