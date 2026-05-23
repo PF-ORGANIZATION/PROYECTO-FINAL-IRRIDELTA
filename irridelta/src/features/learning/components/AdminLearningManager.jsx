@@ -687,7 +687,7 @@ function AdminLearningManager({
                 type="button"
                 onClick={() => triggerSave("stay")}
                 disabled={saving}
-                className="learning-button rounded-r-none"
+                className="learning-button rounded-r-none font-semibold"
               >
                 <Save className="h-4 w-4" />
                 {saving ? "Guardando..." : "Guardar"}
@@ -699,7 +699,7 @@ function AdminLearningManager({
                 disabled={saving}
                 aria-haspopup="menu"
                 aria-expanded={isSaveMenuOpen}
-                className="learning-button rounded-l-none border-l border-white/20 px-3"
+                className="learning-button rounded-l-none border-l border-white/20 px-3 font-semibold"
               >
                 <ChevronDown className="h-4 w-4" />
               </button>
