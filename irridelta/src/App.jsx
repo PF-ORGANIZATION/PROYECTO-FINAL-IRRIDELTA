@@ -27,7 +27,7 @@ import AdminCapacitacionesList from "./features/learning/pages/AdminCapacitacion
 import AdminCapacitacionEditor from "./features/learning/pages/AdminCapacitacionEditor";
 import AdminCertificaciones from "./features/certifications/pages/AdminCertificaciones";
 import AdminKB from "./features/kb/pages/AdminKB";
-import { getDefaultPathByRole, USER_ROLES } from "./features/auth/authRoles";
+import { USER_ROLES } from "./features/auth/authRoles";
 import Chatbot from "./features/chatbot/pages/Chatbot";
 
 const WHATSAPP_NUMBER = "5491162856483";
@@ -46,7 +46,7 @@ function ProtectedRoute({ element: Component, allowedRoles = [], ...rest }) {
   }
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(role)) {
-    return <Navigate to={getDefaultPathByRole(role)} replace />;
+    return <Navigate to="/" replace />;
   }
 
   return React.createElement(Component, rest);
