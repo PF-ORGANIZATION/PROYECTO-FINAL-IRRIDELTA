@@ -645,7 +645,7 @@ function AdminLearningManager({
             <button
               type="button"
               onClick={() => setIsPreviewOpen(true)}
-              className="learning-button-secondary"
+              className="btn-dark gap-2"
             >
               <Eye className="h-4 w-4" />
               Ver
@@ -665,8 +665,8 @@ function AdminLearningManager({
                 form.publicada
                   ? "learning-button"
                   : isPublishDisabled
-                    ? "learning-button-secondary cursor-not-allowed opacity-60"
-                    : "learning-button-secondary"
+                    ? "learning-button-secondary bg-gray-100 text-gray-700 cursor-not-allowed opacity-60"
+                    : "learning-button-secondary bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
               <Globe className="h-4 w-4" />

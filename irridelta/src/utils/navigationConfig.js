@@ -54,9 +54,5 @@ export function getFooterLinks(user, role) {
     items.push({ name: "Admin KB", path: "/admin/kb" });
   }
 
-  if (user) {
-    items.push({ name: "Asistente AI", path: "/chatbot" });
-  }
-
   return items;
 }
