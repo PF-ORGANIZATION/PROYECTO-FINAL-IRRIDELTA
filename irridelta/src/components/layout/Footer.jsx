@@ -13,6 +13,9 @@ function Footer() {
   const instagramUrl = "https://instagram.com/irridelta";
 
   const footerLinks = getFooterLinks(user, role);
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+  };
 
   return (
     <footer className="relative w-full bg-gray-800 py-8">
@@ -30,6 +33,7 @@ function Footer() {
             <Link
               key={item.name}
               to={item.path}
+              onClick={scrollToTop}
               className="transition duration-200 hover:text-white"
             >
               {item.name}
@@ -41,6 +45,7 @@ function Footer() {
           <div className="mb-6 flex justify-center">
             <Link
               to="/login"
+              onClick={scrollToTop}
               className="rounded-lg bg-green-500 px-6 py-3 text-sm font-semibold text-white shadow-md transition duration-200 hover:bg-green-600"
             >
               Iniciar Sesion
