@@ -7,7 +7,6 @@ import {
   Download,
   Eye,
   FileQuestion,
-  Globe,
   Layers3,
   ListChecks,
   Save,
@@ -624,15 +623,6 @@ function AdminLearningManager({
                 <ArrowLeft className="h-4 w-4" />
                 Volver
               </button>
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                  form.publicada
-                    ? "bg-green-100 text-green-700"
-                    : "bg-amber-100 text-amber-700"
-                }`}
-              >
-                {form.publicada ? "Publicada" : "Borrador"}
-              </span>
             </div>
 
             <h1 className="learning-title mt-4">{title}</h1>
@@ -644,15 +634,6 @@ function AdminLearningManager({
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={() => setIsPreviewOpen(true)}
-              className="btn-dark gap-2"
-            >
-              <Eye className="h-4 w-4" />
-              Ver
-            </button>
-
-            <button
-              type="button"
               aria-pressed={form.publicada}
               onClick={handlePublishToggle}
               disabled={isPublishDisabled}
@@ -661,16 +642,44 @@ function AdminLearningManager({
                   ? publishBlockInfo.message
                   : undefined
               }
-              className={`${
-                form.publicada
-                  ? "learning-button"
-                  : isPublishDisabled
-                    ? "learning-button-secondary bg-gray-100 text-gray-700 cursor-not-allowed opacity-60"
-                    : "learning-button-secondary bg-gray-100 text-gray-700 hover:bg-gray-200"
+              className={`inline-flex min-h-[50px] w-40 items-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-extrabold text-gray-700 shadow-sm transition ${
+                isPublishDisabled
+                  ? "cursor-not-allowed opacity-60"
+                  : "hover:border-gray-400 hover:bg-gray-50"
               }`}
             >
-              <Globe className="h-4 w-4" />
-              {form.publicada ? "Publicada" : "Publicar"}
+              <span
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${
+                  form.publicada
+                    ? "bg-green-600"
+                    : "bg-gray-300"
+                }`}
+                aria-hidden="true"
+              >
+                <span
+                  className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                    form.publicada ? "translate-x-5" : "translate-x-0.5"
+                  }`}
+                />
+              </span>
+              <span
+                className={`transition ${
+                  form.publicada
+                    ? "text-green-700"
+                    : "text-gray-600"
+                }`}
+              >
+                {form.publicada ? "Publicada" : "Borrador"}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsPreviewOpen(true)}
+              className="btn-dark min-h-[50px] gap-2 px-6"
+            >
+              <Eye className="h-4 w-4" />
+              Ver
             </button>
 
             <div ref={saveMenuRef} className="relative flex">
@@ -678,7 +687,7 @@ function AdminLearningManager({
                 type="button"
                 onClick={() => triggerSave("stay")}
                 disabled={saving}
-                className="learning-button rounded-r-none"
+                className="learning-button rounded-r-none font-semibold"
               >
                 <Save className="h-4 w-4" />
                 {saving ? "Guardando..." : "Guardar"}
@@ -690,7 +699,7 @@ function AdminLearningManager({
                 disabled={saving}
                 aria-haspopup="menu"
                 aria-expanded={isSaveMenuOpen}
-                className="learning-button rounded-l-none border-l border-white/20 px-3"
+                className="learning-button rounded-l-none border-l border-white/20 px-3 font-semibold"
               >
                 <ChevronDown className="h-4 w-4" />
               </button>
