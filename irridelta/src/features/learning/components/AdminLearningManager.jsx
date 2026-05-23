@@ -7,7 +7,6 @@ import {
   Download,
   Eye,
   FileQuestion,
-  Globe,
   Layers3,
   ListChecks,
   Save,
@@ -624,15 +623,6 @@ function AdminLearningManager({
                 <ArrowLeft className="h-4 w-4" />
                 Volver
               </button>
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                  form.publicada
-                    ? "bg-green-100 text-green-700"
-                    : "bg-amber-100 text-amber-700"
-                }`}
-              >
-                {form.publicada ? "Publicada" : "Borrador"}
-              </span>
             </div>
 
             <h1 className="learning-title mt-4">{title}</h1>
@@ -645,7 +635,7 @@ function AdminLearningManager({
             <button
               type="button"
               onClick={() => setIsPreviewOpen(true)}
-              className="btn-dark gap-2"
+              className="btn-dark min-h-[50px] gap-2 px-6"
             >
               <Eye className="h-4 w-4" />
               Ver
@@ -661,16 +651,30 @@ function AdminLearningManager({
                   ? publishBlockInfo.message
                   : undefined
               }
-              className={`${
-                form.publicada
-                  ? "learning-button"
-                  : isPublishDisabled
-                    ? "learning-button-secondary bg-gray-100 text-gray-700 cursor-not-allowed opacity-60"
-                    : "learning-button-secondary bg-gray-100 text-gray-700 hover:bg-gray-200"
+              className={`inline-flex min-h-[50px] items-center gap-1 rounded-lg border border-gray-300 bg-gray-100 p-1 text-sm font-extrabold shadow-sm transition ${
+                isPublishDisabled
+                  ? "cursor-not-allowed opacity-60"
+                  : "hover:border-gray-400"
               }`}
             >
-              <Globe className="h-4 w-4" />
-              {form.publicada ? "Publicada" : "Publicar"}
+              <span
+                className={`rounded-md px-3 py-2 transition ${
+                  form.publicada
+                    ? "text-gray-600"
+                    : "bg-gray-700 text-white shadow-sm"
+                }`}
+              >
+                Borrador
+              </span>
+              <span
+                className={`rounded-md px-3 py-2 transition ${
+                  form.publicada
+                    ? "bg-green-600 text-white shadow-sm"
+                    : "text-gray-600"
+                }`}
+              >
+                Publicada
+              </span>
             </button>
 
             <div ref={saveMenuRef} className="relative flex">
