@@ -634,15 +634,6 @@ function AdminLearningManager({
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={() => setIsPreviewOpen(true)}
-              className="btn-dark min-h-[50px] gap-2 px-6"
-            >
-              <Eye className="h-4 w-4" />
-              Ver
-            </button>
-
-            <button
-              type="button"
               aria-pressed={form.publicada}
               onClick={handlePublishToggle}
               disabled={isPublishDisabled}
@@ -651,7 +642,7 @@ function AdminLearningManager({
                   ? publishBlockInfo.message
                   : undefined
               }
-              className={`inline-flex min-h-[50px] items-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-extrabold text-gray-700 shadow-sm transition ${
+              className={`inline-flex min-h-[50px] w-40 items-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-extrabold text-gray-700 shadow-sm transition ${
                 isPublishDisabled
                   ? "cursor-not-allowed opacity-60"
                   : "hover:border-gray-400 hover:bg-gray-50"
@@ -680,6 +671,15 @@ function AdminLearningManager({
               >
                 {form.publicada ? "Publicada" : "Borrador"}
               </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsPreviewOpen(true)}
+              className="btn-dark min-h-[50px] gap-2 px-6"
+            >
+              <Eye className="h-4 w-4" />
+              Ver
             </button>
 
             <div ref={saveMenuRef} className="relative flex">
