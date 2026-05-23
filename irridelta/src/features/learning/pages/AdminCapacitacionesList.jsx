@@ -279,7 +279,7 @@ function AdminCapacitacionesList() {
                   <button
                     type="button"
                     onClick={() => handleDelete(item)}
-                    className="btn-danger-sm w-full"
+                    className="btn-danger w-full"
                   >
                     Eliminar
                   </button>
