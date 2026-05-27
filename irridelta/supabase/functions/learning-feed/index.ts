@@ -36,6 +36,7 @@ type FeedPayload = {
 
 type ResourceRow = {
   id: string;
+  tipo?: string | null;
 };
 
 type ModuleRow = {
@@ -286,7 +287,7 @@ Deno.serve(async (req: Request) => {
           publicada,
           created_at,
           updated_at,
-          capacitacion_modulos(id, modulo_recursos(id)),
+          capacitacion_modulos(id, modulo_recursos(id, tipo)),
           certificaciones(id)
         `
         )
@@ -338,7 +339,7 @@ Deno.serve(async (req: Request) => {
           publicada,
           created_at,
           updated_at,
-          capacitacion_modulos(id, modulo_recursos(id)),
+          capacitacion_modulos(id, modulo_recursos(id, tipo)),
           certificaciones(id)
         `,
           { count: "exact" }
@@ -390,7 +391,7 @@ Deno.serve(async (req: Request) => {
           descripcion,
           publicada,
           created_at,
-          capacitacion_modulos(id, modulo_recursos(id)),
+          capacitacion_modulos(id, modulo_recursos(id, tipo)),
           certificaciones(
             id,
             titulo,

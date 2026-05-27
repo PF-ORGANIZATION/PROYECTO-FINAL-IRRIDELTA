@@ -1,4 +1,8 @@
 import { supabase } from "../../../supabaseClient";
+import {
+  getRequiredModuleResources,
+  isVideoResource,
+} from "../utils/learningRuntime";
 
 const PROGRESO_RECURSOS_TABLE = "progreso_recursos";
 
@@ -19,12 +23,8 @@ async function getCurrentUserId() {
   return user.id;
 }
 
-function getModuleResources(module) {
-  return module?.recursos ?? [];
-}
-
 function isModuleCompleted(module, completedResourceIds) {
-  const resources = getModuleResources(module);
+  const resources = getRequiredModuleResources(module);
   return resources.every((resource) =>
     isResourceCompleted(resource, completedResourceIds, module.id)
   );
@@ -166,7 +166,13 @@ export function isResourceUnlocked(
   }
 
   const module = modules?.[moduleIndex];
-  const previousResources = getModuleResources(module).slice(0, resourceIndex);
+  const moduleResources = module?.recursos ?? [];
+  const hasVideoResources = moduleResources.some((resource) =>
+    isVideoResource(resource)
+  );
+  const previousResources = moduleResources
+    .slice(0, resourceIndex)
+    .filter((resource) => (hasVideoResources ? isVideoResource(resource) : true));
 
   return previousResources.every((resource) =>
     isResourceCompleted(resource, completedResourceIds, module?.id)
@@ -184,7 +190,7 @@ export function isCapacitacionCompleted(
   }
 
   return moduleList.every((module) =>
-    getModuleResources(module).every((resource) =>
+    getRequiredModuleResources(module).every((resource) =>
       isResourceCompleted(resource, completedResourceIds, module.id)
     )
   );
