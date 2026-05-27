@@ -4,7 +4,12 @@ import {
   isCapacitacionCompleted,
   isResourceCompleted,
 } from "./learningProgressService";
-import { getLearningProgressStatus } from "../utils/learningProgressStatus";
+import { getRequiredModuleResources } from "../utils/learningRuntime";
+import {
+  getLearningProgressStatus,
+  LEARNING_PROGRESS_STATUS,
+  LEARNING_PROGRESS_STATUS_ORDER,
+} from "../utils/learningProgressStatus";
 
 export const LEARNING_FEED_VIEWS = {
   USER_CAPACITACIONES: "user-capacitaciones",
@@ -34,10 +39,6 @@ function paginateItems(items, cursor, limit) {
   };
 }
 
-function getModuleResources(module) {
-  return module?.recursos ?? [];
-}
-
 function mapLightCapacitacion(item) {
   return {
     ...item,
@@ -56,12 +57,12 @@ function getItemProgress(item, progressItems = []) {
   const modules = item?.modulos ?? [];
   const completedResourceIds = getCompletedResourceIds(progressItems);
   const startedModules = modules.filter((module) =>
-    getModuleResources(module).some((resource) =>
+    getRequiredModuleResources(module).some((resource) =>
       isResourceCompleted(resource, completedResourceIds, module.id)
     )
   ).length;
   const completedModules = modules.filter((module) => {
-    const resources = getModuleResources(module);
+    const resources = getRequiredModuleResources(module);
     return resources.every((resource) =>
       isResourceCompleted(resource, completedResourceIds, module.id)
     );
@@ -81,6 +82,26 @@ function getItemProgress(item, progressItems = []) {
     progressPercentage,
     status,
   };
+}
+
+function getFeedStatusOrder(item) {
+  return LEARNING_PROGRESS_STATUS_ORDER[item?.progress?.status] ?? 99;
+}
+
+function sortUserCapacitaciones(items) {
+  return [...items].sort((firstItem, secondItem) => {
+    const statusDifference =
+      getFeedStatusOrder(firstItem) - getFeedStatusOrder(secondItem);
+
+    if (statusDifference !== 0) {
+      return statusDifference;
+    }
+
+    return (
+      new Date(secondItem.updated_at ?? secondItem.created_at ?? 0).getTime() -
+      new Date(firstItem.updated_at ?? firstItem.created_at ?? 0).getTime()
+    );
+  });
 }
 
 async function getCurrentUserId() {
@@ -126,12 +147,72 @@ async function fetchProgressForItems(items) {
   }, {});
 }
 
+async function fetchApprovedFinalAttemptCapacitacionIds(items) {
+  const completedWithCertification = items.filter(
+    (item) =>
+      item.certificacion?.id &&
+      item.progress?.status === LEARNING_PROGRESS_STATUS.COMPLETED
+  );
+
+  if (completedWithCertification.length === 0) {
+    return new Set();
+  }
+
+  const userId = await getCurrentUserId();
+  const capacitacionIds = completedWithCertification.map((item) => item.id);
+  const { data, error } = await supabase
+    .from("exam_attempts")
+    .select("capacitacion_id")
+    .eq("user_id", userId)
+    .eq("tipo_examen", "final")
+    .eq("estado", "completado")
+    .eq("aprobado", true)
+    .in("capacitacion_id", capacitacionIds);
+
+  if (error) {
+    throw error;
+  }
+
+  return new Set((data ?? []).map((attempt) => attempt.capacitacion_id));
+}
+
+async function attachCertificationProgressStatus(items) {
+  const approvedFinalAttemptCapacitacionIds =
+    await fetchApprovedFinalAttemptCapacitacionIds(items);
+
+  return items.map((item) => {
+    if (
+      !item.certificacion?.id ||
+      item.progress?.status !== LEARNING_PROGRESS_STATUS.COMPLETED ||
+      approvedFinalAttemptCapacitacionIds.has(item.id)
+    ) {
+      return item;
+    }
+
+    return {
+      ...item,
+      progress: {
+        ...item.progress,
+        status: LEARNING_PROGRESS_STATUS.PENDING_CERTIFICATION,
+      },
+    };
+  });
+}
+
 async function attachProgress(items) {
   const progressByItemId = await fetchProgressForItems(items);
-  return items.map((item) => ({
+  const itemsWithProgress = items.map((item) => ({
     ...item,
     progress: getItemProgress(item, progressByItemId[item.id] ?? []),
   }));
+
+  return attachCertificationProgressStatus(itemsWithProgress);
+}
+
+async function prepareUserCapacitacionesItems(items) {
+  const itemsWithCertificationStatus = await attachCertificationProgressStatus(items);
+
+  return sortUserCapacitaciones(itemsWithCertificationStatus);
 }
 
 function applySearch(query, search) {
@@ -163,7 +244,7 @@ async function fetchLightCapacitaciones({
       publicada,
       created_at,
       updated_at,
-      capacitacion_modulos(id, modulo_recursos(id)),
+      capacitacion_modulos(id, modulo_recursos(id, tipo)),
       certificaciones(id)
     `,
       includeCount ? { count: "exact" } : undefined
@@ -218,7 +299,7 @@ async function fetchLearningFeedFallback({
       const nextOffset = offset + limit;
 
       return {
-        items: itemsWithProgress,
+        items: sortUserCapacitaciones(itemsWithProgress),
         total: count,
         nextCursor: nextOffset < count ? String(nextOffset) : null,
         hasMore: nextOffset < count,
@@ -241,7 +322,7 @@ async function fetchLearningFeedFallback({
       return matchesStatus;
     });
 
-    return paginateItems(itemsWithProgress, cursor, limit);
+    return paginateItems(sortUserCapacitaciones(itemsWithProgress), cursor, limit);
   }
 
   if (view === LEARNING_FEED_VIEWS.ADMIN_CAPACITACIONES) {
@@ -331,8 +412,13 @@ export async function fetchLearningFeed({
       throw new Error(data.error);
     }
 
+    const items =
+      view === LEARNING_FEED_VIEWS.USER_CAPACITACIONES
+        ? await prepareUserCapacitacionesItems(data?.items ?? [])
+        : data?.items ?? [];
+
     return {
-      items: data?.items ?? [],
+      items,
       total: Number(data?.total ?? 0),
       nextCursor: data?.nextCursor ?? null,
       hasMore: Boolean(data?.hasMore),
