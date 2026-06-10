@@ -189,6 +189,18 @@
   border: 1px solid #67e8f9;
 }
 
+.certificacion-en-revision {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
+
+.certificado {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #6ee7b7;
+}
+
 .completado {
   background: #dcfce7;
   color: #15803d;

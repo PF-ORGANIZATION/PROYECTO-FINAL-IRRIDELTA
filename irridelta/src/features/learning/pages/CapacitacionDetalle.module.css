@@ -935,10 +935,53 @@
   color: #15803d;
 }
 
+.sidebarCertificationPending {
+  border-color: #fcd34d;
+  background: #fffbeb;
+  color: #b45309;
+  box-shadow: 0 12px 28px rgba(245, 158, 11, 0.12);
+}
+
+.sidebarCertificationPending h2,
+.sidebarCertificationPending p {
+  color: #b45309;
+}
+
+.sidebarCertificationApproved {
+  border-color: #86efac;
+  background: #f0fdf4;
+  color: #15803d;
+  box-shadow: 0 12px 28px rgba(22, 163, 74, 0.18);
+  cursor: pointer;
+}
+
+.sidebarCertificationApproved h2,
+.sidebarCertificationApproved p {
+  color: #15803d;
+}
+
+.sidebarCertificationRejected {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  cursor: pointer;
+}
+
+.sidebarCertificationRejected h2,
+.sidebarCertificationRejected p {
+  color: #b91c1c;
+}
+
 .sidebarCertificationAvailable:hover {
   border-color: #22c55e;
   box-shadow: 0 16px 36px rgba(22, 163, 74, 0.24);
   transform: translateY(-3px);
+}
+
+.sidebarCertificationApproved:hover,
+.sidebarCertificationRejected:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 .lessonPanel {

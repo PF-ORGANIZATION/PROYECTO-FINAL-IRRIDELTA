@@ -63,7 +63,7 @@ type CapacitacionRow = {
   created_at?: string | null;
   updated_at?: string | null;
   capacitacion_modulos?: ModuleRow[] | null;
-  certificaciones?: CertificationRow[] | null;
+  certificaciones?: CertificationRow | CertificationRow[] | null;
 };
 
 type ProgressRow = {
@@ -121,6 +121,13 @@ function buildProgressByCapacitacion(progressRows: ProgressRow[]) {
   }, {});
 }
 
+function getRequiredModuleResources(module: ModuleRow) {
+  const resources = module.modulo_recursos ?? [];
+  const primaryResources = resources.filter((resource) => resource.tipo !== "archivo");
+
+  return primaryResources.length > 0 ? primaryResources : resources;
+}
+
 function getCapacitacionProgress(
   item: CapacitacionRow,
   progressByCapacitacion: Record<string, Set<string>>
@@ -128,12 +135,12 @@ function getCapacitacionProgress(
   const modules = item.capacitacion_modulos ?? [];
   const completedKeys = progressByCapacitacion[item.id] ?? new Set<string>();
   const startedModules = modules.filter((module) =>
-    (module.modulo_recursos ?? []).some((resource) =>
+    getRequiredModuleResources(module).some((resource) =>
       completedKeys.has(`${module.id}:${resource.id}`)
     )
   ).length;
   const completedModules = modules.filter((module) => {
-    const resources = module.modulo_recursos ?? [];
+    const resources = getRequiredModuleResources(module);
     return resources.every((resource) => completedKeys.has(`${module.id}:${resource.id}`));
   }).length;
   const totalModules = modules.length;
@@ -154,12 +161,22 @@ function getCapacitacionProgress(
   };
 }
 
+function getFirstCertification(
+  certificaciones: CertificationRow | CertificationRow[] | null | undefined
+) {
+  if (Array.isArray(certificaciones)) {
+    return certificaciones[0] ?? null;
+  }
+
+  return certificaciones ?? null;
+}
+
 function mapCapacitacionFeedItem(
   item: CapacitacionRow,
   progressByCapacitacion: Record<string, Set<string>>
 ) {
   const modules = item.capacitacion_modulos ?? [];
-  const certification = item.certificaciones?.[0] ?? null;
+  const certification = getFirstCertification(item.certificaciones);
 
   return {
     id: item.id,
@@ -179,7 +196,7 @@ function mapCapacitacionFeedItem(
 }
 
 function mapCertificationFeedItem(item: CapacitacionRow) {
-  const certification = item.certificaciones?.[0];
+  const certification = getFirstCertification(item.certificaciones);
 
   if (!certification) {
     return null;
@@ -415,8 +432,8 @@ Deno.serve(async (req: Request) => {
         throw error;
       }
 
-      const capacitaciones = ((data ?? []) as CapacitacionRow[]).filter(
-        (item) => (item.certificaciones ?? []).length > 0
+      const capacitaciones = ((data ?? []) as CapacitacionRow[]).filter((item) =>
+        Boolean(getFirstCertification(item.certificaciones))
       );
       const progressRows = await fetchProgressRows(
         supabaseAdmin,

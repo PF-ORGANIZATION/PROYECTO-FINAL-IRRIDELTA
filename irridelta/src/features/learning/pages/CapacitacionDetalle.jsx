@@ -24,6 +24,10 @@ import {
   EXAM_TYPES,
 } from "../services/examAttemptsService";
 import {
+  CERTIFICATION_REQUEST_STATUS,
+  fetchUserCertificationRequest,
+} from "../../certifications/services/certificationRequestService";
+import {
   isCapacitacionCompleted,
   isModuleUnlocked,
   isResourceCompleted,
@@ -342,9 +346,57 @@ function SidebarModule({
   );
 }
 
-function CertificationSidebarCard({ capacitacionCompleted, certification }) {
+function CertificationSidebarCard({
+  capacitacionCompleted,
+  certification,
+  certificateRequest,
+}) {
   if (!certification) {
     return null;
+  }
+
+  if (certificateRequest?.status === CERTIFICATION_REQUEST_STATUS.APPROVED) {
+    return (
+      <Link
+        to={`/certificaciones/${certification.id}`}
+        className={`${styles.sidebarCertification} ${styles.sidebarCertificationApproved}`}
+      >
+        <Award size={22} />
+        <div>
+          <h2>Certificacion final</h2>
+          <p>Certificado aprobado</p>
+        </div>
+      </Link>
+    );
+  }
+
+  if (certificateRequest?.status === CERTIFICATION_REQUEST_STATUS.PENDING) {
+    return (
+      <article
+        className={`${styles.sidebarCertification} ${styles.sidebarCertificationPending}`}
+      >
+        <Award size={22} />
+        <div>
+          <h2>Certificacion final</h2>
+          <p>Pendiente de aprobacion</p>
+        </div>
+      </article>
+    );
+  }
+
+  if (certificateRequest?.status === CERTIFICATION_REQUEST_STATUS.REJECTED) {
+    return (
+      <Link
+        to={`/certificaciones/${certification.id}`}
+        className={`${styles.sidebarCertification} ${styles.sidebarCertificationRejected}`}
+      >
+        <Award size={22} />
+        <div>
+          <h2>Certificacion final</h2>
+          <p>Solicitud rechazada</p>
+        </div>
+      </Link>
+    );
   }
 
   if (capacitacionCompleted) {
@@ -378,6 +430,7 @@ function CourseSidebar({
   activeResourceIndex,
   capacitacion,
   capacitacionCompleted,
+  certificateRequest,
   certification,
   completedResourceIds,
   modules,
@@ -409,6 +462,7 @@ function CourseSidebar({
 
       <CertificationSidebarCard
         capacitacionCompleted={capacitacionCompleted}
+        certificateRequest={certificateRequest}
         certification={certification}
       />
     </aside>
@@ -750,6 +804,7 @@ function LessonNavigation({
   activeModuleResourcesCompleted,
   activeResourceCompleted,
   capacitacionCompleted,
+  certificateRequest,
   certification,
   completedResourceIds,
   modules,
@@ -806,6 +861,18 @@ function LessonNavigation({
         <p className={styles.nextLockedText}>
           La siguiente leccion se habilita cuando completes esta.
         </p>
+      ) : certificateRequest?.status === CERTIFICATION_REQUEST_STATUS.APPROVED ? (
+        <Link
+          to={`/certificaciones/${certification.id}`}
+          className={`${styles.lessonNextButton} ${styles.lessonNextButtonPulse}`}
+        >
+          Ver certificado
+          <Award size={16} />
+        </Link>
+      ) : certificateRequest?.status === CERTIFICATION_REQUEST_STATUS.PENDING ? (
+        <p className={styles.nextLockedText}>
+          La certificacion esta pendiente de aprobacion administrativa.
+        </p>
       ) : certification && capacitacionCompleted ? (
         <Link
           to={`/certificaciones/${certification.id}`}
@@ -825,6 +892,7 @@ function CapacitacionDetalle() {
   const userId = useSessionStore((state) => state.user?.id ?? null);
   const onlyPublished = role !== USER_ROLES.ADMIN;
   const [activeLesson, setActiveLesson] = useState(null);
+  const [certificateRequest, setCertificateRequest] = useState(null);
 
   const {
     capacitacion,
@@ -861,6 +929,39 @@ function CapacitacionDetalle() {
     modules,
     completedResourceIds
   );
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadCertificateRequest() {
+      if (!certification?.id || !userId) {
+        setCertificateRequest(null);
+        return;
+      }
+
+      try {
+        const request = await fetchUserCertificationRequest(
+          certification.id,
+          userId
+        );
+
+        if (!ignore) {
+          setCertificateRequest(request);
+        }
+      } catch (requestError) {
+        if (!ignore) {
+          console.error("No se pudo cargar la solicitud de certificado", requestError);
+          setCertificateRequest(null);
+        }
+      }
+    }
+
+    loadCertificateRequest();
+
+    return () => {
+      ignore = true;
+    };
+  }, [certification?.id, userId]);
 
   const fallbackLesson = getNextPendingLesson(
     lessons,
@@ -1024,6 +1125,7 @@ function CapacitacionDetalle() {
                       activeResourceIndex={activeResourceIndex}
                       capacitacion={capacitacion}
                       capacitacionCompleted={capacitacionCompleted}
+                      certificateRequest={certificateRequest}
                       certification={certification}
                       completedResourceIds={completedResourceIds}
                       modules={modules}
@@ -1071,6 +1173,7 @@ function CapacitacionDetalle() {
                             }
                             activeResourceCompleted={activeResourceCompleted}
                             capacitacionCompleted={capacitacionCompleted}
+                            certificateRequest={certificateRequest}
                             certification={certification}
                             completedResourceIds={completedResourceIds}
                             modules={modules}
