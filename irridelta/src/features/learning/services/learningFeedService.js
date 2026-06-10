@@ -1,7 +1,6 @@
 import { supabase } from "../../../supabaseClient";
 import {
   getCompletedResourceIds,
-  isCapacitacionCompleted,
   isResourceCompleted,
 } from "./learningProgressService";
 import { getRequiredModuleResources } from "../utils/learningRuntime";
@@ -10,6 +9,7 @@ import {
   LEARNING_PROGRESS_STATUS,
   LEARNING_PROGRESS_STATUS_ORDER,
 } from "../utils/learningProgressStatus";
+import { CERTIFICATION_REQUEST_STATUS } from "../../certifications/services/certificationRequestService";
 
 export const LEARNING_FEED_VIEWS = {
   USER_CAPACITACIONES: "user-capacitaciones",
@@ -39,7 +39,17 @@ function paginateItems(items, cursor, limit) {
   };
 }
 
+function getFirstCertification(certificaciones) {
+  if (Array.isArray(certificaciones)) {
+    return certificaciones[0] ?? null;
+  }
+
+  return certificaciones ?? null;
+}
+
 function mapLightCapacitacion(item) {
+  const certification = getFirstCertification(item.certificaciones);
+
   return {
     ...item,
     tipo: "capacitacion",
@@ -47,9 +57,7 @@ function mapLightCapacitacion(item) {
       id: module.id,
       recursos: module.modulo_recursos ?? [],
     })),
-    certificacion: item.certificaciones?.[0]
-      ? { id: item.certificaciones[0].id }
-      : null,
+    certificacion: certification ? { ...certification, tipo: "certificacion" } : null,
   };
 }
 
@@ -176,21 +184,103 @@ async function fetchApprovedFinalAttemptCapacitacionIds(items) {
   return new Set((data ?? []).map((attempt) => attempt.capacitacion_id));
 }
 
+async function fetchCertificationRequestsByCertificationId(items) {
+  const certificationIds = [
+    ...new Set(
+      items.map((item) => item.certificacion?.id).filter(Boolean)
+    ),
+  ];
+
+  if (certificationIds.length === 0) {
+    return new Map();
+  }
+
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("certification_requests")
+    .select("*")
+    .eq("user_id", userId)
+    .in("certification_id", certificationIds)
+    .order("requested_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).reduce((requestsByCertificationId, request) => {
+    if (!requestsByCertificationId.has(request.certification_id)) {
+      requestsByCertificationId.set(request.certification_id, {
+        ...request,
+        status: request.status ?? CERTIFICATION_REQUEST_STATUS.PENDING,
+      });
+    }
+
+    return requestsByCertificationId;
+  }, new Map());
+}
+
 async function attachCertificationProgressStatus(items) {
   const approvedFinalAttemptCapacitacionIds =
     await fetchApprovedFinalAttemptCapacitacionIds(items);
+  const certificationRequestsByCertificationId =
+    await fetchCertificationRequestsByCertificationId(items);
 
   return items.map((item) => {
+    const certificationRequest = certificationRequestsByCertificationId.get(
+      item.certificacion?.id
+    );
+    const itemWithCertificationRequest = certificationRequest
+      ? {
+          ...item,
+          certificacion: {
+            ...item.certificacion,
+            certificationRequest,
+          },
+        }
+      : item;
+
     if (
       !item.certificacion?.id ||
-      item.progress?.status !== LEARNING_PROGRESS_STATUS.COMPLETED ||
-      approvedFinalAttemptCapacitacionIds.has(item.id)
+      item.progress?.status !== LEARNING_PROGRESS_STATUS.COMPLETED
     ) {
-      return item;
+      return itemWithCertificationRequest;
+    }
+
+    if (certificationRequest?.status === CERTIFICATION_REQUEST_STATUS.APPROVED) {
+      return {
+        ...itemWithCertificationRequest,
+        progress: {
+          ...item.progress,
+          status: LEARNING_PROGRESS_STATUS.CERTIFIED,
+        },
+      };
+    }
+
+    if (certificationRequest?.status === CERTIFICATION_REQUEST_STATUS.PENDING) {
+      return {
+        ...itemWithCertificationRequest,
+        progress: {
+          ...item.progress,
+          status: LEARNING_PROGRESS_STATUS.CERTIFICATION_REVIEW,
+        },
+      };
+    }
+
+    if (
+      certificationRequest?.status === CERTIFICATION_REQUEST_STATUS.REJECTED ||
+      !approvedFinalAttemptCapacitacionIds.has(item.id)
+    ) {
+      return {
+        ...itemWithCertificationRequest,
+        progress: {
+          ...item.progress,
+          status: LEARNING_PROGRESS_STATUS.PENDING_CERTIFICATION,
+        },
+      };
     }
 
     return {
-      ...item,
+      ...itemWithCertificationRequest,
       progress: {
         ...item.progress,
         status: LEARNING_PROGRESS_STATUS.PENDING_CERTIFICATION,
@@ -244,8 +334,18 @@ async function fetchLightCapacitaciones({
       publicada,
       created_at,
       updated_at,
-      capacitacion_modulos(id, modulo_recursos(id, tipo)),
-      certificaciones(id)
+      capacitacion_modulos(
+        id,
+        modulo_recursos(
+          id,
+          tipo,
+          youtube_url,
+          archivo_url,
+          archivo_nombre,
+          extension
+        )
+      ),
+      certificaciones(*)
     `,
       includeCount ? { count: "exact" } : undefined
     )
@@ -352,22 +452,23 @@ async function fetchLearningFeedFallback({
       search,
       status,
     });
-    const progressByItemId = await fetchProgressForItems(capacitaciones);
-    const certifications = capacitaciones
+    const capacitacionesWithProgress = await attachProgress(capacitaciones);
+    const certifications = capacitacionesWithProgress
       .filter((item) => {
         if (!item.certificacion) {
           return false;
         }
 
-        const completedResourceIds = getCompletedResourceIds(
-          progressByItemId[item.id] ?? []
-        );
-
-        return isCapacitacionCompleted(item.modulos, completedResourceIds);
+        return [
+          LEARNING_PROGRESS_STATUS.PENDING_CERTIFICATION,
+          LEARNING_PROGRESS_STATUS.CERTIFICATION_REVIEW,
+          LEARNING_PROGRESS_STATUS.CERTIFIED,
+        ].includes(item.progress?.status);
       })
       .map((item) => ({
         ...item.certificacion,
         capacitacion_titulo: item.titulo,
+        progressStatus: item.progress?.status,
       }));
 
     return paginateItems(certifications, cursor, limit);
@@ -383,6 +484,16 @@ export async function fetchLearningFeed({
   search = "",
   status = "todos",
 } = {}) {
+  if (view === LEARNING_FEED_VIEWS.USER_CERTIFICACIONES) {
+    return fetchLearningFeedFallback({
+      view,
+      cursor,
+      limit,
+      search,
+      status,
+    });
+  }
+
   if (!shouldTryLearningFeedFunction) {
     return fetchLearningFeedFallback({
       view,

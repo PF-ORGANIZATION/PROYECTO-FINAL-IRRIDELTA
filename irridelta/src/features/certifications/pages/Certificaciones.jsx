@@ -1,15 +1,58 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
-import { Clock3 } from "lucide-react";
+import {
+  Award,
+  BookOpenCheck,
+  ChevronRight,
+  Clock3,
+  FileCheck2,
+} from "lucide-react";
 import {
   LEARNING_FEED_VIEWS,
   fetchLearningFeed,
 } from "../../learning/services/learningFeedService";
+import { CERTIFICATION_REQUEST_STATUS } from "../services/certificationRequestService";
 import {
+  formatDurationLabel,
   getCertificationDurationMinutes,
 } from "../utils/certifications";
 import catalogStyles from "../../learning/components/LearningCatalog.module.css";
+import cardStyles from "../../learning/components/LearningItemPreviewCard.module.css";
+
+function getCertificationCardState(item) {
+  const requestStatus = item.certificationRequest?.status;
+
+  if (requestStatus === CERTIFICATION_REQUEST_STATUS.APPROVED) {
+    return {
+      badge: "Certificado aprobado",
+      button: "Ver certificado",
+      statusClass: "certificado",
+    };
+  }
+
+  if (requestStatus === CERTIFICATION_REQUEST_STATUS.PENDING) {
+    return {
+      badge: "Pendiente de aprobacion",
+      button: "Ver solicitud",
+      statusClass: "certificacion-en-revision",
+    };
+  }
+
+  if (requestStatus === CERTIFICATION_REQUEST_STATUS.REJECTED) {
+    return {
+      badge: "Solicitud rechazada",
+      button: "Revisar solicitud",
+      statusClass: "en-progreso",
+    };
+  }
+
+  return {
+    badge: "Lista para rendir",
+    button: "Rendir examen final",
+    statusClass: "pendiente-certificar",
+  };
+}
 
 function Certificaciones() {
   const navigate = useNavigate();
@@ -125,39 +168,105 @@ function Certificaciones() {
 
           {!loading && !error && items.length > 0 && (
             <>
-              <div className="learning-grid-2">
+              <div className={catalogStyles.grid}>
                 {items.map((item) => {
                   const durationMinutes = getCertificationDurationMinutes(item);
+                  const cardState = getCertificationCardState(item);
+                  const title =
+                    item.titulo ??
+                    item.capacitacion_titulo ??
+                    "Certificacion final";
+                  const description =
+                    item.descripcion ??
+                    `Evaluacion final de ${item.capacitacion_titulo ?? "la capacitacion"}.`;
 
                   return (
                     <article
                       key={item.id}
-                      className="learning-card"
+                      className={cardStyles.card}
                     >
-                      <h2 className="learning-section-title">
-                        {item.titulo}
-                      </h2>
-
-                      {item.descripcion && (
-                        <p className="learning-muted mt-3">
-                          {item.descripcion}
-                        </p>
-                      )}
-
-                      <div className="learning-pill mt-5">
-                        <Clock3 size={16} aria-hidden="true" />
-                        {durationMinutes}
+                      <div className={cardStyles.topRow}>
+                        <span className={cardStyles.eyebrow}>
+                          Certificacion final
+                        </span>
+                        <span
+                          className={`${cardStyles.statusBadge} ${cardStyles[cardState.statusClass]}`}
+                        >
+                          <FileCheck2
+                            className={cardStyles.statusIcon}
+                            aria-hidden="true"
+                          />
+                          {cardState.badge}
+                        </span>
                       </div>
 
-                      <div className="mt-6">
+                      <div className={cardStyles.content}>
+                        <h2 className={cardStyles.title}>
+                          {title}
+                        </h2>
+                        <p className={cardStyles.description}>
+                          {description}
+                        </p>
+                      </div>
+
+                      <div className={cardStyles.metaList}>
+                        <span className={cardStyles.metaItem}>
+                          <Clock3
+                            className={cardStyles.metaIcon}
+                            aria-hidden="true"
+                          />
+                          {formatDurationLabel(durationMinutes)}
+                        </span>
+                        <span className={cardStyles.metaItem}>
+                          <Award
+                            className={cardStyles.metaIcon}
+                            aria-hidden="true"
+                          />
+                          Certificado disponible
+                        </span>
+                        {item.capacitacion_titulo && (
+                          <span className={cardStyles.metaItem}>
+                            <BookOpenCheck
+                              className={cardStyles.metaIcon}
+                              aria-hidden="true"
+                            />
+                            {item.capacitacion_titulo}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className={cardStyles.progressBlock}>
+                        <div className={cardStyles.progressHeader}>
+                          <span>Capacitacion completa</span>
+                          <span className={cardStyles.progressValue}>
+                            100%
+                          </span>
+                        </div>
+                        <div
+                          className={cardStyles.progressTrack}
+                          role="progressbar"
+                          aria-valuenow="100"
+                          aria-valuemin="0"
+                          aria-valuemax="100"
+                          aria-label="Capacitacion completa"
+                        >
+                          <span
+                            className={cardStyles.progressBar}
+                            style={{ width: "100%" }}
+                          />
+                        </div>
+                      </div>
+
+                      <footer className={cardStyles.footer}>
                         <button
                           type="button"
                           onClick={() => navigate(`/certificaciones/${item.id}`)}
-                          className="learning-button"
+                          className={cardStyles.detailLink}
                         >
-                          Realizar certificacion
+                          {cardState.button}
+                          <ChevronRight size={18} aria-hidden="true" />
                         </button>
-                      </div>
+                      </footer>
                     </article>
                   );
                 })}
