@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -131,8 +131,20 @@ function CertificationExam() {
   const remainingAttempts = attemptSummary?.remainingAttempts ?? 3;
   const maxAttempts = attemptSummary?.maxAttempts ?? 3;
   const canStartAttempt = !attemptSummary || attemptSummary.canStart;
+  const hasPendingCertificateRequest =
+    certificateRequest?.status === CERTIFICATION_REQUEST_STATUS.PENDING;
+  const hasApprovedCertificateRequest =
+    certificateRequest?.status === CERTIFICATION_REQUEST_STATUS.APPROVED;
+  const hasRejectedCertificateRequest =
+    certificateRequest?.status === CERTIFICATION_REQUEST_STATUS.REJECTED;
+  const shouldShowCertificateRequestState =
+    !examStarted &&
+    !result &&
+    (hasPendingCertificateRequest ||
+      hasApprovedCertificateRequest ||
+      hasRejectedCertificateRequest);
 
-  const getFinalAttemptParams = () => {
+  const getFinalAttemptParams = useCallback(() => {
     if (!certification?.id || !certification?.capacitacion_id) {
       return null;
     }
@@ -142,7 +154,7 @@ function CertificationExam() {
       capacitacionId: certification.capacitacion_id,
       certificacionId: certification.id,
     };
-  };
+  }, [certification?.capacitacion_id, certification?.id]);
 
   function resetExamState(nextCertification) {
     const generatedExam = buildExam(nextCertification);
@@ -173,7 +185,7 @@ function CertificationExam() {
     setActiveAttempt(null);
   }
 
-  async function refreshAttemptSummary() {
+  const refreshAttemptSummary = useCallback(async () => {
     const params = getFinalAttemptParams();
 
     if (!params) {
@@ -183,9 +195,9 @@ function CertificationExam() {
 
     const summary = await getAttemptSummary(params);
     setAttemptSummary(summary);
-  }
+  }, [getFinalAttemptParams]);
 
-  async function finishExam({ isTimeExpired = false } = {}) {
+  const finishExam = useCallback(async ({ isTimeExpired = false } = {}) => {
     if (!certification || examQuestions.length === 0) {
       return;
     }
@@ -242,7 +254,15 @@ function CertificationExam() {
       attemptId: completedAttempt?.id ?? null,
       durationSeconds,
     });
-  }
+  }, [
+    activeAttempt,
+    answers,
+    certification,
+    examQuestions,
+    minimumCorrectAnswers,
+    passingScore,
+    refreshAttemptSummary,
+  ]);
 
   useEffect(() => {
     let ignore = false;
@@ -317,7 +337,7 @@ function CertificationExam() {
     return () => {
       ignore = true;
     };
-  }, [certification?.id, certification?.capacitacion_id]);
+  }, [certification?.id, certification?.capacitacion_id, getFinalAttemptParams]);
 
   useEffect(() => {
     let ignore = false;
@@ -333,6 +353,9 @@ function CertificationExam() {
 
         if (!ignore) {
           setCertificateRequest(request);
+          if (request?.requester_name) {
+            setRequesterName(request.requester_name);
+          }
         }
       } catch (error) {
         if (!ignore) {
@@ -404,6 +427,7 @@ function CertificationExam() {
     result,
     secondsRemaining,
     stage,
+    finishExam,
   ]);
 
   const handleAnswerChange = (questionId, answerIndex) => {
@@ -442,6 +466,15 @@ function CertificationExam() {
   };
 
   const handleStartExam = async () => {
+    if (hasPendingCertificateRequest || hasApprovedCertificateRequest) {
+      setAttemptError(
+        hasApprovedCertificateRequest
+          ? "Tu certificado ya fue aprobado."
+          : "Tu solicitud esta pendiente de aprobacion."
+      );
+      return;
+    }
+
     const nextDurationMinutes = getCertificationDurationMinutes(certification);
     const params = getFinalAttemptParams();
 
@@ -490,7 +523,17 @@ function CertificationExam() {
   const handleSubmitCertificateRequest = async (event) => {
     event.preventDefault();
 
-    if (!result?.passed || !certification) {
+    const requestExamResult = result?.passed
+      ? result
+      : hasRejectedCertificateRequest
+      ? {
+          passed: true,
+          percentage: certificateRequest?.exam_percentage ?? 100,
+          attemptId: certificateRequest?.exam_attempt_id ?? null,
+        }
+      : null;
+
+    if (!requestExamResult?.passed || !certification) {
       return;
     }
 
@@ -502,7 +545,7 @@ function CertificationExam() {
       const request = await createCertificationRequest({
         certification,
         requesterName,
-        examResult: result,
+        examResult: requestExamResult,
         userId: user?.id,
       });
 
@@ -565,7 +608,114 @@ function CertificationExam() {
           )}
 
           {!loading && !loadError && certification && examQuestions.length > 0 && (
-            !examStarted && !result ? (
+            shouldShowCertificateRequestState ? (
+              <div className="learning-card">
+                <header className="border-b pb-4">
+                  <h1 className="learning-section-title">
+                    {certification.titulo}
+                  </h1>
+                  {certification.descripcion && (
+                    <p className="learning-muted mt-3 max-w-3xl">
+                      {certification.descripcion}
+                    </p>
+                  )}
+                </header>
+
+                {hasPendingCertificateRequest && (
+                  <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-800">
+                    <h2 className="text-xl font-bold">
+                      Certificacion pendiente de aprobacion
+                    </h2>
+                    <p className="mt-2 text-sm font-semibold">
+                      Ya aprobaste el examen final y solicitaste el certificado.
+                      Un administrador tiene que aprobarlo antes de que puedas
+                      descargarlo.
+                    </p>
+                  </div>
+                )}
+
+                {hasRejectedCertificateRequest && (
+                  <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-800">
+                    <h2 className="text-xl font-bold">
+                      Solicitud rechazada
+                    </h2>
+                    {certificateRequest.rejection_reason && (
+                      <p className="mt-2 text-sm font-semibold">
+                        Motivo: {certificateRequest.rejection_reason}
+                      </p>
+                    )}
+
+                    <form
+                      onSubmit={handleSubmitCertificateRequest}
+                      className="mt-4 space-y-4"
+                    >
+                      <p className="text-sm font-semibold">
+                        Corregi tu nombre y apellido para volver a solicitar el
+                        certificado sin rendir otro intento.
+                      </p>
+                      <input
+                        type="text"
+                        placeholder="Nombre y apellido"
+                        value={requesterName}
+                        onChange={(event) => setRequesterName(event.target.value)}
+                        className="w-full rounded border p-3 text-gray-900"
+                        required
+                      />
+                      <button
+                        type="submit"
+                        disabled={isSubmittingRequest}
+                        className="learning-button"
+                      >
+                        {isSubmittingRequest ? "Reenviando..." : "Volver a solicitar"}
+                      </button>
+                    </form>
+                  </div>
+                )}
+
+                {hasApprovedCertificateRequest && (
+                  <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-5 text-green-800">
+                    <h2 className="text-xl font-bold">
+                      Certificado aprobado
+                    </h2>
+                    <p className="mt-2 text-sm font-semibold">
+                      Ya podes descargar tu certificado.
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          downloadCertificatePng(getCertificateDownloadData())
+                        }
+                        className="learning-button-secondary"
+                      >
+                        Descargar PNG
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          downloadCertificatePdf(getCertificateDownloadData())
+                        }
+                        className="learning-button"
+                      >
+                        Descargar PDF
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {requestMessage && (
+                  <p className="mt-4 rounded-lg bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+                    {requestMessage}
+                  </p>
+                )}
+
+                {requestError && (
+                  <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                    {requestError}
+                  </p>
+                )}
+              </div>
+            ) : !examStarted && !result ? (
               <div className={styles.disclaimerOverlay}>
                 <section className={styles.disclaimerModal}>
                   <p className={styles.disclaimerEyebrow}>

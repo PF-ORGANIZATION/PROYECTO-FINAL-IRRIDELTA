@@ -51,17 +51,23 @@ function LearningItemPreviewCard({ item, progress, onDetailClick = null }) {
   const isCompleted = progressData.status === LEARNING_PROGRESS_STATUS.COMPLETED;
   const isPendingCertification =
     progressData.status === LEARNING_PROGRESS_STATUS.PENDING_CERTIFICATION;
+  const isCertificationReview =
+    progressData.status === LEARNING_PROGRESS_STATUS.CERTIFICATION_REVIEW;
+  const isCertified = progressData.status === LEARNING_PROGRESS_STATUS.CERTIFIED;
   const isCompact = isCompleted;
-  const detailPath = isPendingCertification
+  const detailPath = isCertified
     ? `/certificaciones/${item.certificacion?.id}`
     : `/capacitaciones/${generateSlug(item.titulo)}`;
-  const detailLabel =
-    LEARNING_PROGRESS_ACTION_LABELS[progressData.status] ??
-    LEARNING_PROGRESS_ACTION_LABELS[LEARNING_PROGRESS_STATUS.PENDING];
+  const detailLabel = isPendingCertification || isCertificationReview
+    ? "Revisar capacitacion"
+    : LEARNING_PROGRESS_ACTION_LABELS[progressData.status] ??
+      LEARNING_PROGRESS_ACTION_LABELS[LEARNING_PROGRESS_STATUS.PENDING];
   const StatusIcon =
-    progressData.status === LEARNING_PROGRESS_STATUS.COMPLETED
+    progressData.status === LEARNING_PROGRESS_STATUS.COMPLETED ||
+    progressData.status === LEARNING_PROGRESS_STATUS.CERTIFIED
       ? CheckCircle2
-      : progressData.status === LEARNING_PROGRESS_STATUS.PENDING_CERTIFICATION
+      : progressData.status === LEARNING_PROGRESS_STATUS.PENDING_CERTIFICATION ||
+        progressData.status === LEARNING_PROGRESS_STATUS.CERTIFICATION_REVIEW
       ? FileCheck2
       : progressData.status === LEARNING_PROGRESS_STATUS.IN_PROGRESS
       ? PlayCircle
