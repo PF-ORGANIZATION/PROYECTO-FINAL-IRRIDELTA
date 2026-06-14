@@ -2,6 +2,10 @@ import React, { useEffect, useState } from "react";
 import { AlertCircle, BadgeCheck, UserRoundPlus } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../services/useAuth";
+import {
+  isPublicRegistrationEnabled,
+  validateTransactionalEmail,
+} from "../services/emailPolicy";
 import { useSessionStore } from "../../../store/sessionStore";
 import { getDefaultPathByRole, getUserRole } from "../authRoles";
 import styles from "./Register.module.css";
@@ -95,6 +99,15 @@ function Register() {
     event.preventDefault();
     setErrorFeedback(null);
 
+    const emailValidation = validateTransactionalEmail(email);
+    if (!emailValidation.isValid) {
+      setErrorFeedback({
+        title: emailValidation.title,
+        description: emailValidation.description,
+      });
+      return;
+    }
+
     if (fullName.trim().length < 3) {
       setErrorFeedback(getRegisterErrorFeedback("full_name"));
       return;
@@ -120,7 +133,7 @@ function Register() {
       setIsSubmitting(true);
 
       const authData = await signUp({
-        email,
+        email: emailValidation.email,
         password,
         metadata: {
           full_name: fullName.trim(),
@@ -129,7 +142,7 @@ function Register() {
       });
 
       if (!authData.session) {
-        setPendingConfirmationEmail(email.trim());
+        setPendingConfirmationEmail(emailValidation.email);
         return;
       }
 
@@ -159,6 +172,46 @@ function Register() {
       setIsSubmitting(false);
     }
   };
+
+  if (!isPublicRegistrationEnabled()) {
+    return (
+      <div className={styles.pageWrapper}>
+        <div className={`${styles.authCard} ${styles.authCardPending}`}>
+          <div className={styles.pendingHeader}>
+            <div className={styles.pendingIconWrapper}>
+              <UserRoundPlus className="h-8 w-8" />
+            </div>
+            <h2 className={styles.pendingTitle}>
+              Alta de cuentas pausada
+            </h2>
+            <p className={styles.pendingSubtitle}>
+              Para cuidar los envíos de correo, estamos creando cuentas nuevas
+              solo de forma asistida.
+            </p>
+          </div>
+
+          <div className={styles.pendingBody}>
+            <div className={styles.pendingInfoBox}>
+              <p>
+                Si necesitás acceso, pedile a un administrador de Irridelta que
+                genere tu usuario o usá una cuenta demo ya habilitada.
+              </p>
+            </div>
+
+            <div className={styles.pendingActionGroup}>
+              <Link
+                to="/login"
+                className="btn-primary"
+                style={{ flex: 1, textAlign: 'center' }}
+              >
+                Volver al inicio de sesión
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (pendingConfirmationEmail) {
     return (

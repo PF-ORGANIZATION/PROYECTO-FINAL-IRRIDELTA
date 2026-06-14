@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../services/useAuth";
+import { isPublicRegistrationEnabled } from "../services/emailPolicy";
 import { useSessionStore } from "../../../store/sessionStore";
 import { getDefaultPathByRole, getUserRole } from "../authRoles";
 import styles from "./Login.module.css";
@@ -164,12 +165,14 @@ function Login() {
             {isSubmitting ? "Iniciando..." : "Iniciar sesión"}
           </button>
 
-          <p className={styles.footerText}>
-            ¿Todavía no tienes cuenta?{" "}
-            <Link className={styles.footerLink} to="/registro">
-              Crear cuenta
-            </Link>
-          </p>
+          {isPublicRegistrationEnabled() && (
+            <p className={styles.footerText}>
+              ¿Todavía no tienes cuenta?{" "}
+              <Link className={styles.footerLink} to="/registro">
+                Crear cuenta
+              </Link>
+            </p>
+          )}
         </form>
       </div>
     </div>

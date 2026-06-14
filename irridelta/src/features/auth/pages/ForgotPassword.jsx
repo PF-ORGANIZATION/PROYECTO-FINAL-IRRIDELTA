@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { AlertCircle, ArrowLeft, MailCheck, ShieldCheck } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../services/useAuth";
+import { validateTransactionalEmail } from "../services/emailPolicy";
 import styles from "./ForgotPassword.module.css";
 
 function maskEmail(email) {
@@ -54,10 +55,19 @@ function ForgotPassword() {
       return;
     }
 
+    const emailValidation = validateTransactionalEmail(email);
+    if (!emailValidation.isValid) {
+      setErrorFeedback({
+        title: emailValidation.title,
+        description: emailValidation.description,
+      });
+      return;
+    }
+
     try {
       setIsSubmitting(true);
-      await resetPassword(email.trim());
-      setSubmittedEmail(email.trim());
+      await resetPassword(emailValidation.email);
+      setSubmittedEmail(emailValidation.email);
     } catch (authError) {
       setErrorFeedback(getForgotPasswordErrorFeedback(authError.message));
     } finally {
