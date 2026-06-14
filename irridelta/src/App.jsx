@@ -38,7 +38,7 @@ function ProtectedRoute({ element: Component, allowedRoles = [], ...rest }) {
   const isLoading = useSessionStore((state) => state.isLoading);
 
   if (isLoading) {
-    return <div className="p-8 text-center">Cargando sesion...</div>;
+    return <div className="p-8 text-center">Cargando sesión...</div>;
   }
 
   if (!user) {
@@ -66,7 +66,7 @@ function App() {
       } = await supabase.auth.getSession();
 
       if (error) {
-        console.error("No se pudo obtener la sesion actual", error);
+        console.error("No se pudo obtener la sesión actual", error);
         if (isMounted) {
           clearSession();
         }
@@ -230,7 +230,7 @@ function App() {
 
               <Route
                 path="*"
-                element={<div className="p-8 text-center">404 - Pagina no encontrada</div>}
+                element={<div className="p-8 text-center">404 - Página no encontrada</div>}
               />
             </Routes>
           </main>

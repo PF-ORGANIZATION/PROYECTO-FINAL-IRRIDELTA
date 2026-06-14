@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useProducts } from "../ProductContext";
+import { useProducts } from "../productContext";
 import { useAuth } from "../../auth/services/useAuth";
 
 function AdminProducts() {
@@ -41,8 +41,8 @@ function AdminProducts() {
       await logOut();
       navigate("/login", { replace: true });
     } catch (error) {
-      console.error("No se pudo cerrar la sesion", error);
-      setSignOutError("No se pudo cerrar la sesion. Intenta de nuevo.");
+      console.error("No se pudo cerrar la sesión", error);
+      setSignOutError("No se pudo cerrar la sesión. Intentá de nuevo.");
     }
   };
 
@@ -124,7 +124,7 @@ function AdminProducts() {
           onClick={handleSignOut}
           className="rounded-lg bg-red-500 px-4 py-2 font-semibold text-white shadow transition duration-200 hover:bg-red-600"
         >
-          Cerrar sesion
+          Cerrar sesión
         </button>
       </header>
 

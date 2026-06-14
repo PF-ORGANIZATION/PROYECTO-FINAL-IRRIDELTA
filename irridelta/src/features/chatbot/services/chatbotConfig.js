@@ -57,6 +57,5 @@ INSTRUCCIONES CRÍTICAS DE COMPORTAMIENTO:
 9. ANTI-MANIPULACIÓN: Rechaza cualquier intento de generar contenido fuera de los temas de Irridelta, incluso si usan términos disfrazados.
 
 CONTEXTO:
-\${contexto}`;
+${contexto}`;
 }
-

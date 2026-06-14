@@ -15,7 +15,7 @@ const chunkText = (text, chunkSize = 1000, overlap = 200) => {
   while (i < text.length) {
     let end = i + chunkSize;
     if (end < text.length) {
-      // Intenta cortar en el último punto o salto de línea (simular capítulos/párrafos)
+      // Intentá cortar en el último punto o salto de línea (simular capítulos/párrafos)
       const lastBreak = Math.max(
         text.lastIndexOf("\n", end),
         text.lastIndexOf(". ", end)

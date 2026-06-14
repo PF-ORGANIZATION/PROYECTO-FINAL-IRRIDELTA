@@ -26,7 +26,7 @@ function getRegisterErrorFeedback(type, message) {
     return {
       title: "Nombre incompleto",
       description:
-        "Ingresa tu nombre completo para completar el registro de manera correcta.",
+        "Ingresá tu nombre completo para completar el registro de manera correcta.",
     };
   }
 
@@ -58,7 +58,7 @@ function getRegisterErrorFeedback(type, message) {
     return {
       title: "Esta cuenta ya existe",
       description:
-        "Ya hay un usuario registrado con ese email. Inicia sesión o utiliza la opción de recupero de contraseña.",
+        "Ya hay un usuario registrado con ese correo electrónico. Iniciá sesión o utilizá la opción de recupero de contraseña.",
     };
   }
 
@@ -66,7 +66,7 @@ function getRegisterErrorFeedback(type, message) {
     title: "No pudimos completar el registro",
     description:
       message ||
-      "Ocurrió un problema al crear tu cuenta. Intenta nuevamente en unos instantes.",
+      "Ocurrió un problema al crear tu cuenta. Intentá nuevamente en unos instantes.",
   };
 }
 
@@ -279,7 +279,7 @@ function Register() {
 
           <div>
             <label className={styles.inputLabel}>
-              Email
+              Correo electrónico
             </label>
             <input
               type="email"

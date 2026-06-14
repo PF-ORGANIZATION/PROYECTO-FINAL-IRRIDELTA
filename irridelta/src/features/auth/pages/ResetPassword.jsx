@@ -32,7 +32,7 @@ function getResetPasswordErrorFeedback(type, message) {
     title: "No pudimos actualizar la contraseña",
     description:
       message ||
-      "Ocurrió un problema al actualizar tu contraseña. Intenta nuevamente en unos instantes.",
+      "Ocurrió un problema al actualizar tu contraseña. Intentá nuevamente en unos instantes.",
   };
 }
 
@@ -41,7 +41,7 @@ function getLinkIssueFeedback(errorCode, description) {
     return {
       title: "El enlace expiró",
       description:
-        "Por seguridad, el enlace de recuperación ya venció. Solicita uno nuevo para continuar.",
+        "Por seguridad, el enlace de recuperación ya venció. Solicitá uno nuevo para continuar.",
     };
   }
 
@@ -50,7 +50,7 @@ function getLinkIssueFeedback(errorCode, description) {
       title: "No pudimos validar el enlace",
       description:
         description ||
-        "El enlace no es válido o ya fue utilizado anteriormente. Solicita uno nuevo para continuar.",
+        "El enlace no es válido o ya fue utilizado anteriormente. Solicitá uno nuevo para continuar.",
     };
   }
 

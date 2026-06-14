@@ -173,7 +173,7 @@ function Navbar() {
 
             {!isLoading && user && (
               <button onClick={handleSignOut} className={signOutClasses}>
-                Cerrar sesion
+                Cerrar sesión
               </button>
             )}
           </div>
@@ -277,7 +277,7 @@ function Navbar() {
                 onClick={handleSignOut}
                 className="mt-3 block w-full rounded-lg bg-red-500 px-4 py-3 text-center text-sm font-semibold text-white shadow-md transition duration-200 hover:bg-red-600"
               >
-                Cerrar sesion
+                Cerrar sesión
               </button>
             )}
           </div>

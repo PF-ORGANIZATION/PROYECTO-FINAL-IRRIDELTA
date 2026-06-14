@@ -85,7 +85,7 @@ export async function createCertificationRequest({
   }
 
   if (!userId) {
-    throw new Error("Debes iniciar sesion para solicitar el certificado.");
+    throw new Error("Debés iniciar sesión para solicitar el certificado.");
   }
 
   const now = new Date().toISOString();

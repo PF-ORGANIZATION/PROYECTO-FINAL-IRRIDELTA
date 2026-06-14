@@ -10,6 +10,10 @@ import styles from './AdminKB.module.css';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
+const PENDING_UPLOAD_KEY = "kb_pending_upload";
+const ALLOWED_EXTENSIONS = [".pdf", ".md", ".txt"];
+const MAX_SIZE_MB = 15;
+
 function AdminKB() {
   const [file, setFile] = useState(null);
   const [manualText, setManualText] = useState("");
@@ -23,12 +27,6 @@ function AdminKB() {
   const [filesList, setFilesList] = useState([]);
   const [isLoadingList, setIsLoadingList] = useState(false);
   const fileInputRef = useRef(null);
-  const previewCanvasRef = useRef(null);
-  const PENDING_UPLOAD_KEY = "kb_pending_upload";
-
-  // Validación de archivos
-  const ALLOWED_EXTENSIONS = [".pdf", ".md", ".txt"];
-  const MAX_SIZE_MB = 15;
 
   const validateAndSetFile = useCallback((selectedFile) => {
     if (!selectedFile) return;

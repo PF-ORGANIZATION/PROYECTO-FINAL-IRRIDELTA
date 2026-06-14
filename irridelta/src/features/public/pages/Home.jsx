@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, Zap, Compass, CheckCircle, Facebook, Instagram, GraduationCap, Package, Sprout } from 'lucide-react';
+import { CheckCircle, Facebook, Instagram, GraduationCap, Package, Sprout } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 
 // --- DEFINICIONES REQUERIDAS ---
@@ -33,13 +33,17 @@ const socialLinks = [
 // **********************************
 
 // 2. Componente de Tarjeta de Características (FeatureCard)
-const FeatureCard = ({ icon: Icon, title, description, color }) => (
+const FeatureCard = ({ icon, title, description, color }) => {
+    const Icon = icon;
+
+    return (
     <div className="flex flex-col items-center text-center p-6 bg-white rounded-xl shadow-lg transform hover:scale-105 transition duration-300">
         <Icon className={`w-10 h-10 mb-4 ${color}`} />
         <h3 className="text-xl font-semibold text-gray-900 mb-2">{title}</h3>
         <p className="text-gray-600">{description}</p>
     </div>
-);
+    );
+};
 // -----------------------------
 
 

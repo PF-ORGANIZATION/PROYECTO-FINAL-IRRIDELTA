@@ -71,13 +71,13 @@ function Contact() {
             id="email"
             type="email"
             name="email"
-            placeholder="Email"
+            placeholder="Correo electrónico"
             required
             className={inputClasses}
             disabled={state.submitting}
           />
           <ValidationError
-            prefix="Email"
+            prefix="Correo electrónico"
             field="email"
             errors={state.errors}
             className={errorClasses}
@@ -113,7 +113,7 @@ function Contact() {
             disabled={state.submitting}
             className="bg-green-700 hover:bg-green-800 text-white font-semibold py-3 rounded-lg transition duration-300 shadow-md transform hover:scale-[1.01]"
           >
-            {state.submitting ? 'Enviando...' : 'Enviar Consulta'}
+            {state.submitting ? 'Enviando...' : 'Enviar consulta'}
           </button>
         </form>
       </div>

@@ -12,7 +12,8 @@ function ProductCard({ product, whatsappLink }) {
 
   const phoneNumber = "5491162856483";
   const message = `Hola, quería hacer una consulta acerca del producto: ${product.nombre}`;
-  const finalWhatsappLink = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+  const fallbackWhatsappLink = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+  const finalWhatsappLink = whatsappLink?.(product.nombre) ?? fallbackWhatsappLink;
 
   return (
     <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition duration-300 transform hover:-translate-y-0.5 flex flex-col">
@@ -78,4 +79,3 @@ function ProductCard({ product, whatsappLink }) {
 }
 
 export default ProductCard;
-

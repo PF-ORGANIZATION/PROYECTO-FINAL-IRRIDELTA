@@ -23,7 +23,7 @@ function getForgotPasswordErrorFeedback(message) {
     return {
       title: "No pudimos enviar el enlace",
       description:
-        "Ocurrió un problema al iniciar el recupero de contraseña. Intenta nuevamente en unos instantes.",
+        "Ocurrió un problema al iniciar el recupero de contraseña. Intentá nuevamente en unos instantes.",
     };
   }
 
@@ -47,9 +47,9 @@ function ForgotPassword() {
 
     if (!email.trim()) {
       setErrorFeedback({
-        title: "Ingresa tu email",
+        title: "Ingresá tu correo electrónico",
         description:
-          "Necesitamos tu email para enviarte el enlace de recuperación.",
+          "Necesitamos tu correo electrónico para enviarte el enlace de recuperación.",
       });
       return;
     }
@@ -139,7 +139,7 @@ function ForgotPassword() {
             ¿Olvidaste tu contraseña?
           </h2>
           <p className={styles.formSubtitle}>
-            Ingresa tu email y te enviaremos un enlace seguro para crear una nueva
+            Ingresá tu correo electrónico y te enviaremos un enlace seguro para crear una nueva
             contraseña.
           </p>
         </div>
@@ -168,7 +168,7 @@ function ForgotPassword() {
 
               <div>
                 <label className={styles.inputLabel}>
-                  Email
+                  Correo electrónico
                 </label>
                 <input
                   type="email"
@@ -194,7 +194,7 @@ function ForgotPassword() {
                 className={styles.backLink}
               >
                 <ArrowLeft className="h-4 w-4" />
-                Volver al login
+                Volver al inicio de sesión
               </Link>
             </form>
           </div>

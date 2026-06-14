@@ -18,6 +18,53 @@ import {
 } from "../services/chatbotConfig";
 import styles from "./Chatbot.module.css";
 
+const INITIAL_BOT_MESSAGE =
+  "¡Hola! Soy el asistente virtual de Irridelta. Estoy aquí para responder tus dudas basándome en nuestra información. ¿En qué te puedo ayudar?";
+
+function createInitialMessages() {
+  return [
+    {
+      id: "initial-bot-message",
+      sender: "bot",
+      text: INITIAL_BOT_MESSAGE,
+    },
+  ];
+}
+
+function getAssistantHttpErrorMessage(status) {
+  if (status === 401 || status === 403) {
+    return "Tu sesión no está habilitada para usar el asistente. Cerrá sesión e ingresá nuevamente.";
+  }
+
+  if (status === 429) {
+    return "El servicio está saturado. Intentá de nuevo en unos segundos.";
+  }
+
+  if (status >= 500) {
+    return "El asistente no está disponible en este momento. Intentá nuevamente en unos minutos.";
+  }
+
+  return "No pudimos completar la respuesta del asistente. Intentá de nuevo.";
+}
+
+function getChatErrorMessage(error) {
+  const rawMessage = String(error?.message || "").toLowerCase();
+
+  if (
+    rawMessage.includes("failed to fetch") ||
+    rawMessage.includes("networkerror") ||
+    rawMessage.includes("network request failed")
+  ) {
+    return "No pudimos conectarnos con el asistente. Revisá tu conexión e intentá de nuevo.";
+  }
+
+  if (rawMessage.includes("supabase") || rawMessage.includes("rpc")) {
+    return "No pudimos consultar la base de conocimientos. Intentá nuevamente en unos minutos.";
+  }
+
+  return error?.message || "Hubo un problema al procesar tu consulta. Intentá de nuevo.";
+}
+
 function Chatbot() {
   const user = useSessionStore((state) => state.user);
   const userRole = useSessionStore((state) => state.role);
@@ -26,18 +73,15 @@ function Chatbot() {
   const [cooldown, setCooldown] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [messages, setMessages] = useState(createInitialMessages);
   const messagesEndRef = useRef(null);
+  const requestControllerRef = useRef(null);
+  const cooldownTimerRef = useRef(null);
+  const sessionKey = `${user?.id ?? "sin-usuario"}:${userRole ?? "sin-rol"}`;
+  const sessionKeyRef = useRef(sessionKey);
 
   // Historial de conversación para el LLM (últimos N turnos user/assistant)
   const conversationHistory = useRef([]);
-
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: "bot",
-      text: `¡Hola! Soy el asistente virtual de Irridelta. Estoy aquí para responder tus dudas basándome en nuestra información. ¿En qué te puedo ayudar?`,
-    },
-  ]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -47,11 +91,43 @@ function Chatbot() {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    sessionKeyRef.current = sessionKey;
+    requestControllerRef.current?.abort();
+    requestControllerRef.current = null;
+
+    if (cooldownTimerRef.current) {
+      clearInterval(cooldownTimerRef.current);
+      cooldownTimerRef.current = null;
+    }
+
+    conversationHistory.current = [];
+    setMessages(createInitialMessages());
+    setInput("");
+    setCooldown(0);
+    setIsLoading(false);
+    setIsOpen(false);
+    setIsExpanded(false);
+  }, [sessionKey]);
+
+  useEffect(() => (
+    () => {
+      requestControllerRef.current?.abort();
+      if (cooldownTimerRef.current) {
+        clearInterval(cooldownTimerRef.current);
+      }
+    }
+  ), []);
+
   const handleSend = async (e) => {
     e.preventDefault();
     if (!input.trim() || isLoading || cooldown > 0) return;
 
     const userMsg = input.trim();
+    const requestSessionKey = sessionKeyRef.current;
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
+
     setMessages((prev) => [...prev, { id: Date.now(), sender: "user", text: userMsg }]);
     setInput("");
     setIsLoading(true);
@@ -81,6 +157,11 @@ function Chatbot() {
         match_threshold: MATCH_THRESHOLD,
         match_count: MATCH_COUNT,
       });
+
+      if (sessionKeyRef.current !== requestSessionKey) {
+        return;
+      }
+
       if (searchErr) {
         console.error("Error buscando en Supabase:", searchErr);
         throw searchErr;
@@ -142,6 +223,7 @@ function Chatbot() {
 
       const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
         method: "POST",
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${supabaseKey}`,
@@ -159,12 +241,7 @@ function Chatbot() {
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         console.error("Error en la Edge Function:", response.status, errData);
-        const detail = errData?.details?.error?.message || errData?.error || "";
-        throw new Error(
-          response.status === 429
-            ? "El servicio está saturado. Intentá de nuevo en unos segundos."
-            : `Error del asistente${detail ? `: ${detail}` : ". Intentá de nuevo."}`
-        );
+        throw new Error(getAssistantHttpErrorMessage(response.status));
       }
 
       // 6. Leer el stream SSE token por token (con buffer para chunks parciales)
@@ -185,6 +262,11 @@ function Chatbot() {
         sseBuffer = parts.pop() || "";
 
         for (const line of parts) {
+          if (sessionKeyRef.current !== requestSessionKey) {
+            await reader.cancel();
+            return;
+          }
+
           const trimmed = line.trim();
           if (!trimmed.startsWith("data: ")) continue;
           const data = trimmed.slice(6);
@@ -210,6 +292,10 @@ function Chatbot() {
       // 7. Computar respuesta final (fallback si el stream no devolvió nada)
       const finalReply = fullReply.trim() || "Lo siento, hubo un problema al generar la respuesta. Por favor intenta reformular tu consulta o contactarnos directamente.";
 
+      if (sessionKeyRef.current !== requestSessionKey) {
+        return;
+      }
+
       // 8. Guardar turno en el historial con la respuesta final (no fullReply que puede ser "")
       conversationHistory.current.push(
         { role: "user", content: userMsg },
@@ -227,14 +313,20 @@ function Chatbot() {
       );
 
     } catch (error) {
+      if (error?.name === "AbortError" || sessionKeyRef.current !== requestSessionKey) {
+        return;
+      }
+
       console.error("Excepción general en el chatbot:", error);
+      const userMessage = getChatErrorMessage(error);
+
       // Si ya se creó la burbuja de streaming, reemplazarla con el error
       setMessages((prev) => {
         const hasStreamBubble = prev.some((m) => m.isStreaming);
         if (hasStreamBubble) {
           return prev.map((m) =>
             m.isStreaming
-              ? { ...m, text: error.message || "Hubo un problema al procesar tu consulta.", isStreaming: false }
+              ? { ...m, text: userMessage, isStreaming: false }
               : m
           );
         }
@@ -243,24 +335,34 @@ function Chatbot() {
           {
             id: Date.now() + 1,
             sender: "bot",
-            text: error.message || "Hubo un problema al procesar tu consulta. Intenta de nuevo.",
+            text: userMessage,
           },
         ];
       });
     } finally {
-      setIsLoading(false);
+      if (requestControllerRef.current === controller) {
+        requestControllerRef.current = null;
+      }
 
-      // Cooldown para evitar saturar la API
-      setCooldown(COOLDOWN_SECONDS);
-      const timer = setInterval(() => {
-        setCooldown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      if (sessionKeyRef.current === requestSessionKey) {
+        setIsLoading(false);
+
+        // Cooldown para evitar saturar la API
+        setCooldown(COOLDOWN_SECONDS);
+        if (cooldownTimerRef.current) {
+          clearInterval(cooldownTimerRef.current);
+        }
+        cooldownTimerRef.current = setInterval(() => {
+          setCooldown((prev) => {
+            if (prev <= 1) {
+              clearInterval(cooldownTimerRef.current);
+              cooldownTimerRef.current = null;
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
     }
   };
 

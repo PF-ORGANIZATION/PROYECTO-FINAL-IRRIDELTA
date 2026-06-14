@@ -250,7 +250,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+    return jsonResponse({ error: "Método no permitido." }, 405);
   }
 
   try {
@@ -259,7 +259,7 @@ Deno.serve(async (req: Request) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
 
     if (!supabaseUrl || !serviceRoleKey || !anonKey) {
-      throw new Error("Supabase Edge Function env vars are not configured.");
+      throw new Error("La configuración de Supabase en la Edge Function está incompleta.");
     }
 
     const payload = (await req.json()) as FeedPayload;

@@ -20,7 +20,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+    return new Response(JSON.stringify({ error: "Método no permitido." }), {
       status: 405,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -29,13 +29,13 @@ Deno.serve(async (req: Request) => {
   try {
     const groqApiKey = Deno.env.get("GROQ_API_KEY");
     if (!groqApiKey) {
-      throw new Error("GROQ_API_KEY secret is not configured in Supabase.");
+      throw new Error("La clave de Groq no está configurada en Supabase.");
     }
 
     const { messages, model, temperature, max_tokens, stream } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
-      return new Response(JSON.stringify({ error: "Invalid request: messages is required." }), {
+      return new Response(JSON.stringify({ error: "Solicitud inválida: faltan los mensajes." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -77,7 +77,7 @@ Deno.serve(async (req: Request) => {
       if (!groqResponse.ok) {
         const errData = await groqResponse.json();
         console.error("Groq streaming error:", errData);
-        return new Response(JSON.stringify({ error: "Groq API error", details: errData }), {
+        return new Response(JSON.stringify({ error: "No se pudo completar la respuesta del asistente.", details: errData }), {
           status: groqResponse.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -136,8 +136,8 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!groqResponse!.ok) {
-      console.error("Groq API error:", groqData);
-      return new Response(JSON.stringify({ error: "Groq API error", details: groqData }), {
+      console.error("Error en la API de Groq:", groqData);
+      return new Response(JSON.stringify({ error: "No se pudo completar la respuesta del asistente.", details: groqData }), {
         status: groqResponse!.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -149,8 +149,10 @@ Deno.serve(async (req: Request) => {
     });
 
   } catch (err) {
-    console.error("Edge function error:", err);
-    return new Response(JSON.stringify({ error: err.message }), {
+    console.error("Error en la función Edge:", err);
+    return new Response(JSON.stringify({
+      error: err instanceof Error ? err.message : "No se pudo procesar la solicitud del asistente.",
+    }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

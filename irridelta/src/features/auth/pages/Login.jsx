@@ -32,7 +32,7 @@ function getLoginErrorFeedback(authError) {
     title: "No pudimos iniciar sesión",
     description:
       authError?.message ||
-      "Ocurrió un problema al procesar tu solicitud. Intenta nuevamente en unos instantes.",
+      "Ocurrió un problema al procesar tu solicitud. Intentá nuevamente en unos instantes.",
   };
 }
 
@@ -117,7 +117,7 @@ function Login() {
 
           <div>
             <label className={styles.inputLabel}>
-              Email
+              Correo electrónico
             </label>
             <input
               type="email"
