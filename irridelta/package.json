@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "make-admin": "node scripts/make-admin.mjs"
+    "make-admin": "node scripts/make-admin.mjs",
+    "seed:demo": "node scripts/seed-demo-data.mjs"
   },
   "dependencies": {
     "@formspree/react": "^3.0.0",
