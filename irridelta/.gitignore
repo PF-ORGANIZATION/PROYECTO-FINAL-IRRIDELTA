@@ -14,6 +14,7 @@ dist-ssr
 *.local
 .env
 .env.admin.local
+supabase/.temp/
 ANALISIS_TECNICO.md
 supabase/setup.sql
 scripts/make-admin.mjs
