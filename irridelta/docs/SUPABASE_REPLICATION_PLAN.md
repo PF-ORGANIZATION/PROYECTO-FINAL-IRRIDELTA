@@ -234,7 +234,10 @@ Admin/local:
 
 ```env
 SUPABASE_URL=your_new_supabase_url
+SUPABASE_PROJECT_REF=your_new_project_ref
 SUPABASE_SERVICE_ROLE_KEY=your_new_service_role_key
+DEMO_USER_PASSWORD=your_local_demo_password
+DEMO_MANUAL_PDF=./Manual_tecnico_de_operaciones_de_riego.pdf
 ```
 
 Edge Functions secrets:
@@ -253,75 +256,326 @@ SUPABASE_ANON_KEY=your_new_supabase_anon_key
 
 No commitear valores reales.
 
-## Plan de deploy frontend simple
+## Guia operativa paso a paso
 
-El frontend es una SPA React + Vite con `BrowserRouter`. El deploy mas simple es
-usar Vercel o Netlify conectado al repo Git, con build estatico desde
-`irridelta/`.
+Esta es la guia corta para ejecutar una replica o un nuevo deploy sin volver a
+deducir el proceso desde cero.
 
-### Precondiciones
+### 0. Elegir escenario
 
-- El proyecto Supabase destino ya debe estar creado y saludable.
-- Las migrations, buckets, policies y Edge Functions deben estar aplicadas al
-  Supabase destino.
-- `npm run build` debe pasar localmente apuntando al Supabase destino.
-- No subir `.env`, `.env.admin.local` ni service-role keys al proveedor de
-  hosting.
-- Usar Node 22 o una version compatible con Vite 7.
+Escenario recomendado:
 
-### Variables para Vercel o Netlify
+- Crear un proyecto Supabase nuevo, aunque sea dentro de una cuenta existente.
+- Aplicar migrations desde el repo.
+- Cargar solo datos publicos/de negocio autorizados.
+- Crear usuarios reales de nuevo en Supabase Auth.
+- Conectar Vercel al repo GitHub y usar `main` como production branch.
 
-Configurar solo variables publicas del frontend:
+Escenario con mas riesgo:
 
-```env
-VITE_SUPABASE_URL=your_new_supabase_url
-VITE_SUPABASE_KEY=your_new_supabase_anon_key
+- Reusar un proyecto Supabase existente que ya tiene tablas/datos.
+- Antes de aplicar migrations, hacer backup y revisar conflictos de nombres.
+- No ejecutar `db push` sobre un proyecto con datos importantes sin `--dry-run`
+  y revision manual.
+
+### 1. Preparar el entorno local
+
+Desde la carpeta `irridelta/`:
+
+```bash
+npm ci
+npm run lint
+npm run build
+./node_modules/.bin/supabase --version
 ```
 
-No configurar en Vercel/Netlify:
+Crear o actualizar el archivo privado admin local:
+
+```bash
+cp .env.admin.example .env.admin.local
+```
+
+Completar `.env.admin.local` con valores reales del proyecto Supabase destino:
+
+```env
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_PROJECT_REF=your-project-ref
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+DEMO_USER_PASSWORD=your_local_demo_password
+DEMO_MANUAL_PDF=./Manual_tecnico_de_operaciones_de_riego.pdf
+```
+
+Completar `.env` solo con variables publicas del frontend:
+
+```env
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_KEY=your_anon_or_publishable_key
+```
+
+Regla de seguridad: `.env`, `.env.admin.local`, PDFs locales y service-role keys
+no se commitean.
+
+### 2. Crear o seleccionar el proyecto Supabase destino
+
+Para una cuenta nueva o una cuenta existente sin proyecto:
+
+1. Entrar al dashboard de Supabase.
+2. Crear un proyecto nuevo.
+3. Elegir region.
+4. Confirmar costo/plan antes de crearlo.
+5. Guardar localmente:
+   - Project ref.
+   - Project URL.
+   - Anon/publishable key.
+   - Service-role key.
+
+Para un proyecto Supabase existente:
+
+1. Confirmar que ese proyecto es realmente el destino.
+2. Revisar si ya tiene tablas en `public`.
+3. Hacer backup antes de tocar schema:
+
+```bash
+./node_modules/.bin/supabase db dump --linked --file /tmp/irridelta-pre-migration.sql
+```
+
+Si el proyecto existente no esta linkeado todavia, linkear primero con el paso
+siguiente.
+
+### 3. Linkear la CLI al proyecto destino
+
+Desde `irridelta/`:
+
+```bash
+./node_modules/.bin/supabase login
+./node_modules/.bin/supabase link --project-ref <target_project_ref>
+./node_modules/.bin/supabase migration list --linked
+```
+
+El repo actualmente tiene la migration base:
+
+```txt
+supabase/migrations/0001_irridelta_schema.sql
+```
+
+Esa migration crea tablas, indices, funciones SQL, RLS, policies y buckets de
+Storage necesarios para el estado base de IRRIDELTA.
+
+### 4. Aplicar migrations al destino
+
+Primero simular:
+
+```bash
+./node_modules/.bin/supabase db push --linked --dry-run
+```
+
+Si el resultado es el esperado, aplicar:
+
+```bash
+./node_modules/.bin/supabase db push --linked
+./node_modules/.bin/supabase migration list --linked
+```
+
+En un proyecto existente, si el `dry-run` muestra conflictos de objetos ya
+existentes, frenar y resolver manualmente. No usar `migration repair` para
+saltear errores salvo que se haya confirmado que el schema real ya coincide con
+la migration.
+
+### 5. Configurar secrets y Edge Functions
+
+Configurar secrets propios de las funciones. Como minimo, el chatbot necesita:
+
+```bash
+./node_modules/.bin/supabase secrets set GROQ_API_KEY=your_groq_key --project-ref <target_project_ref>
+```
+
+Desplegar funciones desde el repo:
+
+```bash
+./node_modules/.bin/supabase functions deploy chat --project-ref <target_project_ref> --use-api
+./node_modules/.bin/supabase functions deploy learning-feed --project-ref <target_project_ref> --use-api
+```
+
+Despues de desplegar, probar:
+
+- `/functions/v1/chat`
+- `/functions/v1/learning-feed`
+- Logs de Edge Functions en Supabase.
+
+Si `learning-feed` no se va a usar, quitar su consumo del frontend en lugar de
+dejar una funcion local sin deploy remoto.
+
+### 6. Storage y archivos
+
+La migration crea los buckets:
+
+- `formacion-archivos`
+- `kb-files`
+
+La migration no copia automaticamente objetos de Storage. Para replicar
+contenido real:
+
+1. Confirmar que esos PDFs/archivos se pueden migrar.
+2. Descargar/exportar objetos desde el proyecto origen o fuente autorizada.
+3. Subirlos al bucket destino manteniendo los paths que espera la base.
+4. Verificar que los registros de `modulo_recursos`, `archivos_fuente` y
+   `documentos_kb` apunten a paths existentes.
+
+Para una demo local, `npm run seed:demo` usa `DEMO_MANUAL_PDF` desde
+`.env.admin.local`, sube ese PDF y crea usuarios/datos demo. No ejecutarlo sobre
+produccion real salvo que se quiera reemplazar datos demo.
+
+### 7. Crear usuarios admin
+
+Crear el usuario en Supabase Auth desde dashboard o flujo de registro.
+
+Promoverlo a admin desde `irridelta/`:
+
+```bash
+npm run make-admin -- usuario@dominio.com
+```
+
+La fuente de verdad del rol admin es:
+
+```txt
+app_metadata.role = "admin"
+```
+
+### 8. Validar Supabase antes del deploy frontend
+
+```bash
+./node_modules/.bin/supabase db advisors --linked --type security
+./node_modules/.bin/supabase db advisors --linked --type performance
+npm run lint
+npm run build
+```
+
+Tambien validar manualmente:
+
+- Login con usuario cliente.
+- Login con usuario admin.
+- CRUD de productos/categorias.
+- Admin capacitaciones.
+- Admin certificaciones.
+- Admin KB.
+- Chatbot.
+- Carga/lectura de recursos de capacitaciones.
+
+## Deploy recomendado: Vercel + GitHub `main`
+
+La opcion mas simple para este proyecto es conectar Vercel al repo GitHub y
+dejar que cada merge a `main` genere un deploy de produccion.
+
+Estado versionado en el repo:
+
+- `irridelta/vercel.json` ya existe.
+- Ese archivo tiene rewrite SPA a `/index.html`, necesario por `BrowserRouter`.
+
+### 1. Preparar GitHub
+
+1. Trabajar cambios en `develop` o en una feature branch.
+2. Verificar localmente:
+
+```bash
+cd irridelta
+npm run lint
+npm run build
+```
+
+3. Abrir Pull Request hacia `main`.
+4. Mergear a `main` cuando este validado.
+
+Vercel debe tomar `main` como branch de produccion. Las demas ramas pueden
+generar previews.
+
+### 2. Crear el proyecto en Vercel
+
+En Vercel dashboard:
+
+1. `Add New Project`.
+2. Importar el repo:
+   `PF-ORGANIZATION/PROYECTO-FINAL-IRRIDELTA`.
+3. Production branch: `main`.
+4. Root directory: `irridelta`.
+5. Framework preset: `Vite`.
+6. Install command: `npm ci`.
+7. Build command: `npm run build`.
+8. Output directory: `dist`.
+9. Node version: 22 o una version compatible con Vite 7.
+
+### 3. Variables de entorno en Vercel
+
+Configurar en Vercel solo variables publicas del frontend:
+
+```env
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_KEY=your_anon_or_publishable_key
+```
+
+No configurar en Vercel:
 
 ```env
 SUPABASE_SERVICE_ROLE_KEY=never_put_this_in_frontend_hosting
 GROQ_API_KEY=belongs_in_supabase_edge_function_secrets
+DEMO_USER_PASSWORD=local_only
 ```
 
-Nota: las variables `VITE_*` quedan embebidas en el bundle del navegador. La anon
-key de Supabase esta pensada para eso, siempre que RLS y policies esten bien.
+Si se usan previews contra otro Supabase, definir variables distintas para
+Preview. Si no, Production y Preview pueden apuntar al mismo proyecto, sabiendo
+que las previews impactan el mismo backend.
 
-### Opcion A: Vercel
+### 4. Configurar Supabase Auth para el dominio Vercel
 
-Configuracion en dashboard:
+En Supabase Dashboard del proyecto destino:
 
-- Framework preset: `Vite`
-- Root directory: `irridelta`
-- Install command: `npm ci`
-- Build command: `npm run build`
-- Output directory: `dist`
-- Environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_KEY`
+1. Auth.
+2. URL Configuration.
+3. Site URL: dominio final de Vercel.
+4. Redirect URLs:
+   - Dominio final de Vercel.
+   - `http://localhost:5173` para desarrollo.
+   - URLs preview exactas si se van a probar flujos Auth en previews.
 
-Agregar `vercel.json` solo si Vercel no resuelve correctamente rutas internas de
-la SPA:
+No agregar redirects de dominios que no controles.
 
-```json
-{
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
-}
-```
+### 5. Validar el deploy
 
-Validar despues del deploy:
+Despues del primer deploy en Vercel:
 
-- Abrir `/`.
-- Abrir directo `/productos`.
-- Abrir directo `/login`.
-- Abrir directo una ruta protegida como `/capacitaciones` y confirmar redirect o
-  pantalla esperada.
-- Confirmar que llamadas a Supabase responden contra el proyecto destino.
+1. Abrir `/`.
+2. Abrir directo `/productos`.
+3. Abrir directo `/login`.
+4. Abrir directo `/capacitaciones`.
+5. Abrir directo `/admin/capacitaciones`.
+6. Confirmar que ninguna ruta da 404 al refrescar.
+7. Probar login/logout.
+8. Probar un usuario admin.
+9. Probar chatbot.
+10. Revisar logs de Vercel y Supabase.
 
-### Opcion B: Netlify
+### 6. Redeploy por cambios de codigo
 
-Configuracion en dashboard:
+Con Git integration:
+
+1. Hacer cambios en una branch.
+2. Correr `npm run lint` y `npm run build`.
+3. Abrir PR hacia `main`.
+4. Vercel genera preview para la branch/PR.
+5. Validar preview.
+6. Mergear a `main`.
+7. Vercel despliega produccion automaticamente desde `main`.
+
+Sin Git integration:
+
+1. Correr `npm run lint` y `npm run build`.
+2. Usar deploy manual desde dashboard o Vercel CLI.
+3. Preferir la integracion GitHub para evitar deploys manuales fuera de
+   historial.
+
+## Alternativa si no se usa Vercel: Netlify
+
+Vercel + GitHub `main` es el camino recomendado para este repo. Si se decide
+usar Netlify, configurar:
 
 - Base directory: `irridelta`
 - Build command: `npm run build`
@@ -352,46 +606,6 @@ Alternativa minima para Netlify: crear `public/_redirects` con:
 Usar una sola estrategia: `netlify.toml` o `_redirects`, no ambas salvo que haya
 una razon puntual.
 
-### Configuracion Supabase para dominio deployado
-
-En Supabase Auth del proyecto destino:
-
-- Site URL: dominio final de Vercel/Netlify.
-- Additional Redirect URLs:
-  - dominio final
-  - dominio preview si se van a usar previews
-  - `http://localhost:5173` para desarrollo local
-
-Revisar tambien CORS de Edge Functions si alguna funcion valida origin
-manualmente.
-
-### Checklist post-deploy
-
-1. Cargar home y rutas publicas.
-2. Probar login, logout y refresh de sesion.
-3. Probar deep links con refresh del navegador:
-   - `/productos`
-   - `/capacitaciones`
-   - `/admin/capacitaciones`
-   - `/certificaciones/:certificationId`
-4. Probar lectura de productos/categorias aunque esten vacios.
-5. Probar chatbot y confirmar que llama a Supabase destino.
-6. Probar admin KB solo con usuario admin.
-7. Confirmar que no hay errores CORS ni 404 de SPA fallback.
-8. Confirmar que no se expuso ninguna service-role key en variables del hosting.
-9. Revisar logs de Supabase API/Auth/Edge Function despues de navegar la app.
-
-### Prompt recomendado para pedir el deploy
-
-```txt
-Usa docs/SUPABASE_REPLICATION_PLAN.md. Quiero hacer deploy del frontend de
-IRRIDELTA en Vercel o Netlify de la forma mas simple. Confirma primero el
-proveedor, dominio esperado y proyecto Supabase destino. Luego configura el
-build desde irridelta/, agrega el fallback SPA si hace falta, define solo
-VITE_SUPABASE_URL y VITE_SUPABASE_KEY en el hosting, actualiza Supabase Auth
-redirect URLs y valida rutas publicas, rutas protegidas, login y chatbot.
-```
-
 ## Plan de ejecucion futuro
 
 Cuando se pida ejecutar esta tarea, hacer esto en orden:
@@ -417,7 +631,8 @@ Cuando se pida ejecutar esta tarea, hacer esto en orden:
      deliberados.
 
 4. Aplicar migrations al destino
-   - Aplicar DDL con `apply_migration`.
+   - Simular con `./node_modules/.bin/supabase db push --linked --dry-run`.
+   - Aplicar con `./node_modules/.bin/supabase db push --linked`.
    - Verificar que todas las tablas tengan RLS esperado.
    - Verificar advisors despues de aplicar.
 
@@ -457,8 +672,8 @@ Cuando se pida ejecutar esta tarea, hacer esto en orden:
      - Certificaciones cliente
 
 9. Auditoria final
-   - `get_advisors security`
-   - `get_advisors performance`
+   - `./node_modules/.bin/supabase db advisors --linked --type security`
+   - `./node_modules/.bin/supabase db advisors --linked --type performance`
    - Logs API/Auth/Storage/Edge Function
    - Verificar que no haya 404 para funciones esperadas.
    - Documentar cualquier warning aceptado con razon.

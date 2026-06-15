@@ -3,25 +3,43 @@ import path from "node:path";
 import process from "node:process";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { config } from "dotenv";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { env, pipeline } from "@xenova/transformers";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
-const repoRoot = path.resolve(projectRoot, "..");
 const supabaseBin = path.join(projectRoot, "node_modules", ".bin", "supabase");
+const adminEnvFile = ".env.admin.local";
 
-const DEMO_PASSWORD = "IrrideltaDemo2026!";
-const PDF_FILE_NAME = "Manual_tecnico_de_operaciones_de_riego.pdf";
-const pdfPath = process.env.DEMO_MANUAL_PDF
-  ? path.resolve(process.env.DEMO_MANUAL_PDF)
-  : path.join(repoRoot, PDF_FILE_NAME);
+for (const envFile of [".env", adminEnvFile]) {
+  const envPath = path.join(projectRoot, envFile);
+
+  if (fs.existsSync(envPath)) {
+    config({ path: envPath, override: true, quiet: true });
+  }
+}
+
+function requiredEnv(name) {
+  const value = process.env[name]?.trim();
+
+  if (!value) {
+    console.error(`Falta ${name}. Guardalo en ${adminEnvFile} antes de ejecutar seed:demo.`);
+    process.exit(1);
+  }
+
+  return value;
+}
+
+const DEMO_PASSWORD = requiredEnv("DEMO_USER_PASSWORD");
+const pdfPath = path.resolve(projectRoot, requiredEnv("DEMO_MANUAL_PDF"));
+const PDF_FILE_NAME = path.basename(pdfPath);
 
 const kbStoragePath = `demo/${PDF_FILE_NAME}`;
 const learningStoragePath = `demo/${PDF_FILE_NAME}`;
-const targetProjectRef = "vskinwfqtvxwaupefloe";
-const targetUrl = "https://vskinwfqtvxwaupefloe.supabase.co";
+const targetProjectRef = requiredEnv("SUPABASE_PROJECT_REF");
+const targetUrl = requiredEnv("SUPABASE_URL").replace(/\/+$/, "");
 const publicManualUrl = `${targetUrl}/storage/v1/object/public/formacion-archivos/${learningStoragePath}`;
 
 const users = [
@@ -1265,7 +1283,7 @@ async function main() {
 
   console.log("Semilla demo aplicada.");
   console.log(`Usuarios demo: ${users.map((user) => user.email).join(", ")}`);
-  console.log(`Password demo comun: ${DEMO_PASSWORD}`);
+  console.log(`Password demo comun: configurado en ${adminEnvFile}`);
 }
 
 main().catch((error) => {

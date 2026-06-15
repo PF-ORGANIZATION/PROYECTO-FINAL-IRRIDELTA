@@ -63,11 +63,10 @@ Crea un archivo `.env` en `irridelta/` con estas variables:
 ```env
 VITE_SUPABASE_URL=tu_supabase_url
 VITE_SUPABASE_KEY=tu_supabase_anon_key
-VITE_LOGIN_USERNAME=admin
-VITE_LOGIN_PASSWORD=1234
 ```
 
-> Si usas otro método de autenticación o deseas un login más robusto, puedes mejorar la página `src/pages/Login.jsx`.
+Las credenciales reales de usuarios se gestionan con Supabase Auth. No guardes
+contraseñas de usuarios en `.env`.
 
 ## 🛠️ Instalación y ejecución
 
@@ -96,6 +95,7 @@ Luego abre la dirección que indique Vite (por ejemplo `http://localhost:5173`).
 
 ```env
 SUPABASE_URL=tu_supabase_url
+SUPABASE_PROJECT_REF=tu_project_ref
 SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
 ```
 
@@ -104,6 +104,13 @@ SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
 
 ```bash
 npm run make-admin -- usuario@dominio.com
+```
+
+Para cargar la semilla demo, ese mismo archivo admin local debe incluir tambien:
+
+```env
+DEMO_USER_PASSWORD=una_contrasena_local
+DEMO_MANUAL_PDF=./Manual_tecnico_de_operaciones_de_riego.pdf
 ```
 
 ## 📝 Base de datos esperada en Supabase
@@ -129,7 +136,7 @@ La app usa join para mostrar la categoría asociada a cada producto.
 - Ruta admin protegida: `/admin/productos`
 - Ruta admin de capacitaciones: `/admin/capacitaciones`
 - Ruta admin de certificaciones: `/admin/certificaciones`
-- El login actual compara usuario y contraseña con las variables de entorno.
+- El login usa Supabase Auth y el rol `admin` se toma de `app_metadata.role`.
 
 ## Capacitaciones y certificaciones
 

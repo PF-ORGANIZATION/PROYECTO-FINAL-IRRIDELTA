@@ -8,12 +8,13 @@ import { createClient } from "@supabase/supabase-js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
+const adminEnvFile = ".env.admin.local";
 
-for (const envFile of [".env", ".env.admin.local"]) {
+for (const envFile of [".env", adminEnvFile]) {
   const envPath = path.join(projectRoot, envFile);
 
   if (existsSync(envPath)) {
-    config({ path: envPath, override: true });
+    config({ path: envPath, override: true, quiet: true });
   }
 }
 
@@ -32,7 +33,7 @@ Variables opcionales:
 
 Notas:
   - Si SUPABASE_URL no existe, se usa VITE_SUPABASE_URL.
-  - Puedes guardar la service role key en .env.admin.local
+  - Puedes guardar la service role key en ${adminEnvFile}
 `);
   process.exit(email ? 0 : 1);
 }
@@ -49,7 +50,7 @@ if (!supabaseUrl) {
 
 if (!serviceRoleKey) {
   console.error(
-    "Falta SUPABASE_SERVICE_ROLE_KEY. Guardala en .env.admin.local o exportala en la terminal."
+    `Falta SUPABASE_SERVICE_ROLE_KEY. Guardala en ${adminEnvFile} o exportala en la terminal.`
   );
   process.exit(1);
 }

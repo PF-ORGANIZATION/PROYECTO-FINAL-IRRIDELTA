@@ -19,7 +19,10 @@ Use example placeholders in documentation:
 ```env
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_KEY=your_supabase_anon_key
+SUPABASE_PROJECT_REF=your_supabase_project_ref
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+DEMO_USER_PASSWORD=your_local_demo_password
+DEMO_MANUAL_PDF=./local-demo-manual.pdf
 ```
 
 ## Supabase Access

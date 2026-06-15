@@ -113,7 +113,7 @@ If this grows, consider moving multi-step database writes into a Supabase RPC or
 
 - Do not read, print, summarize, or commit `.env` values.
 - Do not expose Supabase anon keys, service-role keys, auth tokens, emails, or real credentials.
-- Do not commit `.env`, `.env.admin.local`, or generated secrets.
+- Do not commit `.env`, `.env.admin.local`, local PDFs, or generated secrets.
 - Keep RLS and Storage policies versioned when possible so the database setup is reproducible.
 - Prefer small, focused changes and verify with targeted lint and build commands.
 - Do not change certification logic unless the task explicitly asks for it.
