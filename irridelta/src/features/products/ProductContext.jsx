@@ -1,7 +1,6 @@
-// src/context/ProductContext.jsx
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabaseClient";
-import { ProductContext } from "./productContext";
+import { ProductContext } from "./productsContext";
 
 export function ProductProvider({ children }) {
   const [products, setProducts] = useState([]);

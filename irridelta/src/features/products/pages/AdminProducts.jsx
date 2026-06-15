@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useProducts } from "../productContext";
+import { useProducts } from "../productsContext";
 import { useAuth } from "../../auth/services/useAuth";
 
 function AdminProducts() {
