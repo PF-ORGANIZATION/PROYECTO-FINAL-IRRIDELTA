@@ -13,7 +13,7 @@
         <mxCell id="emb1" value="embeddingService.js&lt;br&gt;@xenova/transformers&lt;br&gt;Supabase/gte-small&lt;br&gt;vector 384" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e1;strokeColor=#f9a825;fontSize=14;" vertex="1" parent="1">
           <mxGeometry x="550" y="160" width="220" height="110" as="geometry"/>
         </mxCell>
-        <mxCell id="rpc1" value="Supabase RPC&lt;br&gt;buscar_contexto_kb&lt;br&gt;threshold 0.15&lt;br&gt;top 5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede7f6;strokeColor=#5e35b1;fontSize=14;" vertex="1" parent="1">
+        <mxCell id="rpc1" value="Supabase productivo vskin&lt;br&gt;RPC buscar_contexto_kb&lt;br&gt;threshold 0.15&lt;br&gt;top 5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede7f6;strokeColor=#5e35b1;fontSize=14;" vertex="1" parent="1">
           <mxGeometry x="850" y="160" width="220" height="110" as="geometry"/>
         </mxCell>
         <mxCell id="db1" value="Postgres + pgvector&lt;br&gt;documentos_kb&lt;br&gt;archivos_fuente&lt;br&gt;solo activos" style="shape=cylinder3d;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#f3e5f5;strokeColor=#6a1b9a;fontSize=14;" vertex="1" parent="1">
@@ -149,10 +149,10 @@
         <mxCell id="rpc" value="buscar_contexto_kb&lt;br&gt;query_embedding&lt;br&gt;match_threshold&lt;br&gt;match_count&lt;br&gt;filtra activos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e0f2f1;strokeColor=#00796b;fontSize=14;" vertex="1" parent="1">
           <mxGeometry x="850" y="470" width="270" height="130" as="geometry"/>
         </mxCell>
-        <mxCell id="idx" value="Indices esperados&lt;br&gt;HNSW embedding cosine&lt;br&gt;btree archivo_id&lt;br&gt;remoto tiene HNSW duplicado" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#616161;fontSize=14;" vertex="1" parent="1">
+        <mxCell id="idx" value="Indices esperados&lt;br&gt;HNSW embedding cosine&lt;br&gt;btree archivo_id&lt;br&gt;duplicado solo en snapshot historico" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#616161;fontSize=14;" vertex="1" parent="1">
           <mxGeometry x="1220" y="160" width="260" height="120" as="geometry"/>
         </mxCell>
-        <mxCell id="advisor" value="Advisors remotos&lt;br&gt;search_path mutable&lt;br&gt;is_admin SECURITY DEFINER&lt;br&gt;duplicate index&lt;br&gt;policies duplicadas" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffebee;strokeColor=#c62828;fontSize=14;" vertex="1" parent="1">
+        <mxCell id="advisor" value="Snapshot historico no productivo&lt;br&gt;advisors no atribuidos a vskin&lt;br&gt;revalidar con acceso productivo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffebee;strokeColor=#c62828;fontSize=14;" vertex="1" parent="1">
           <mxGeometry x="1220" y="470" width="270" height="140" as="geometry"/>
         </mxCell>
         <mxCell id="se1" value="autoriza" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="auth" target="rls">

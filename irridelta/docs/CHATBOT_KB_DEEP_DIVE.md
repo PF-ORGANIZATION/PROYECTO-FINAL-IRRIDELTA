@@ -1,11 +1,13 @@
 # Chatbot y Knowledge Base: Deep Dive
 
-Fecha de relevamiento: 2026-06-16.
-
 Este documento describe en detalle la feature de chatbot y base de conocimientos
 de IRRIDELTA. No incluye secretos, llaves, tokens, correos privados ni contenido
-real de los documentos cargados. Las consultas remotas se limitaron a metadata,
-conteos, policies, funciones, indices, buckets y estado de Edge Functions.
+real de los documentos cargados.
+
+La informacion operativa esta expresada por ambiente para que sirva en
+desarrollo, staging o produccion. Los ejemplos usan placeholders como
+`<supabase_url>`, `<project_ref>`, `<frontend_domain>` y
+`<production_branch>` en lugar de valores reales de cuentas, dominios o deploys.
 
 Diagramas importables en draw.io:
 
@@ -25,21 +27,64 @@ La feature esta formada por dos flujos principales:
    delega la llamada al LLM a la Edge Function `chat`, que actua como proxy seguro
    hacia Groq para no exponer `GROQ_API_KEY`.
 
-Puntos criticos actuales:
+Puntos criticos de diseno:
 
 - El RAG corre mayormente en el navegador. El backend solo hace busqueda SQL/RPC
   y proxy a Groq.
 - El embedding se calcula en el cliente con `@xenova/transformers`, no en una
   funcion server-side.
-- La Edge Function `chat` tiene `verify_jwt = true` en Supabase, pero el frontend
-  le manda como bearer la anon key (`VITE_SUPABASE_KEY`), no el access token del
-  usuario autenticado. Esto valida que haya un JWT valido, pero no prueba por si
-  solo que el llamador sea un usuario logueado.
-- El proyecto remoto tiene drift respecto de `supabase/migrations/0001_irridelta_schema.sql`.
-  La migration local contiene algunas correcciones que el remoto todavia no refleja.
-- Remoto al 2026-06-16: `archivos_fuente` tiene 8 registros, `documentos_kb` tiene
-  1455 chunks, 7 archivos activos aportan 1443 chunks al RAG y 1 archivo inactivo
-  queda excluido.
+- La Edge Function `chat` debe responder `OPTIONS` para CORS y exigir
+  autorizacion en `POST`.
+- La URL real de Supabase debe provenir de variables de entorno del ambiente, no
+  de este documento.
+
+## Validacion por ambiente
+
+### Frontend hosting
+
+Verificar en cada ambiente:
+
+- El proyecto frontend usa root directory `irridelta`.
+- Framework preset: `Vite`.
+- Install command: `npm ci`.
+- Build command: `npm run build`.
+- Output directory: `dist`.
+- Production branch: `<production_branch>`.
+- Variables configuradas:
+  - `VITE_SUPABASE_URL=<supabase_url>`
+  - `VITE_SUPABASE_KEY=<supabase_anon_or_publishable_key>`
+  - `VITE_ENABLE_PUBLIC_REGISTRATION=false`, salvo decision explicita.
+
+Build esperado:
+
+- `npm ci` ejecutado correctamente.
+- `npm run build` / `vite build` completa correctamente.
+- El bundle publica assets de la app, worker de embeddings y worker PDF.
+- Warnings de chunks grandes o auditoria de dependencias quedan revisados.
+
+Rutas a verificar:
+
+- `/` devuelve HTML de la SPA.
+- `/productos` devuelve HTML de la SPA.
+- `/admin/kb` devuelve HTML de la SPA, confirmando que el rewrite SPA funciona
+  para deep links. La proteccion real de esa pantalla queda en el cliente/Auth.
+
+### Supabase y Edge Function
+
+Verificar en cada proyecto Supabase destino:
+
+- El frontend compila contra el `VITE_SUPABASE_URL` del ambiente correcto.
+- La Edge Function `/functions/v1/chat` responde `OPTIONS 200`.
+- Un `POST` sin Authorization a `/functions/v1/chat` devuelve `401` con
+  error de falta de autorizacion.
+- Un `POST` con key publica del ambiente, pero con body invalido, devuelve `400`
+  por `messages` requerido. Esto confirma que:
+  - El endpoint existe.
+  - La key publica pertenece a ese backend.
+  - La llamada llega al codigo de la funcion.
+  - La prueba no consumio Groq porque fallo antes de validar/generar respuesta.
+- `supabase db advisors --linked --type security` no reporta bloqueantes.
+- `supabase db advisors --linked --type performance` no reporta bloqueantes.
 
 ## Archivos y responsabilidades
 
@@ -98,6 +143,10 @@ no se detectaron nombres `VITE_*` en `irridelta/.env`; si se intenta levantar el
 frontend sin inyectarlas por otro medio, la app falla al importar el cliente
 Supabase. Si se despliega en Vercel/Netlify, esas variables deben configurarse
 en el proveedor de hosting.
+
+En hosting frontend, confirmar que `VITE_SUPABASE_URL` apunte al proyecto
+Supabase del ambiente desplegado. El archivo local `.env.admin.local` es solo
+para scripts admin y no representa necesariamente el deploy productivo.
 
 ### Edge Function `chat`
 
@@ -288,13 +337,13 @@ La funcion `supabase/functions/chat/index.ts`:
   `llama-3.1-8b-instant`.
 - En no-streaming, reintenta 429 hasta 3 veces con backoff simple.
 
-Estado remoto al 2026-06-16:
+Estado esperado en cualquier ambiente productivo:
 
 - Edge Function desplegada: `chat`.
-- Version remota: `4`.
 - Estado: `ACTIVE`.
 - `verify_jwt = true`.
-- `learning-feed` existe en el repo, pero no aparece desplegada en remoto.
+- Cualquier funcion consumida por el frontend debe estar desplegada. Hoy el repo
+  incluye `chat` y `learning-feed`.
 
 Riesgo operativo importante:
 
@@ -320,9 +369,8 @@ Limite de frontend:
 - `MAX_SIZE_MB = 15`
 
 La migration local define el bucket `kb-files` con limite `20971520` bytes
-(20 MB), pero el bucket remoto actualmente tiene `file_size_limit = null`. Por
-lo tanto, el limite efectivo en UI es 15 MB, pero Storage remoto no lo refuerza
-con el mismo limite.
+(20 MB). En cada ambiente, verificar que Storage refuerce ese limite y no dependa
+solo del limite de frontend.
 
 ### Modos de carga
 
@@ -516,7 +564,7 @@ Comportamiento:
 - Limita por `match_count`.
 
 La migration local agrega `d.embedding is not null` y `set search_path = ''`.
-El remoto actual no tiene esas dos defensas en la definicion vigente.
+En cada ambiente, confirmar que la funcion desplegada conserve esas defensas.
 
 ### Indices
 
@@ -525,13 +573,11 @@ Migration local:
 - `idx_documentos_kb_archivo_id` sobre `documentos_kb(archivo_id)`.
 - `documentos_kb_embedding_idx` HNSW sobre `embedding vector_cosine_ops`.
 
-Remoto actual:
+Validar en cada ambiente:
 
-- Tiene `documentos_kb_embedding_idx`.
-- Tiene `documentos_kb_embedding_idx1`.
-- Ambos son HNSW sobre `embedding vector_cosine_ops`.
-- No aparece un indice sobre `documentos_kb.archivo_id`, y el advisor lo marca
-  como FK sin indice.
+- Existe un solo indice vectorial HNSW efectivo sobre `embedding`.
+- Existe indice sobre `documentos_kb.archivo_id`.
+- Los advisors no reportan FK sin indice ni indices duplicados.
 
 ## Storage
 
@@ -549,22 +595,22 @@ Migration local:
 - `file_size_limit = 20971520`
 - MIME allowlist: `application/pdf`, `text/markdown`, `text/plain`
 
-Remoto actual:
+Validar en cada ambiente:
 
 - `public = false`
-- `file_size_limit = null`
+- `file_size_limit = 20971520`
 - MIME allowlist: `application/pdf`, `text/markdown`, `text/plain`
 
 ### Bucket `formacion-archivos`
 
 No es parte directa del chatbot/KB, pero aparece en la misma migration y advisors.
 
-Remoto actual:
+Validar en cada ambiente:
 
-- Publico.
-- Sin limite de tamano.
-- Sin MIME allowlist.
-- Advisor advierte que hay policy amplia de SELECT que permite listar objetos.
+- Si el bucket es publico, que sea una decision explicita.
+- Debe tener limite de tamano.
+- Debe tener MIME allowlist.
+- No debe permitir listados amplios innecesarios de objetos.
 
 ## Seguridad y permisos
 
@@ -597,128 +643,47 @@ Esto significa que, por diseno actual, cualquier usuario autenticado puede leer
 los chunks de KB por API si tiene la anon key y sesion valida. La UI no ofrece
 un explorador de chunks a clientes, pero RLS si permite SELECT autenticado.
 
-### Policies remotas observadas
+### Policies y funciones a verificar
 
-Remoto tiene policies con nombres diferentes y duplicadas:
+Validar en cada ambiente:
 
-- `archivos_fuente`
-  - `Admins full access archivos_fuente`
-  - `Authenticated users can read source files`
-- `documentos_kb`
-  - `Admins full access documentos_kb`
-  - `Authenticated users can read kb chunks`
-  - `Users read-only documentos_kb`
-- `storage.objects`
-  - Policies antiguas `Admins can ... learning files`
-  - Policies versionadas `formacion_storage_*`
-  - `Admins full storage` para `kb-files`
+- No hay policies permisivas duplicadas en `archivos_fuente`, `documentos_kb` ni
+  `storage.objects`.
+- `is_admin()` fija `search_path` y no queda expuesta como RPC peligrosa.
+- `is_authenticated()` fija `search_path`.
+- `buscar_contexto_kb()` fija `search_path` y filtra embeddings nulos.
+- `is_admin()` usa `app_metadata.role = "admin"` como fuente de verdad.
+- `vector` esta instalada en un schema deliberado y documentado.
+- Leaked password protection esta activado si Supabase Auth usa password login.
+- Los buckets no permiten listados publicos innecesarios.
 
-El advisor de performance marca multiples permissive policies, especialmente en
-`documentos_kb` por SELECT autenticado duplicado/triplicado.
-
-### Funciones remotas observadas
-
-Remoto actual:
-
-- `is_admin()` es `SECURITY DEFINER`, PL/pgSQL, sin `set search_path`.
-- `is_authenticated()` no fija `search_path`.
-- `buscar_contexto_kb()` no fija `search_path`.
-
-Advisor de seguridad:
-
-- `function_search_path_mutable` en `is_authenticated`, `is_admin`,
-  `buscar_contexto_kb`.
-- `is_admin()` ejecutable por `anon` y `authenticated` como SECURITY DEFINER.
-- Extension `vector` instalada en schema `public`.
-- Leaked password protection desactivado.
-- Public bucket listing en `formacion-archivos`.
-
-Migration local ya intenta corregir parte:
+Migration local esperada:
 
 - `is_admin()` como `language sql stable set search_path = ''`.
 - `is_authenticated()` con `set search_path = ''`.
 - `buscar_contexto_kb()` con `set search_path = ''`.
 - Revoca execute de `is_admin()` a `anon, authenticated`.
 
-Pero Supabase remoto reporta `migrations: []`, asi que ese SQL no esta registrado
-como aplicado en el proyecto remoto.
+## Auditoria portable por ambiente
 
-## Estado remoto al 2026-06-16
+Para auditar un ambiente concreto, usar esta lista como base y guardar las
+evidencias operativas en el espacio privado que corresponda para ese proyecto.
 
-Proyecto accesible por conector:
+Checklist:
 
-- Project ref: `skiwambsxnbjajmgewdi`
-- Estado: `ACTIVE_HEALTHY`
-- Region: `us-east-2`
-- Postgres: `17.6.1.104`
-
-Edge Functions:
-
-| Funcion | Estado | Version | JWT |
-| --- | --- | --- | --- |
-| `chat` | `ACTIVE` | 4 | `verify_jwt = true` |
-
-Migrations:
-
-- `[]`
-
-Extensiones relevantes instaladas:
-
-- `vector` en schema `public`, version `0.8.0`
-- `pgcrypto` en `extensions`
-- `uuid-ossp` en `extensions`
-- `pg_stat_statements` en `extensions`
-- `supabase_vault` en `vault`
-
-Conteos de tablas principales:
-
-| Tabla | Filas |
-| --- | ---: |
-| `documentos_kb` | 1455 |
-| `archivos_fuente` | 8 |
-| `capacitaciones` | 12 |
-| `capacitacion_modulos` | 24 |
-| `modulo_recursos` | 31 |
-| `certificaciones` | 7 |
-| `certification_requests` | 17 |
-| `progreso_recursos` | 94 |
-| `exam_attempts` | 47 |
-| `user_progress` | 0 |
-| `categorias` | 0 |
-| `productos` | 0 |
-
-Conteos KB:
-
-| Metrica | Valor |
-| --- | ---: |
-| Archivos fuente totales | 8 |
-| Archivos fuente activos | 7 |
-| Archivos fuente inactivos | 1 |
-| Chunks totales | 1455 |
-| Chunks con embedding | 1455 |
-| Chunks sin archivo | 0 |
-| Chunks en archivos activos | 1443 |
-| Chunks en archivo inactivo | 12 |
-
-Distribucion por extension:
-
-| Extension | Activo | Archivos | Chunks |
-| --- | --- | ---: | ---: |
-| `pdf` | `true` | 7 | 1443 |
-| `pdf` | `false` | 1 | 12 |
-
-## Drift repo vs remoto
-
-| Area | Repo local | Remoto actual | Impacto |
-| --- | --- | --- | --- |
-| Migrations | Existe `0001_irridelta_schema.sql`. | Supabase reporta `migrations: []`. | El schema remoto no esta trazado por historial de migrations. |
-| `is_admin()` | SQL stable, `set search_path = ''`, revoke execute a anon/auth. | PL/pgSQL SECURITY DEFINER, mutable search_path, ejecutable por anon/auth. | Riesgo de seguridad y warnings activos. |
-| `buscar_contexto_kb()` | `set search_path = ''`, `embedding is not null`, operadores calificados con `public.<=>`. | Sin `set search_path`; no filtra explicitamente `embedding is not null`; usa tablas sin schema en body. | Riesgo de search path y menor robustez. |
-| `documentos_kb.archivo_id` | Indice `idx_documentos_kb_archivo_id`. | Advisor dice FK sin indice; no aparece en `pg_indexes`. | Deletes/cascades y joins pueden degradar. |
-| Indice vectorial | Un HNSW. | Dos HNSW identicos. | Escrituras mas caras y advisor duplicate index. |
-| `kb-files` size limit | 20 MB. | `null`. | Storage no refuerza limite de UI. |
-| `formacion-archivos` | 100 MB y MIME allowlist. | Sin limite ni MIME allowlist. | Deuda de seguridad/operacion fuera de KB directa. |
-| Policies KB | Nombres versionados y 2 policies por tabla. | Policies antiguas + nuevas, duplicadas. | Performance warnings y complejidad de permisos. |
+- `supabase migration list --linked` muestra las migrations esperadas.
+- `supabase db advisors --linked --type security` no tiene bloqueantes.
+- `supabase db advisors --linked --type performance` no tiene bloqueantes.
+- Edge Functions requeridas estan activas y con `verify_jwt = true`, salvo
+  excepcion documentada.
+- Extensiones requeridas existen:
+  - `vector`
+  - `pgcrypto`
+  - `uuid-ossp`, si alguna migration la requiere.
+- `documentos_kb` tiene chunks con embedding para documentos activos.
+- No hay chunks huerfanos sin `archivo_id` valido.
+- Los buckets tienen limites, MIME allowlists y policies esperadas.
+- Las pruebas de chatbot recuperan contexto real antes de llamar al LLM.
 
 ## Calidad de respuestas y limites del RAG
 
@@ -758,11 +723,13 @@ Limites:
    - Si la KB incluye manuales no publicos o informacion sensible, esto es una
      decision a revisar.
 
-3. **Drift de seguridad en remoto**
-   - `is_admin()` SECURITY DEFINER ejecutable por anon/auth.
-   - Funciones sin search_path fijo.
-   - Extension `vector` en public.
-   - Policies duplicadas.
+3. **Auditoria de ambiente pendiente por permisos**
+   - No asumir estado de schema/advisors si la cuenta actual no puede consultar
+     el proyecto Supabase destino.
+   - Cualquier drift observado en otro proyecto no debe atribuirse al ambiente
+     productivo.
+   - Para cerrar este punto hace falta acceso Supabase Management/API al proyecto
+     destino o ejecutar los queries/advisors desde una cuenta autorizada.
 
 4. **Consistencia no atomica**
    - Storage upload, `archivos_fuente` y `documentos_kb` no se escriben en una
