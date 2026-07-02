@@ -14,6 +14,8 @@ import {
   LLM_MAX_TOKENS,
   KEYWORDS_IRRIDELTA,
   OFF_TOPIC_RESPONSE,
+  NO_CONTEXT_RESPONSE,
+  canAnswerFromStaticPromptOnly,
   buildSystemPrompt,
 } from "../services/chatbotConfig";
 import styles from "./Chatbot.module.css";
@@ -175,23 +177,34 @@ function Chatbot() {
         fuentesUnicas = [...new Set(documentos.map(doc => doc.metadata?.source).filter(Boolean))];
       }
 
-      // 3b. FILTRO DE RELEVANCIA: bloquear queries fuera de tema sin gastar tokens
-      //     NUNCA bloquear si hay historial — el LLM maneja follow-ups con el system prompt
-      const queryLower = userMsg.toLowerCase();
-      const tieneContexto = contexto.length > 0;
-      const esRelevante = KEYWORDS_IRRIDELTA.some((kw) => queryLower.includes(kw));
-
-      if (!tieneContexto && !tieneHistorial && !esRelevante) {
-        // Guardar el intento del usuario en el historial para que futuros follow-ups tengan contexto
+      const replyWithGuardrail = (responseText) => {
         conversationHistory.current.push(
           { role: "user", content: userMsg },
-          { role: "assistant", content: OFF_TOPIC_RESPONSE }
+          { role: "assistant", content: responseText }
         );
         setMessages((prev) => [
           ...prev,
-          { id: Date.now() + 1, sender: "bot", text: OFF_TOPIC_RESPONSE },
+          { id: Date.now() + 1, sender: "bot", text: responseText },
         ]);
         setIsLoading(false);
+      };
+
+      // 3b. FILTRO DE RELEVANCIA: bloquear sin gastar tokens cuando la KB no aporta contexto.
+      const queryLower = userMsg.toLowerCase();
+      const tieneContexto = contexto.length > 0;
+      const esRelevante = KEYWORDS_IRRIDELTA.some((kw) => queryLower.includes(kw));
+      const respondeSoloConPromptEstatico = canAnswerFromStaticPromptOnly(
+        userMsg,
+        conversationHistory.current
+      );
+
+      if (!tieneContexto && !tieneHistorial && !esRelevante) {
+        replyWithGuardrail(OFF_TOPIC_RESPONSE);
+        return;
+      }
+
+      if (!tieneContexto && !respondeSoloConPromptEstatico) {
+        replyWithGuardrail(NO_CONTEXT_RESPONSE);
         return;
       }
 
