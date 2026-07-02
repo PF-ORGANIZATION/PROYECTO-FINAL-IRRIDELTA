@@ -91,10 +91,23 @@ Verificar en cada proyecto Supabase destino:
 | Archivo | Rol en la feature |
 | --- | --- |
 | `src/App.jsx` | Monta rutas protegidas y renderiza `<Chatbot />` globalmente dentro del router. |
-| `src/features/chatbot/pages/Chatbot.jsx` | Orquesta UI, historial, embedding de consulta, RPC a KB, prompt, streaming SSE y cooldown. |
-| `src/features/chatbot/services/chatbotConfig.js` | Constantes del RAG/LLM, keywords de relevancia, respuesta fuera de tema y system prompt. |
+| `src/features/chatbot/pages/Chatbot.jsx` | Punto de entrada del widget. Lee sesion/bloqueo de examen y compone launcher + ventana usando `useChatbotController`. |
+| `src/features/chatbot/hooks/useChatbotController.js` | Orquesta estado visible, historial conversacional, cooldown, abort controller, RAG, guardrails y streaming. |
+| `src/features/chatbot/components/ChatbotLauncher.jsx` | Boton flotante para abrir/cerrar el asistente. |
+| `src/features/chatbot/components/ChatbotWindow.jsx` | Contenedor visual de header, lista de mensajes e input. |
+| `src/features/chatbot/components/ChatbotHeader.jsx` | Header de la ventana, acciones de expandir/reducir y cerrar. |
+| `src/features/chatbot/components/ChatbotMessages.jsx` | Render de lista de mensajes, burbujas y estado `Analizando...`. |
+| `src/features/chatbot/components/ChatbotInput.jsx` | Formulario controlado de envio, cooldown y estado deshabilitado. |
+| `src/features/chatbot/components/ChatBubble.jsx` | Render de burbujas; mensajes del bot usan Markdown y fuentes RAG opcionales. |
+| `src/features/chatbot/services/chatbotConfig.js` | Constantes del RAG/LLM y re-exports publicos de prompt/guardrails. |
+| `src/features/chatbot/services/chatbotGuardrails.js` | Keywords de dominio, respuestas de bloqueo y regla de "sin contexto activo". |
+| `src/features/chatbot/services/chatbotPrompt.js` | System prompt y armado de mensajes para el LLM. |
+| `src/features/chatbot/services/ragService.js` | Query de embedding, RPC `buscar_contexto_kb` y construccion de contexto/fuentes. |
+| `src/features/chatbot/services/chatCompletionService.js` | POST a Edge Function `chat`, lectura SSE y acumulacion de tokens. |
+| `src/features/chatbot/services/chatbotErrors.js` | Traduccion de errores HTTP/red/RPC a mensajes de usuario. |
+| `src/features/chatbot/services/chatbotMessages.js` | Factory de mensajes visibles e historial `user/assistant`. |
 | `src/features/chatbot/services/embeddingService.js` | Singleton del modelo `Supabase/gte-small` para embeddings de consultas en el navegador. |
-| `src/features/chatbot/components/ChatBubble.jsx` | Render de burbujas; mensajes del bot usan Markdown y fuentes RAG solo si vienen en el mensaje. |
+| `src/store/examLockStore.js` | Bloquea el chatbot mientras hay examen activo, incluso entre pestañas del mismo navegador. |
 | `src/features/kb/pages/AdminKB.jsx` | UI admin para carga, extraccion, upload, listado, preview, activacion/desactivacion y borrado de documentos KB. |
 | `src/features/kb/services/embeddingWorker.js` | Web Worker que chunkifica texto y genera embeddings para los documentos cargados. |
 | `supabase/functions/chat/index.ts` | Edge Function que proxyfica llamadas a Groq y soporta streaming/no streaming. |
@@ -177,7 +190,15 @@ Consecuencias:
 
 ### Estado local
 
-`Chatbot.jsx` mantiene:
+`Chatbot.jsx` ya no contiene la logica principal. Solo:
+
+- Lee usuario/rol desde `sessionStore`.
+- Lee bloqueo de examen desde `examLockStore`.
+- Llama `useExamLockSync()` para enterarse de examenes activos en otras pestañas.
+- Crea el controlador con `useChatbotController`.
+- Renderiza `ChatbotLauncher` y `ChatbotWindow`.
+
+`useChatbotController.js` mantiene:
 
 - `input`: texto actual del usuario.
 - `isLoading`: estado de analisis antes o durante procesamiento.
@@ -188,8 +209,9 @@ Consecuencias:
 - `conversationHistory`: historial enviado al LLM, guardado en `useRef`, no en DB.
 - `requestControllerRef`: abort controller para cortar requests al cambiar sesion.
 - `sessionKey`: `${user.id}:${role}`, usado para reiniciar chat si cambia usuario o rol.
+- `isExamInProgressRef`: snapshot del bloqueo de examen para abortar flujos async.
 
-Cuando cambia `sessionKey`, el componente:
+Cuando cambia `sessionKey`, el hook:
 
 - Aborta request activa.
 - Limpia timer de cooldown.
@@ -200,6 +222,13 @@ Cuando cambia `sessionKey`, el componente:
 
 Esto evita mezclar respuestas viejas entre usuarios distintos o despues de un
 cambio de rol.
+
+Cuando `examLockStore` marca examen activo, el hook:
+
+- Aborta request activa.
+- Cierra la ventana.
+- Limpia input, loading y cooldown.
+- Hace que `Chatbot.jsx` devuelva `null` mientras dure el examen.
 
 ### Paso a paso al enviar una consulta
 
@@ -213,6 +242,7 @@ cambio de rol.
    - Para mejorar la busqueda vectorial, concatena los primeros 200 caracteres de
      la ultima respuesta del asistente con el mensaje nuevo.
    - Esto afecta solo al embedding de busqueda, no cambia el mensaje real enviado al LLM.
+   - La regla vive en `ragService.buildEmbeddingQuery()`.
 
 3. **Embedding de consulta**
    - Llama a `embed(queryParaEmbedding)`.
@@ -220,14 +250,15 @@ cambio de rol.
    - El vector resultante tiene 384 dimensiones.
 
 4. **Busqueda semantica en Supabase**
-   - Ejecuta `supabase.rpc("buscar_contexto_kb", ...)`.
+   - `ragService.searchKnowledgeBase()` ejecuta
+     `supabase.rpc("buscar_contexto_kb", ...)`.
    - Parametros actuales:
      - `match_threshold = 0.15`
      - `match_count = 5`
    - El RPC devuelve `contenido`, `metadata` y `similitud`.
 
 5. **Construccion de contexto**
-   - Une todos los `doc.contenido` con separador `---`.
+   - `ragService.buildRagContext()` une todos los `doc.contenido` con separador `---`.
    - Extrae fuentes unicas desde `doc.metadata?.source`.
    - Las fuentes solo se adjuntan al mensaje si `userRole === "admin"`.
 
@@ -242,9 +273,10 @@ cambio de rol.
      del prompt estatico: contacto, sucursales, horarios o informacion basica de
      Irridelta.
    - Si hay contexto, no bloquea aunque la keyword no este.
+   - La regla vive en `chatbotGuardrails.getGuardrailResponse()`.
 
 7. **Prompt al LLM**
-   - Llama a `buildSystemPrompt(contexto)`.
+   - `chatbotPrompt.buildAssistantMessages()` llama a `buildSystemPrompt(contexto)`.
    - Arma:
      - `system`
      - historial previo
@@ -253,7 +285,8 @@ cambio de rol.
      para detalles tecnicos, reglas de precios y formato Markdown.
 
 8. **Llamada a Edge Function**
-   - POST a `${VITE_SUPABASE_URL}/functions/v1/chat`.
+   - `chatCompletionService.streamAssistantResponse()` hace POST a
+     `${VITE_SUPABASE_URL}/functions/v1/chat`.
    - Headers:
      - `Content-Type: application/json`
      - `Authorization: Bearer ${VITE_SUPABASE_KEY}`
@@ -267,7 +300,7 @@ cambio de rol.
 
 9. **Streaming SSE**
    - La funcion devuelve `text/event-stream`.
-   - El frontend lee con `response.body.getReader()`.
+   - `chatCompletionService` lee con `response.body.getReader()`.
    - Usa `TextDecoder` y un buffer `sseBuffer` para soportar chunks parciales.
    - Por cada linea `data: ...`, parsea JSON y agrega `choices[0].delta.content`.
    - Actualiza la burbuja del bot token por token.
@@ -827,11 +860,11 @@ Validar despues:
 | Sintoma | Posibles causas | Donde mirar |
 | --- | --- | --- |
 | La app no arranca | Faltan `VITE_SUPABASE_URL` o `VITE_SUPABASE_KEY`. | `src/supabaseClient.js`, env del hosting. |
-| El chatbot no aparece | Usuario no autenticado o session store sin user. | `Chatbot.jsx`, `sessionStore.js`, login. |
+| El chatbot no aparece | Usuario no autenticado, session store sin user o examen activo en esta/otra pestaña. | `Chatbot.jsx`, `sessionStore.js`, `examLockStore.js`, login. |
 | Error "base de conocimientos" | RPC falla, RLS, funcion ausente, embedding invalido. | `buscar_contexto_kb`, Supabase logs, browser console. |
 | Error "asistente no disponible" | Edge Function 5xx, Groq secret ausente, Groq caido. | Edge Function logs, secrets. |
 | Respuestas sin contexto | Documento inactivo, chunks ausentes, PDF sin texto, threshold/no match. | `/admin/kb`, conteo de chunks, RPC manual. |
-| Respuestas fuera de tema | Keywords/contexto demasiado permisivos, historial contamina follow-up. | `chatbotConfig.js`, historial local. |
+| Respuestas fuera de tema | Keywords/contexto demasiado permisivos, historial contamina follow-up. | `chatbotGuardrails.js`, `useChatbotController.js`, historial local. |
 | Upload queda a medias | Refresh/cierre, fallo en worker, fallo insert masivo. | `kb_pending_upload`, `archivos_fuente`, Storage. |
 | Admin no puede subir | RLS/policy `kb-files`, rol admin no en `app_metadata`. | Auth metadata, Storage policies, `is_admin()`. |
 | Cliente ve contenido que no deberia | SELECT authenticated sobre `documentos_kb`. | RLS policies KB. |
