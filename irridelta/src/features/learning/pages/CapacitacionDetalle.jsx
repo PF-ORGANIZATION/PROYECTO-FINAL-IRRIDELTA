@@ -38,6 +38,7 @@ import {
   getResourceExtension,
   getResourceHref,
   getResourceLabel,
+  getRequiredModuleResources,
   isModuleCompleted,
   isVideoResource,
 } from "../utils/learningRuntime";
@@ -45,21 +46,23 @@ import styles from "./CapacitacionDetalle.module.css";
 
 function buildLessons(modules) {
   return modules.flatMap((module, moduleIndex) =>
-    (module.recursos ?? [])
-      .map((resource, resourceIndex) => ({
+    getModuleLessonResources(module)
+      .map(({ resource, resourceIndex }) => ({
         module,
         moduleIndex,
         resource,
         resourceIndex,
       }))
-      .filter((lesson) => isVideoResource(lesson.resource))
   );
 }
 
 function getModuleLessonResources(module) {
-  return (module?.recursos ?? [])
+  const moduleResources = module?.recursos ?? [];
+  const lessonResources = new Set(getRequiredModuleResources(module));
+
+  return moduleResources
     .map((resource, resourceIndex) => ({ resource, resourceIndex }))
-    .filter(({ resource }) => isVideoResource(resource));
+    .filter(({ resource }) => lessonResources.has(resource));
 }
 
 function getModuleFileResources(module) {
