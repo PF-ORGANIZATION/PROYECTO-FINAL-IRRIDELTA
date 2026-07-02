@@ -15,6 +15,10 @@ import {
   getAttemptSummary,
   startExamAttempt,
 } from "../services/examAttemptsService";
+import {
+  createExamLockId,
+  useExamAvailabilityLock,
+} from "../../../store/examLockStore";
 import styles from "./ModuleExam.module.css";
 
 const RETRY_COOLDOWN_SECONDS = 5 * 60;
@@ -312,6 +316,7 @@ function ModuleExam({
   const [showSavedResult, setShowSavedResult] = useState(false);
   const [answerValidationError, setAnswerValidationError] = useState("");
   const finishExamRef = useRef(null);
+  const examLockIdRef = useRef(null);
 
   const assessment = module ?? {};
   const questions = useMemo(
@@ -360,6 +365,12 @@ function ModuleExam({
     () => buildSavedResult(latestCompletedAttempt),
     [latestCompletedAttempt]
   );
+
+  if (!examLockIdRef.current) {
+    examLockIdRef.current = createExamLockId("module-exam");
+  }
+
+  useExamAvailabilityLock(examStarted && !result, examLockIdRef.current);
 
   useEffect(() => {
     if (!timerStarted || secondsRemaining === null) {

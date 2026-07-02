@@ -231,10 +231,16 @@ cambio de rol.
    - Extrae fuentes unicas desde `doc.metadata?.source`.
    - Las fuentes solo se adjuntan al mensaje si `userRole === "admin"`.
 
-6. **Filtro fuera de tema**
-   - Si no hay contexto, no hay historial y el input no contiene ninguna keyword
-     de Irridelta, responde con `OFF_TOPIC_RESPONSE` sin llamar al LLM.
-   - Si hay historial, no bloquea: deja que el system prompt maneje follow-ups.
+6. **Filtro previo al LLM**
+   - Si no hay contexto y el input no contiene ninguna keyword de Irridelta,
+     responde con `OFF_TOPIC_RESPONSE` sin llamar al LLM.
+   - Si no hay contexto pero el input sí es del dominio, responde con
+     `NO_CONTEXT_RESPONSE` sin llamar al LLM. Esto evita que el modelo conteste
+     temas como sistemas de riego con conocimiento general cuando todos los
+     documentos estan inactivos o la busqueda no trajo chunks.
+   - Sin chunks activos, solo se permite llamar al LLM para respuestas que salen
+     del prompt estatico: contacto, sucursales, horarios o informacion basica de
+     Irridelta.
    - Si hay contexto, no bloquea aunque la keyword no este.
 
 7. **Prompt al LLM**
@@ -692,8 +698,10 @@ Fortalezas:
 - Usa embeddings normalizados y busqueda vectorial.
 - Usa contexto recuperado antes de consultar al LLM.
 - Mantiene historial breve para follow-ups.
-- Tiene filtro fuera de tema previo al LLM si no hay contexto ni historial.
-- El prompt obliga a no inventar detalles tecnicos fuera del contexto.
+- Tiene filtro previo al LLM si no hay contexto activo o el tema esta fuera del
+  alcance.
+- El prompt y el guardrail de frontend obligan a no inventar detalles tecnicos
+  fuera del contexto.
 - Fuentes RAG visibles para admin ayudan a depurar.
 
 Limites:

@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import { MessageCircle, X } from "lucide-react";
 import { useSessionStore } from "../../../store/sessionStore";
+import {
+  useExamLockStore,
+  useExamLockSync,
+} from "../../../store/examLockStore";
 import { supabase } from "../../../supabaseClient";
 import { embed } from "../services/embeddingService";
 import ChatBubble from "../components/ChatBubble";
@@ -70,6 +74,8 @@ function getChatErrorMessage(error) {
 function Chatbot() {
   const user = useSessionStore((state) => state.user);
   const userRole = useSessionStore((state) => state.role);
+  const isExamInProgress = useExamLockStore((state) => state.isExamInProgress);
+  useExamLockSync();
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -120,6 +126,26 @@ function Chatbot() {
       }
     }
   ), []);
+
+  useEffect(() => {
+    if (!isExamInProgress) {
+      return;
+    }
+
+    requestControllerRef.current?.abort();
+    requestControllerRef.current = null;
+
+    if (cooldownTimerRef.current) {
+      clearInterval(cooldownTimerRef.current);
+      cooldownTimerRef.current = null;
+    }
+
+    setInput("");
+    setCooldown(0);
+    setIsLoading(false);
+    setIsOpen(false);
+    setIsExpanded(false);
+  }, [isExamInProgress]);
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -379,7 +405,7 @@ function Chatbot() {
     }
   };
 
-  if (!user) return null;
+  if (!user || isExamInProgress) return null;
 
   return (
     <>
