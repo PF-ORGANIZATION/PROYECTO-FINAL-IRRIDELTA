@@ -1,0 +1,9 @@
+export const KB_BUCKET = "kb-files";
+export const PENDING_UPLOAD_KEY = "kb_pending_upload";
+export const ALLOWED_EXTENSIONS = [".pdf", ".md", ".txt"];
+export const ACCEPTED_FILE_TYPES = ALLOWED_EXTENSIONS.join(",");
+export const MAX_SIZE_MB = 15;
+export const DOWNLOAD_SIGNED_URL_SECONDS = 60;
+export const PREVIEW_SIGNED_URL_SECONDS = 120;
+export const TEXT_PREVIEW_CHARS = 2000;
+export const MANUAL_UPLOAD_PREFIX = "Carga_Manual";

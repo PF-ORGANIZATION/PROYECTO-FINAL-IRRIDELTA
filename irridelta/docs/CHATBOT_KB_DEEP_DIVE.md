@@ -108,7 +108,19 @@ Verificar en cada proyecto Supabase destino:
 | `src/features/chatbot/services/chatbotMessages.js` | Factory de mensajes visibles e historial `user/assistant`. |
 | `src/features/chatbot/services/embeddingService.js` | Singleton del modelo `Supabase/gte-small` para embeddings de consultas en el navegador. |
 | `src/store/examLockStore.js` | Bloquea el chatbot mientras hay examen activo, incluso entre pestañas del mismo navegador. |
-| `src/features/kb/pages/AdminKB.jsx` | UI admin para carga, extraccion, upload, listado, preview, activacion/desactivacion y borrado de documentos KB. |
+| `src/features/kb/pages/AdminKB.jsx` | Punto de entrada de Admin KB. Compone formulario, listado y modal usando `useAdminKbController`. |
+| `src/features/kb/hooks/useAdminKbController.js` | Orquesta estado de carga/listado/preview, rollback, reemplazo de duplicados, worker e inserts en Supabase. |
+| `src/features/kb/components/KbUploadPanel.jsx` | Formulario visual de carga por archivo o texto manual, dropzone, progreso y estado. |
+| `src/features/kb/components/KbDocumentList.jsx` | Tabla de documentos subidos, estados de carga/vacio y composicion de filas. |
+| `src/features/kb/components/KbDocumentRow.jsx` | Acciones por documento: preview, descarga, toggle activo/inactivo y borrado. |
+| `src/features/kb/components/KbPreviewModal.jsx` | Modal de detalle: metadata, estado RAG y preview PDF/TXT. |
+| `src/features/kb/services/kbConfig.js` | Constantes de KB: bucket, extensiones, limites, TTL de signed URLs y clave de rollback. |
+| `src/features/kb/services/kbFileUtils.js` | Utilidades puras para extensiones, nombres manuales, storage paths, tamanos y sanitizacion. |
+| `src/features/kb/services/kbDocumentsService.js` | Acceso a tablas `archivos_fuente` y `documentos_kb`: listado, insert, delete, toggle y conteo de chunks. |
+| `src/features/kb/services/kbStorageService.js` | Acceso a Storage `kb-files`: upload, remove y signed URLs. |
+| `src/features/kb/services/kbFileReaderService.js` | Extraccion de texto PDF/TXT/MD y generacion de preview de contenido. |
+| `src/features/kb/services/kbPreviewService.js` | Agrega datos de preview: chunks, signed URL, peso y contenido renderizable. |
+| `src/features/kb/services/kbProcessingService.js` | Envuelve `embeddingWorker` en una promesa y reporta progreso al hook. |
 | `src/features/kb/services/embeddingWorker.js` | Web Worker que chunkifica texto y genera embeddings para los documentos cargados. |
 | `supabase/functions/chat/index.ts` | Edge Function que proxyfica llamadas a Groq y soporta streaming/no streaming. |
 | `supabase/migrations/0001_irridelta_schema.sql` | Schema esperado: tablas KB, funcion de busqueda vectorial, RLS, grants, buckets e indices. |
@@ -395,9 +407,19 @@ Riesgo operativo importante:
 
 ## Admin KB
 
+La gestion frontend quedo separada por responsabilidad:
+
+- `AdminKB.jsx` solo arma la pantalla.
+- `useAdminKbController.js` coordina el flujo de usuario y estado React.
+- `kbDocumentsService.js` y `kbStorageService.js` encapsulan Supabase.
+- `kbFileReaderService.js` concentra PDF/TXT/MD y previews.
+- `kbProcessingService.js` encapsula el contrato con el worker.
+- Los componentes `KbUploadPanel`, `KbDocumentList`, `KbDocumentRow` y
+  `KbPreviewModal` renderizan UI sin conocer detalles de base de datos.
+
 ### Carga aceptada
 
-`AdminKB.jsx` acepta:
+La gestion de KB acepta:
 
 - `.pdf`
 - `.md`
@@ -429,6 +451,7 @@ Para PDFs:
 - Recorre todas las paginas.
 - Lee `page.getTextContent()`.
 - Une `item.str` con espacios.
+- La logica vive en `kbFileReaderService.js`.
 
 Para TXT/MD:
 
@@ -460,6 +483,7 @@ kb/{timestamp}_{fileName_sanitizado}
 ```
 
 La sanitizacion del nombre reemplaza caracteres fuera de `[a-zA-Z0-9.-]` por `_`.
+La regla vive en `kbFileUtils.js`.
 
 Para cargas manuales:
 
@@ -488,25 +512,28 @@ nombre y mismo contenido quedan como documentos distintos.
 
 Flujo de escritura:
 
-1. Sube objeto a `kb-files`.
-2. Inserta fila en `archivos_fuente` con:
+1. `useAdminKbController` extrae y sanitiza texto.
+2. `kbStorageService` sube objeto a `kb-files`.
+3. `kbDocumentsService` inserta fila en `archivos_fuente` con:
    - `nombre`
    - `storage_path`
-3. Guarda en `sessionStorage` un marcador `kb_pending_upload`.
-4. Levanta `EmbeddingWorker`.
-5. El worker devuelve `rowsToInsert`.
-6. El frontend agrega `archivo_id` a cada row.
-7. Inserta en masa en `documentos_kb`.
-8. Limpia `kb_pending_upload`.
-9. Resetea UI y refresca la lista.
+4. Guarda en `sessionStorage` un marcador `kb_pending_upload`.
+5. `kbProcessingService` levanta `EmbeddingWorker`.
+6. El worker devuelve `rowsToInsert`.
+7. El frontend agrega `archivo_id` a cada row.
+8. `kbDocumentsService` inserta en masa en `documentos_kb`.
+9. Limpia `kb_pending_upload`.
+10. Resetea UI y refresca la lista.
 
 Rollback:
 
-- Al montar `AdminKB`, si existe `kb_pending_upload`, intenta eliminar el objeto
-  de Storage y el registro `archivos_fuente`.
+- Al montar `useAdminKbController`, si existe `kb_pending_upload`, intenta
+  eliminar el objeto de Storage y el registro `archivos_fuente`.
 - Esto cubre refresh/cierre durante procesamiento.
-- Si falla la insercion de chunks sin desmontar la pantalla, el marcador queda
-  para limpiarse en el siguiente montaje; no hay transaccion atomica Storage + DB.
+- Si falla una carga despues de subir Storage o crear `archivos_fuente`, el hook
+  intenta revertir inmediatamente la carga parcial.
+- No hay transaccion atomica Storage + DB, por lo que siguen siendo utiles las
+  revisiones operativas de objetos o filas huerfanas.
 
 ### Worker de embeddings
 
@@ -518,6 +545,7 @@ Rollback:
 - Usa overlap de 200 caracteres.
 - Intenta cortar en el ultimo salto de linea o punto antes del limite.
 - Si encuentra un corte razonable despues de `i + overlap`, corta ahi.
+- Al llegar al final del texto corta el bucle, para no reingresar por el overlap.
 - Para cada chunk genera embedding normalizado con `pooling: "mean"`.
 - Devuelve filas:
   - `contenido`
@@ -563,7 +591,7 @@ Columnas esperadas:
 | `id` | uuid | PK. |
 | `nombre` | text | Nombre visible y deduplicacion por nombre. |
 | `storage_path` | text | Path en bucket `kb-files`. |
-| `tipo` | text | Campo opcional, no usado de forma central por AdminKB actual. |
+| `tipo` | text | Campo opcional, no usado de forma central por la gestion de KB actual. |
 | `created_at` | timestamptz | Fecha de carga. |
 | `activo` | boolean | Si participa o no del RAG. Default `true`. |
 
@@ -626,7 +654,7 @@ Uso:
 
 - Guarda PDFs/TXT/MD de la base de conocimiento.
 - Es privado.
-- AdminKB genera signed URLs para descargar o preview.
+- `kbStorageService` genera signed URLs para descargar o preview.
 
 Migration local:
 

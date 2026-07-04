@@ -25,7 +25,8 @@ const chunkText = (text, chunkSize = 1000, overlap = 200) => {
       }
     }
     chunks.push(text.slice(i, end));
-    i = end - overlap;
+    if (end >= text.length) break;
+    i = Math.max(end - overlap, i + 1);
   }
   return chunks;
 };
