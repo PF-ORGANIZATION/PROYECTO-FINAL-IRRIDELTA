@@ -82,10 +82,22 @@ Edge Function secrets:
 ```bash
 ./node_modules/.bin/supabase secrets set \
   GROQ_API_KEY=<groq_api_key> \
+  CHAT_ALLOWED_ORIGINS=<frontend_domain> \
   --project-ref <target_project_ref>
 ```
 
-`chat` requiere `GROQ_API_KEY`.
+`chat` requiere `GROQ_API_KEY`, `SUPABASE_URL` y `SUPABASE_ANON_KEY` en el
+runtime de Edge Functions. Tambien lee `CHAT_ALLOWED_ORIGINS` para restringir
+CORS; en produccion debe contener solo dominios frontend permitidos, separados
+por comas si hay mas de uno. En desarrollo local, agregar explicitamente el
+origen local usado, por ejemplo `http://localhost:5173`.
+
+Opcionales de `chat`:
+
+- `CHAT_RATE_LIMIT_WINDOW_SECONDS`
+- `CHAT_RATE_LIMIT_MAX_REQUESTS`
+- `GROQ_CHAT_MODEL`
+- `GROQ_CHAT_FALLBACK_MODEL`
 
 `learning-feed` usa `SUPABASE_URL`, `SUPABASE_ANON_KEY` y
 `SUPABASE_SERVICE_ROLE_KEY` dentro del runtime de Edge Functions. Confirmar que
@@ -311,8 +323,38 @@ Validar CORS:
 
 ```bash
 curl -i -X OPTIONS \
-  "https://<target_project_ref>.supabase.co/functions/v1/chat"
+  "https://<target_project_ref>.supabase.co/functions/v1/chat" \
+  -H "Origin: <frontend_domain>" \
+  -H "Access-Control-Request-Method: POST" \
+  -H "Access-Control-Request-Headers: authorization, apikey, content-type"
 ```
+
+Validar CORS restringido:
+
+```bash
+curl -i -X OPTIONS \
+  "https://<target_project_ref>.supabase.co/functions/v1/chat" \
+  -H "Origin: https://origen-no-permitido.example" \
+  -H "Access-Control-Request-Method: POST"
+```
+
+Debe responder `403` o no incluir `Access-Control-Allow-Origin` para el origen
+no permitido.
+
+Validar que `chat` rechaza anon/public key como bearer:
+
+```bash
+curl -i -X POST \
+  "https://<target_project_ref>.supabase.co/functions/v1/chat" \
+  -H "Origin: <frontend_domain>" \
+  -H "Content-Type: application/json" \
+  -H "apikey: <anon_or_publishable_key>" \
+  -H "Authorization: Bearer <anon_or_publishable_key>" \
+  -d '{"messages":[{"role":"system","content":"test"},{"role":"user","content":"hola"}]}'
+```
+
+Debe responder `401`. La prueba positiva debe hacerse desde la app o con un
+`access_token` real de un usuario autenticado.
 
 Validar que una llamada sin autorizacion no abra datos privados:
 
@@ -435,7 +477,8 @@ Antes de considerar productivo:
 - `supabase db advisors --linked --type performance` no tiene bloqueantes.
 - Todas las carpetas de `supabase/functions` estan desplegadas o justificadas
   como no usadas.
-- `chat` responde con CORS correcto y no expone `GROQ_API_KEY`.
+- `chat` responde con CORS restringido, exige access token de usuario, aplica
+  parametros LLM server-side y no expone `GROQ_API_KEY`.
 - `learning-feed` exige usuario autenticado para vistas privadas.
 - Buckets existen, tienen MIME allowlists y limites esperados.
 - Objetos de Storage requeridos existen en los paths esperados.

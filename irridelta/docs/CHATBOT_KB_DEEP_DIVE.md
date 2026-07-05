@@ -175,13 +175,29 @@ para scripts admin y no representa necesariamente el deploy productivo.
 
 ### Edge Function `chat`
 
-La funcion necesita el secret:
+La funcion necesita estos valores en el runtime de Supabase Edge Functions:
 
 - `GROQ_API_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
 
 Ese secret debe vivir en Supabase Edge Function secrets, no en `.env` del
 frontend ni en Vercel. La funcion lee `Deno.env.get("GROQ_API_KEY")` y devuelve
-error si no esta configurada.
+error si no esta configurada. `SUPABASE_URL` y `SUPABASE_ANON_KEY` se usan para
+validar el access token real del usuario con Supabase Auth antes de llamar a
+Groq.
+
+Variables opcionales de hardening:
+
+- `CHAT_ALLOWED_ORIGINS`: allowlist separada por comas para CORS. En produccion
+  debe contener solo el dominio frontend autorizado. Para desarrollo local,
+  agregar explicitamente `http://localhost:5173` o el origen local usado.
+- `CHAT_RATE_LIMIT_WINDOW_SECONDS`: ventana de rate limit. Default: `60`.
+- `CHAT_RATE_LIMIT_MAX_REQUESTS`: maximo de requests por usuario/IP por ventana.
+  Default: `12`.
+- `GROQ_CHAT_MODEL`: modelo server-side. Default: `openai/gpt-oss-20b`.
+- `GROQ_CHAT_FALLBACK_MODEL`: fallback si el modelo principal falla con 400/404.
+  Default: `llama-3.1-8b-instant`.
 
 ### Modelos y red
 
@@ -299,16 +315,15 @@ Cuando `examLockStore` marca examen activo, el hook:
 8. **Llamada a Edge Function**
    - `chatCompletionService.streamAssistantResponse()` hace POST a
      `${VITE_SUPABASE_URL}/functions/v1/chat`.
+   - Antes de llamar, obtiene la sesion actual con `supabase.auth.getSession()`.
    - Headers:
      - `Content-Type: application/json`
-     - `Authorization: Bearer ${VITE_SUPABASE_KEY}`
+     - `Authorization: Bearer ${session.access_token}`
      - `apikey: ${VITE_SUPABASE_KEY}`
    - Body:
-     - `model = "openai/gpt-oss-20b"`
-     - `temperature = 0.1`
-     - `max_tokens = 2048`
-     - `stream = true`
      - `messages = llmMessages`
+   - El modelo, temperatura, max tokens y streaming se fuerzan server-side en la
+     Edge Function. El frontend ya no puede elegir esos parametros.
 
 9. **Streaming SSE**
    - La funcion devuelve `text/event-stream`.
@@ -352,9 +367,16 @@ Constantes principales:
 | `MATCH_THRESHOLD` | `0.15` |
 | `MATCH_COUNT` | `5` |
 | `COOLDOWN_SECONDS` | `5` |
-| `LLM_MODEL` | `openai/gpt-oss-20b` |
-| `LLM_TEMPERATURE` | `0.1` |
-| `LLM_MAX_TOKENS` | `2048` |
+
+Parametros LLM server-side en `supabase/functions/chat/index.ts`:
+
+| Parametro | Valor default |
+| --- | --- |
+| `GROQ_CHAT_MODEL` | `openai/gpt-oss-20b` |
+| `GROQ_CHAT_FALLBACK_MODEL` | `llama-3.1-8b-instant` |
+| Temperatura | `0.1` |
+| Max tokens | `2048` |
+| Streaming | `true` |
 
 El system prompt incluye:
 
@@ -380,13 +402,20 @@ La funcion `supabase/functions/chat/index.ts`:
 - Solo acepta `POST` y `OPTIONS`.
 - Devuelve 405 para otros metodos.
 - Lee `GROQ_API_KEY` desde secrets.
-- Valida que `messages` exista y sea array.
+- Valida el access token real del usuario con `supabase.auth.getUser()`.
+- Rechaza bearer anon/public key como token de usuario.
+- Valida que `messages` exista, sea array, tenga roles permitidos y respete
+  limites de cantidad/tamano.
+- Aplica rate limit best-effort en memoria por usuario e IP.
+- Restringe CORS por allowlist desde `CHAT_ALLOWED_ORIGINS` o defaults de
+  dominio productivo.
 - Reenvia a `https://api.groq.com/openai/v1/chat/completions`.
-- Soporta `stream: true` y no-streaming.
-- En streaming, pipea directamente el body SSE de Groq al navegador.
-- Si el modelo elegido falla con 400 o 404, reintenta con fallback
+- Fuerza server-side modelo, temperatura, max tokens y `stream: true`.
+- Pipea directamente el body SSE de Groq al navegador.
+- Si el modelo server-side falla con 400 o 404, reintenta con fallback
   `llama-3.1-8b-instant`.
-- En no-streaming, reintenta 429 hasta 3 veces con backoff simple.
+- Registra en logs eventos de origen no permitido, auth rechazada, payload
+  invalido, rate limit y errores de Groq.
 
 Estado esperado en cualquier ambiente productivo:
 
@@ -398,12 +427,12 @@ Estado esperado en cualquier ambiente productivo:
 
 Riesgo operativo importante:
 
-- La funcion no valida el usuario por si misma.
-- El frontend manda la anon key como bearer.
-- Con `Access-Control-Allow-Origin: *`, cualquier origen podria intentar usar la
-  funcion si conoce la URL y una anon key valida.
-- Para reducir abuso/costo, conviene enviar el access token real del usuario y
-  validar sesion/rol en la funcion, o agregar rate limiting/server-side checks.
+- El hardening principal ya esta aplicado: bearer de usuario real, validacion de
+  sesion dentro de la funcion, parametros LLM server-side, CORS por allowlist,
+  rate limit simple y logs de abuso/error.
+- El rate limit es best-effort por instancia de Edge Function. Para una
+  proteccion fuerte multi-instancia, conviene migrarlo a una tabla/RPC o servicio
+  externo de rate limiting.
 
 ## Admin KB
 
@@ -781,11 +810,13 @@ Limites:
 ## Riesgos principales
 
 1. **Abuso/costo de Edge Function**
-   - `chat` acepta payload arbitrario de `messages`, `model`, `temperature`,
-     `max_tokens` y `stream`.
-   - No valida sesion real del usuario en el body ni con access token.
-   - Recomendacion: enviar access token de usuario, verificarlo dentro de la
-     funcion, limitar modelos/parametros server-side y agregar rate limit.
+   - Mitigado parcialmente: `chat` exige access token real de usuario, valida la
+     sesion dentro de la funcion, fuerza modelo/temperatura/tokens/streaming
+     server-side, restringe CORS por allowlist y aplica rate limit por usuario/IP.
+   - Riesgo residual: el rate limit vive en memoria de la instancia Edge. No es
+     un contador global fuerte entre instancias o regiones.
+   - Recomendacion pendiente: mover rate limit/auditoria a almacenamiento
+     persistente o servicio externo si el volumen o el costo lo justifican.
 
 2. **KB legible por usuarios autenticados**
    - RLS permite SELECT de chunks a authenticated.
@@ -870,15 +901,21 @@ npm run build
 Configurar secret:
 
 ```bash
-./node_modules/.bin/supabase secrets set GROQ_API_KEY=your_groq_key --project-ref <project_ref>
+./node_modules/.bin/supabase secrets set \
+  GROQ_API_KEY=your_groq_key \
+  CHAT_ALLOWED_ORIGINS=https://<frontend_domain> \
+  --project-ref <project_ref>
 ```
 
 Validar despues:
 
 - Edge Function `chat` activa.
 - `verify_jwt = true`.
+- `CHAT_ALLOWED_ORIGINS` contiene solo dominios frontend permitidos en produccion.
 - Logs de Edge Function sin 500/429 persistentes.
 - Pregunta simple desde usuario autenticado.
+- POST sin `Authorization: Bearer <access_token>` devuelve 401.
+- POST desde origen no permitido devuelve 403.
 - Pregunta que requiera KB.
 - Pregunta fuera de tema.
 - Follow-up corto despues de una respuesta.
@@ -901,10 +938,8 @@ Validar despues:
 
 Prioridad alta:
 
-- Enviar access token real del usuario a `chat` y validar usuario dentro de la
-  Edge Function.
-- Forzar allowlist server-side de `model`, `temperature`, `max_tokens` y `stream`.
-- Agregar rate limiting por usuario/IP.
+- Mover rate limiting/auditoria de `chat` a almacenamiento persistente o servicio
+  externo si se necesita control fuerte multi-instancia.
 - Aplicar migration que corrija `is_admin()`, `is_authenticated()` y
   `buscar_contexto_kb()` con `set search_path`.
 - Revocar execute de `is_admin()` para anon/authenticated si solo se usa como
