@@ -91,11 +91,36 @@ Verificar en cada proyecto Supabase destino:
 | Archivo | Rol en la feature |
 | --- | --- |
 | `src/App.jsx` | Monta rutas protegidas y renderiza `<Chatbot />` globalmente dentro del router. |
-| `src/features/chatbot/pages/Chatbot.jsx` | Orquesta UI, historial, embedding de consulta, RPC a KB, prompt, streaming SSE y cooldown. |
-| `src/features/chatbot/services/chatbotConfig.js` | Constantes del RAG/LLM, keywords de relevancia, respuesta fuera de tema y system prompt. |
+| `src/features/chatbot/pages/Chatbot.jsx` | Punto de entrada del widget. Lee sesion/bloqueo de examen y compone launcher + ventana usando `useChatbotController`. |
+| `src/features/chatbot/hooks/useChatbotController.js` | Orquesta estado visible, historial conversacional, cooldown, abort controller, RAG, guardrails y streaming. |
+| `src/features/chatbot/components/ChatbotLauncher.jsx` | Boton flotante para abrir/cerrar el asistente. |
+| `src/features/chatbot/components/ChatbotWindow.jsx` | Contenedor visual de header, lista de mensajes e input. |
+| `src/features/chatbot/components/ChatbotHeader.jsx` | Header de la ventana, acciones de expandir/reducir y cerrar. |
+| `src/features/chatbot/components/ChatbotMessages.jsx` | Render de lista de mensajes, burbujas y estado `Analizando...`. |
+| `src/features/chatbot/components/ChatbotInput.jsx` | Formulario controlado de envio, cooldown y estado deshabilitado. |
+| `src/features/chatbot/components/ChatBubble.jsx` | Render de burbujas; mensajes del bot usan Markdown y fuentes RAG opcionales. |
+| `src/features/chatbot/services/chatbotConfig.js` | Constantes del RAG/LLM y re-exports publicos de prompt/guardrails. |
+| `src/features/chatbot/services/chatbotGuardrails.js` | Keywords de dominio, respuestas de bloqueo y regla de "sin contexto activo". |
+| `src/features/chatbot/services/chatbotPrompt.js` | System prompt y armado de mensajes para el LLM. |
+| `src/features/chatbot/services/ragService.js` | Query de embedding, RPC `buscar_contexto_kb` y construccion de contexto/fuentes. |
+| `src/features/chatbot/services/chatCompletionService.js` | POST a Edge Function `chat`, lectura SSE y acumulacion de tokens. |
+| `src/features/chatbot/services/chatbotErrors.js` | Traduccion de errores HTTP/red/RPC a mensajes de usuario. |
+| `src/features/chatbot/services/chatbotMessages.js` | Factory de mensajes visibles e historial `user/assistant`. |
 | `src/features/chatbot/services/embeddingService.js` | Singleton del modelo `Supabase/gte-small` para embeddings de consultas en el navegador. |
-| `src/features/chatbot/components/ChatBubble.jsx` | Render de burbujas; mensajes del bot usan Markdown y fuentes RAG solo si vienen en el mensaje. |
-| `src/features/kb/pages/AdminKB.jsx` | UI admin para carga, extraccion, upload, listado, preview, activacion/desactivacion y borrado de documentos KB. |
+| `src/store/examLockStore.js` | Bloquea el chatbot mientras hay examen activo, incluso entre pestañas del mismo navegador. |
+| `src/features/kb/pages/AdminKB.jsx` | Punto de entrada de Admin KB. Compone formulario, listado y modal usando `useAdminKbController`. |
+| `src/features/kb/hooks/useAdminKbController.js` | Orquesta estado de carga/listado/preview, rollback, reemplazo de duplicados, worker e inserts en Supabase. |
+| `src/features/kb/components/KbUploadPanel.jsx` | Formulario visual de carga por archivo o texto manual, dropzone, progreso y estado. |
+| `src/features/kb/components/KbDocumentList.jsx` | Tabla de documentos subidos, estados de carga/vacio y composicion de filas. |
+| `src/features/kb/components/KbDocumentRow.jsx` | Acciones por documento: preview, descarga, toggle activo/inactivo y borrado. |
+| `src/features/kb/components/KbPreviewModal.jsx` | Modal de detalle: metadata, estado RAG y preview PDF/TXT. |
+| `src/features/kb/services/kbConfig.js` | Constantes de KB: bucket, extensiones, limites, TTL de signed URLs y clave de rollback. |
+| `src/features/kb/services/kbFileUtils.js` | Utilidades puras para extensiones, nombres manuales, storage paths, tamanos y sanitizacion. |
+| `src/features/kb/services/kbDocumentsService.js` | Acceso a tablas `archivos_fuente` y `documentos_kb`: listado, insert, delete, toggle y conteo de chunks. |
+| `src/features/kb/services/kbStorageService.js` | Acceso a Storage `kb-files`: upload, remove y signed URLs. |
+| `src/features/kb/services/kbFileReaderService.js` | Extraccion de texto PDF/TXT/MD y generacion de preview de contenido. |
+| `src/features/kb/services/kbPreviewService.js` | Agrega datos de preview: chunks, signed URL, peso y contenido renderizable. |
+| `src/features/kb/services/kbProcessingService.js` | Envuelve `embeddingWorker` en una promesa y reporta progreso al hook. |
 | `src/features/kb/services/embeddingWorker.js` | Web Worker que chunkifica texto y genera embeddings para los documentos cargados. |
 | `supabase/functions/chat/index.ts` | Edge Function que proxyfica llamadas a Groq y soporta streaming/no streaming. |
 | `supabase/migrations/0001_irridelta_schema.sql` | Schema esperado: tablas KB, funcion de busqueda vectorial, RLS, grants, buckets e indices. |
@@ -177,7 +202,15 @@ Consecuencias:
 
 ### Estado local
 
-`Chatbot.jsx` mantiene:
+`Chatbot.jsx` ya no contiene la logica principal. Solo:
+
+- Lee usuario/rol desde `sessionStore`.
+- Lee bloqueo de examen desde `examLockStore`.
+- Llama `useExamLockSync()` para enterarse de examenes activos en otras pestañas.
+- Crea el controlador con `useChatbotController`.
+- Renderiza `ChatbotLauncher` y `ChatbotWindow`.
+
+`useChatbotController.js` mantiene:
 
 - `input`: texto actual del usuario.
 - `isLoading`: estado de analisis antes o durante procesamiento.
@@ -188,8 +221,9 @@ Consecuencias:
 - `conversationHistory`: historial enviado al LLM, guardado en `useRef`, no en DB.
 - `requestControllerRef`: abort controller para cortar requests al cambiar sesion.
 - `sessionKey`: `${user.id}:${role}`, usado para reiniciar chat si cambia usuario o rol.
+- `isExamInProgressRef`: snapshot del bloqueo de examen para abortar flujos async.
 
-Cuando cambia `sessionKey`, el componente:
+Cuando cambia `sessionKey`, el hook:
 
 - Aborta request activa.
 - Limpia timer de cooldown.
@@ -200,6 +234,13 @@ Cuando cambia `sessionKey`, el componente:
 
 Esto evita mezclar respuestas viejas entre usuarios distintos o despues de un
 cambio de rol.
+
+Cuando `examLockStore` marca examen activo, el hook:
+
+- Aborta request activa.
+- Cierra la ventana.
+- Limpia input, loading y cooldown.
+- Hace que `Chatbot.jsx` devuelva `null` mientras dure el examen.
 
 ### Paso a paso al enviar una consulta
 
@@ -213,6 +254,7 @@ cambio de rol.
    - Para mejorar la busqueda vectorial, concatena los primeros 200 caracteres de
      la ultima respuesta del asistente con el mensaje nuevo.
    - Esto afecta solo al embedding de busqueda, no cambia el mensaje real enviado al LLM.
+   - La regla vive en `ragService.buildEmbeddingQuery()`.
 
 3. **Embedding de consulta**
    - Llama a `embed(queryParaEmbedding)`.
@@ -220,25 +262,33 @@ cambio de rol.
    - El vector resultante tiene 384 dimensiones.
 
 4. **Busqueda semantica en Supabase**
-   - Ejecuta `supabase.rpc("buscar_contexto_kb", ...)`.
+   - `ragService.searchKnowledgeBase()` ejecuta
+     `supabase.rpc("buscar_contexto_kb", ...)`.
    - Parametros actuales:
      - `match_threshold = 0.15`
      - `match_count = 5`
    - El RPC devuelve `contenido`, `metadata` y `similitud`.
 
 5. **Construccion de contexto**
-   - Une todos los `doc.contenido` con separador `---`.
+   - `ragService.buildRagContext()` une todos los `doc.contenido` con separador `---`.
    - Extrae fuentes unicas desde `doc.metadata?.source`.
    - Las fuentes solo se adjuntan al mensaje si `userRole === "admin"`.
 
-6. **Filtro fuera de tema**
-   - Si no hay contexto, no hay historial y el input no contiene ninguna keyword
-     de Irridelta, responde con `OFF_TOPIC_RESPONSE` sin llamar al LLM.
-   - Si hay historial, no bloquea: deja que el system prompt maneje follow-ups.
+6. **Filtro previo al LLM**
+   - Si no hay contexto y el input no contiene ninguna keyword de Irridelta,
+     responde con `OFF_TOPIC_RESPONSE` sin llamar al LLM.
+   - Si no hay contexto pero el input sí es del dominio, responde con
+     `NO_CONTEXT_RESPONSE` sin llamar al LLM. Esto evita que el modelo conteste
+     temas como sistemas de riego con conocimiento general cuando todos los
+     documentos estan inactivos o la busqueda no trajo chunks.
+   - Sin chunks activos, solo se permite llamar al LLM para respuestas que salen
+     del prompt estatico: contacto, sucursales, horarios o informacion basica de
+     Irridelta.
    - Si hay contexto, no bloquea aunque la keyword no este.
+   - La regla vive en `chatbotGuardrails.getGuardrailResponse()`.
 
 7. **Prompt al LLM**
-   - Llama a `buildSystemPrompt(contexto)`.
+   - `chatbotPrompt.buildAssistantMessages()` llama a `buildSystemPrompt(contexto)`.
    - Arma:
      - `system`
      - historial previo
@@ -247,7 +297,8 @@ cambio de rol.
      para detalles tecnicos, reglas de precios y formato Markdown.
 
 8. **Llamada a Edge Function**
-   - POST a `${VITE_SUPABASE_URL}/functions/v1/chat`.
+   - `chatCompletionService.streamAssistantResponse()` hace POST a
+     `${VITE_SUPABASE_URL}/functions/v1/chat`.
    - Headers:
      - `Content-Type: application/json`
      - `Authorization: Bearer ${VITE_SUPABASE_KEY}`
@@ -261,7 +312,7 @@ cambio de rol.
 
 9. **Streaming SSE**
    - La funcion devuelve `text/event-stream`.
-   - El frontend lee con `response.body.getReader()`.
+   - `chatCompletionService` lee con `response.body.getReader()`.
    - Usa `TextDecoder` y un buffer `sseBuffer` para soportar chunks parciales.
    - Por cada linea `data: ...`, parsea JSON y agrega `choices[0].delta.content`.
    - Actualiza la burbuja del bot token por token.
@@ -356,9 +407,19 @@ Riesgo operativo importante:
 
 ## Admin KB
 
+La gestion frontend quedo separada por responsabilidad:
+
+- `AdminKB.jsx` solo arma la pantalla.
+- `useAdminKbController.js` coordina el flujo de usuario y estado React.
+- `kbDocumentsService.js` y `kbStorageService.js` encapsulan Supabase.
+- `kbFileReaderService.js` concentra PDF/TXT/MD y previews.
+- `kbProcessingService.js` encapsula el contrato con el worker.
+- Los componentes `KbUploadPanel`, `KbDocumentList`, `KbDocumentRow` y
+  `KbPreviewModal` renderizan UI sin conocer detalles de base de datos.
+
 ### Carga aceptada
 
-`AdminKB.jsx` acepta:
+La gestion de KB acepta:
 
 - `.pdf`
 - `.md`
@@ -390,6 +451,7 @@ Para PDFs:
 - Recorre todas las paginas.
 - Lee `page.getTextContent()`.
 - Une `item.str` con espacios.
+- La logica vive en `kbFileReaderService.js`.
 
 Para TXT/MD:
 
@@ -421,6 +483,7 @@ kb/{timestamp}_{fileName_sanitizado}
 ```
 
 La sanitizacion del nombre reemplaza caracteres fuera de `[a-zA-Z0-9.-]` por `_`.
+La regla vive en `kbFileUtils.js`.
 
 Para cargas manuales:
 
@@ -449,25 +512,28 @@ nombre y mismo contenido quedan como documentos distintos.
 
 Flujo de escritura:
 
-1. Sube objeto a `kb-files`.
-2. Inserta fila en `archivos_fuente` con:
+1. `useAdminKbController` extrae y sanitiza texto.
+2. `kbStorageService` sube objeto a `kb-files`.
+3. `kbDocumentsService` inserta fila en `archivos_fuente` con:
    - `nombre`
    - `storage_path`
-3. Guarda en `sessionStorage` un marcador `kb_pending_upload`.
-4. Levanta `EmbeddingWorker`.
-5. El worker devuelve `rowsToInsert`.
-6. El frontend agrega `archivo_id` a cada row.
-7. Inserta en masa en `documentos_kb`.
-8. Limpia `kb_pending_upload`.
-9. Resetea UI y refresca la lista.
+4. Guarda en `sessionStorage` un marcador `kb_pending_upload`.
+5. `kbProcessingService` levanta `EmbeddingWorker`.
+6. El worker devuelve `rowsToInsert`.
+7. El frontend agrega `archivo_id` a cada row.
+8. `kbDocumentsService` inserta en masa en `documentos_kb`.
+9. Limpia `kb_pending_upload`.
+10. Resetea UI y refresca la lista.
 
 Rollback:
 
-- Al montar `AdminKB`, si existe `kb_pending_upload`, intenta eliminar el objeto
-  de Storage y el registro `archivos_fuente`.
+- Al montar `useAdminKbController`, si existe `kb_pending_upload`, intenta
+  eliminar el objeto de Storage y el registro `archivos_fuente`.
 - Esto cubre refresh/cierre durante procesamiento.
-- Si falla la insercion de chunks sin desmontar la pantalla, el marcador queda
-  para limpiarse en el siguiente montaje; no hay transaccion atomica Storage + DB.
+- Si falla una carga despues de subir Storage o crear `archivos_fuente`, el hook
+  intenta revertir inmediatamente la carga parcial.
+- No hay transaccion atomica Storage + DB, por lo que siguen siendo utiles las
+  revisiones operativas de objetos o filas huerfanas.
 
 ### Worker de embeddings
 
@@ -479,6 +545,7 @@ Rollback:
 - Usa overlap de 200 caracteres.
 - Intenta cortar en el ultimo salto de linea o punto antes del limite.
 - Si encuentra un corte razonable despues de `i + overlap`, corta ahi.
+- Al llegar al final del texto corta el bucle, para no reingresar por el overlap.
 - Para cada chunk genera embedding normalizado con `pooling: "mean"`.
 - Devuelve filas:
   - `contenido`
@@ -524,7 +591,7 @@ Columnas esperadas:
 | `id` | uuid | PK. |
 | `nombre` | text | Nombre visible y deduplicacion por nombre. |
 | `storage_path` | text | Path en bucket `kb-files`. |
-| `tipo` | text | Campo opcional, no usado de forma central por AdminKB actual. |
+| `tipo` | text | Campo opcional, no usado de forma central por la gestion de KB actual. |
 | `created_at` | timestamptz | Fecha de carga. |
 | `activo` | boolean | Si participa o no del RAG. Default `true`. |
 
@@ -587,7 +654,7 @@ Uso:
 
 - Guarda PDFs/TXT/MD de la base de conocimiento.
 - Es privado.
-- AdminKB genera signed URLs para descargar o preview.
+- `kbStorageService` genera signed URLs para descargar o preview.
 
 Migration local:
 
@@ -692,8 +759,10 @@ Fortalezas:
 - Usa embeddings normalizados y busqueda vectorial.
 - Usa contexto recuperado antes de consultar al LLM.
 - Mantiene historial breve para follow-ups.
-- Tiene filtro fuera de tema previo al LLM si no hay contexto ni historial.
-- El prompt obliga a no inventar detalles tecnicos fuera del contexto.
+- Tiene filtro previo al LLM si no hay contexto activo o el tema esta fuera del
+  alcance.
+- El prompt y el guardrail de frontend obligan a no inventar detalles tecnicos
+  fuera del contexto.
 - Fuentes RAG visibles para admin ayudan a depurar.
 
 Limites:
@@ -819,11 +888,11 @@ Validar despues:
 | Sintoma | Posibles causas | Donde mirar |
 | --- | --- | --- |
 | La app no arranca | Faltan `VITE_SUPABASE_URL` o `VITE_SUPABASE_KEY`. | `src/supabaseClient.js`, env del hosting. |
-| El chatbot no aparece | Usuario no autenticado o session store sin user. | `Chatbot.jsx`, `sessionStore.js`, login. |
+| El chatbot no aparece | Usuario no autenticado, session store sin user o examen activo en esta/otra pestaña. | `Chatbot.jsx`, `sessionStore.js`, `examLockStore.js`, login. |
 | Error "base de conocimientos" | RPC falla, RLS, funcion ausente, embedding invalido. | `buscar_contexto_kb`, Supabase logs, browser console. |
 | Error "asistente no disponible" | Edge Function 5xx, Groq secret ausente, Groq caido. | Edge Function logs, secrets. |
 | Respuestas sin contexto | Documento inactivo, chunks ausentes, PDF sin texto, threshold/no match. | `/admin/kb`, conteo de chunks, RPC manual. |
-| Respuestas fuera de tema | Keywords/contexto demasiado permisivos, historial contamina follow-up. | `chatbotConfig.js`, historial local. |
+| Respuestas fuera de tema | Keywords/contexto demasiado permisivos, historial contamina follow-up. | `chatbotGuardrails.js`, `useChatbotController.js`, historial local. |
 | Upload queda a medias | Refresh/cierre, fallo en worker, fallo insert masivo. | `kb_pending_upload`, `archivos_fuente`, Storage. |
 | Admin no puede subir | RLS/policy `kb-files`, rol admin no en `app_metadata`. | Auth metadata, Storage policies, `is_admin()`. |
 | Cliente ve contenido que no deberia | SELECT authenticated sobre `documentos_kb`. | RLS policies KB. |

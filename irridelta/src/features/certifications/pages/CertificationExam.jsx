@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -7,6 +7,10 @@ import {
   fetchUserCertificationRequest,
 } from "../services/certificationRequestService";
 import { fetchCertificationById } from "../../learning/services/learningContentService";
+import {
+  createExamLockId,
+  useExamAvailabilityLock,
+} from "../../../store/examLockStore";
 import { useSessionStore } from "../../../store/sessionStore";
 import {
   downloadCertificatePdf,
@@ -99,6 +103,7 @@ function CertificationExam() {
   const { certificationId } = useParams();
   const navigate = useNavigate();
   const user = useSessionStore((state) => state.user);
+  const examLockIdRef = useRef(null);
   const [certification, setCertification] = useState(null);
   const [examQuestions, setExamQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
@@ -143,6 +148,15 @@ function CertificationExam() {
     (hasPendingCertificateRequest ||
       hasApprovedCertificateRequest ||
       hasRejectedCertificateRequest);
+
+  if (!examLockIdRef.current) {
+    examLockIdRef.current = createExamLockId("certification-exam");
+  }
+
+  useExamAvailabilityLock(
+    examStarted && stage !== "result" && !result,
+    examLockIdRef.current
+  );
 
   const getFinalAttemptParams = useCallback(() => {
     if (!certification?.id || !certification?.capacitacion_id) {
