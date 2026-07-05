@@ -12,6 +12,7 @@ const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
 const supabaseBin = path.join(projectRoot, "node_modules", ".bin", "supabase");
 const adminEnvFile = ".env.admin.local";
+const protectedProjectRefs = new Set(["vskinwfqtvxwaupefloe"]);
 
 for (const envFile of [".env", adminEnvFile]) {
   const envPath = path.join(projectRoot, envFile);
@@ -41,6 +42,29 @@ const learningStoragePath = `demo/${PDF_FILE_NAME}`;
 const targetProjectRef = requiredEnv("SUPABASE_PROJECT_REF");
 const targetUrl = requiredEnv("SUPABASE_URL").replace(/\/+$/, "");
 const publicManualUrl = `${targetUrl}/storage/v1/object/public/formacion-archivos/${learningStoragePath}`;
+
+function isTruthyEnv(name) {
+  return ["1", "true", "yes"].includes(process.env[name]?.trim().toLowerCase());
+}
+
+function assertSafeSeedTarget() {
+  const targetUrlProjectRef = new URL(targetUrl).hostname.split(".")[0];
+  const isProtectedTarget =
+    protectedProjectRefs.has(targetProjectRef) || protectedProjectRefs.has(targetUrlProjectRef);
+
+  if (isProtectedTarget && !isTruthyEnv("DEMO_SEED_ALLOW_PROTECTED")) {
+    throw new Error(
+      [
+        "Seed demo bloqueado: el target configurado es un proyecto Supabase protegido.",
+        `SUPABASE_PROJECT_REF=${targetProjectRef}`,
+        `SUPABASE_URL=${targetUrl}`,
+        "Usa un proyecto local/staging o define DEMO_SEED_ALLOW_PROTECTED=true solo si queres cargar datos demo deliberadamente.",
+      ].join("\n")
+    );
+  }
+}
+
+assertSafeSeedTarget();
 
 const users = [
   {
@@ -122,6 +146,19 @@ function trueFalse(id, enunciado, respuestaCorrecta) {
   };
 }
 
+function manualResource(id, title, order = 1) {
+  return {
+    id,
+    type: "archivo",
+    title,
+    order,
+    fileName: PDF_FILE_NAME,
+    filePath: learningStoragePath,
+    fileUrl: publicManualUrl,
+    extension: "pdf",
+  };
+}
+
 const trainings = [
   {
     id: "20000000-0000-4000-8000-000000000001",
@@ -137,16 +174,10 @@ const trainings = [
           "Reconocimiento de programadores, valvulas, sectores, emisores, filtros y puntos de control antes de intervenir una instalacion.",
         order: 1,
         resources: [
-          {
-            id: "22000000-0000-4000-8000-000000000001",
-            type: "archivo",
-            title: "Manual tecnico de operaciones de riego",
-            order: 1,
-            fileName: PDF_FILE_NAME,
-            filePath: learningStoragePath,
-            fileUrl: publicManualUrl,
-            extension: "pdf",
-          },
+          manualResource(
+            "22000000-0000-4000-8000-000000000001",
+            "Manual tecnico de operaciones de riego"
+          ),
         ],
         questions: [
           question("res-1-q1", "Que elemento permite dividir una instalacion en sectores independientes?", ["Filtro de arena", "Electrovalvula", "Manometro de piscina", "Ablandador"], 1),
@@ -160,13 +191,10 @@ const trainings = [
           "Checklist de limpieza, prueba de sectores, observacion de cobertura y ajustes de temporada para reducir fallas recurrentes.",
         order: 2,
         resources: [
-          {
-            id: "22000000-0000-4000-8000-000000000002",
-            type: "youtube",
-            title: "Revision visual de sectores y emisores",
-            order: 1,
-            youtubeUrl: "https://www.youtube.com/watch?v=9Vmwsg8Eabo",
-          },
+          manualResource(
+            "22000000-0000-4000-8000-000000000002",
+            "Revision visual de sectores y emisores"
+          ),
         ],
         questions: [
           question("res-2-q1", "Cual es una senal frecuente de filtro obstruido?", ["Aumento sostenido de caudal", "Baja de presion aguas abajo", "Mayor alcance de rotores", "Menor consumo electrico siempre"], 1),
@@ -180,13 +208,10 @@ const trainings = [
           "Metodologia para diferenciar problemas electricos, hidraulicos y de configuracion en sistemas automatizados.",
         order: 3,
         resources: [
-          {
-            id: "22000000-0000-4000-8000-000000000003",
-            type: "youtube",
-            title: "Diagnostico de baja presion en riego",
-            order: 1,
-            youtubeUrl: "https://www.youtube.com/watch?v=1kUE0BZtTRc",
-          },
+          manualResource(
+            "22000000-0000-4000-8000-000000000003",
+            "Diagnostico de baja presion en riego"
+          ),
         ],
         questions: [
           question("res-3-q1", "Si una zona no abre, que conviene verificar primero?", ["Color del cesped", "Alimentacion del solenoide y apertura manual", "Temperatura ambiente", "Marca del aspersor"], 1),
@@ -224,16 +249,10 @@ const trainings = [
           "Como agrupar plantas por requerimiento de agua, exposicion solar y tipo de suelo para evitar exceso o deficit de riego.",
         order: 1,
         resources: [
-          {
-            id: "22000000-0000-4000-8000-000000000004",
-            type: "archivo",
-            title: "Manual tecnico: suelo, capacidad de campo y PMP",
-            order: 1,
-            fileName: PDF_FILE_NAME,
-            filePath: learningStoragePath,
-            fileUrl: publicManualUrl,
-            extension: "pdf",
-          },
+          manualResource(
+            "22000000-0000-4000-8000-000000000004",
+            "Manual tecnico: suelo, capacidad de campo y PMP"
+          ),
         ],
         questions: [
           question("got-1-q1", "Que criterio ayuda a separar sectores de goteo?", ["Color de las macetas", "Tipo de planta y exposicion solar", "Altura del programador", "Marca del filtro"], 1),
@@ -247,13 +266,10 @@ const trainings = [
           "Seleccion de filtros, reguladores y goteros segun calidad de agua, longitud de lineas y caudal requerido.",
         order: 2,
         resources: [
-          {
-            id: "22000000-0000-4000-8000-000000000005",
-            type: "youtube",
-            title: "Armado de cabecera de riego por goteo",
-            order: 1,
-            youtubeUrl: "https://www.youtube.com/watch?v=GJ5rDgmQ7o4",
-          },
+          manualResource(
+            "22000000-0000-4000-8000-000000000005",
+            "Armado de cabecera de riego por goteo"
+          ),
         ],
         questions: [
           question("got-2-q1", "Que componente protege goteros frente a particulas?", ["Filtro", "Control remoto", "Boquilla VAN", "Clorador"], 0),
@@ -291,13 +307,10 @@ const trainings = [
           "Interpretacion de caudal, altura manometrica y perdidas para evitar equipos sobredimensionados o insuficientes.",
         order: 1,
         resources: [
-          {
-            id: "22000000-0000-4000-8000-000000000006",
-            type: "youtube",
-            title: "Conceptos de caudal y altura manometrica",
-            order: 1,
-            youtubeUrl: "https://www.youtube.com/watch?v=4V2Oe4F5KjU",
-          },
+          manualResource(
+            "22000000-0000-4000-8000-000000000006",
+            "Conceptos de caudal y altura manometrica"
+          ),
         ],
         questions: [
           question("bom-1-q1", "Que relacion muestra una curva de bomba?", ["Caudal y altura", "Color y peso", "Precio y marca", "Temperatura y humedad"], 0),
@@ -311,16 +324,10 @@ const trainings = [
           "Uso de presostatos, proteccion por falta de agua, cebado, valvulas de retencion y controles de seguridad.",
         order: 2,
         resources: [
-          {
-            id: "22000000-0000-4000-8000-000000000007",
-            type: "archivo",
-            title: "Guia de chequeo previa a puesta en marcha",
-            order: 1,
-            fileName: PDF_FILE_NAME,
-            filePath: learningStoragePath,
-            fileUrl: publicManualUrl,
-            extension: "pdf",
-          },
+          manualResource(
+            "22000000-0000-4000-8000-000000000007",
+            "Guia de chequeo previa a puesta en marcha"
+          ),
         ],
         questions: [
           question("bom-2-q1", "Que protege a la bomba ante ausencia de agua?", ["Proteccion por marcha en seco", "Boquilla regulable", "Filtro UV", "Malla sombra"], 0),
@@ -358,13 +365,10 @@ const trainings = [
           "Funcion del filtro, bomba, valvula selectora y tiempos de recirculacion segun uso y condiciones ambientales.",
         order: 1,
         resources: [
-          {
-            id: "22000000-0000-4000-8000-000000000008",
-            type: "youtube",
-            title: "Mantenimiento de filtro y bomba de piscina",
-            order: 1,
-            youtubeUrl: "https://www.youtube.com/watch?v=Vmg-0XU3Avc",
-          },
+          manualResource(
+            "22000000-0000-4000-8000-000000000008",
+            "Mantenimiento de filtro y bomba de piscina"
+          ),
         ],
         questions: [
           question("pis-1-q1", "Que equipo retiene particulas durante la recirculacion?", ["Filtro", "Electrovalvula de riego", "Goteros", "Sensor de lluvia"], 0),
@@ -378,16 +382,10 @@ const trainings = [
           "Identificacion de dureza, incrustaciones y uso de ablandadores para proteger instalaciones y equipos.",
         order: 2,
         resources: [
-          {
-            id: "22000000-0000-4000-8000-000000000009",
-            type: "archivo",
-            title: "Referencia tecnica sobre calidad de agua",
-            order: 1,
-            fileName: PDF_FILE_NAME,
-            filePath: learningStoragePath,
-            fileUrl: publicManualUrl,
-            extension: "pdf",
-          },
+          manualResource(
+            "22000000-0000-4000-8000-000000000009",
+            "Referencia tecnica sobre calidad de agua"
+          ),
         ],
         questions: [
           question("pis-2-q1", "Que problema puede asociarse al agua dura?", ["Incrustaciones", "Mayor velocidad de internet", "Cierre de programador", "Cambio de color del cesped siempre"], 0),
@@ -410,29 +408,6 @@ const trainings = [
         trueFalse("cert-pis-q4", "El canasto de la bomba nunca necesita revision.", 1),
       ],
     },
-  },
-];
-
-const curatedKbDocs = [
-  {
-    title: "Criterios de diagnostico en instalaciones de riego",
-    content:
-      "Para diagnosticar baja presion en un sector de riego, Irridelta recomienda verificar primero el filtro, la apertura de la electrovalvula, la existencia de fugas visibles y la presion dinamica durante el funcionamiento. Si el problema afecta solo un sector, suele estar asociado a obturaciones, boquillas, solenoide o perdida en esa linea.",
-  },
-  {
-    title: "Seleccion de bombas para riego",
-    content:
-      "La seleccion de una bomba para riego debe cruzar caudal requerido, altura manometrica total, perdidas de carga, fuente de agua y simultaneidad de sectores. Una bomba sobredimensionada puede trabajar fuera de curva y una insuficiente puede dejar sectores con baja cobertura.",
-  },
-  {
-    title: "Riego por goteo y filtrado",
-    content:
-      "En riego por goteo, el filtrado es critico para evitar obturacion de emisores. Tambien conviene controlar presion de trabajo, longitud de lineas y uniformidad. Los sectores deben agrupar plantas con necesidades hidricas similares y condiciones de exposicion parecidas.",
-  },
-  {
-    title: "Servicios de Irridelta para clientes",
-    content:
-      "Irridelta comercializa productos para riego, bombas, piscinas, tratamiento de agua y jardineria. La empresa acompana proyectos con asesoramiento tecnico, seleccion de componentes, capacitaciones y soporte para mantenimiento preventivo.",
   },
 ];
 
@@ -777,6 +752,110 @@ function assessmentFields(module) {
   ];
 }
 
+function assertUniqueIds(items) {
+  const seen = new Map();
+
+  for (const { id, label } of items) {
+    if (seen.has(id)) {
+      throw new Error(`Seed demo invalido: ID duplicado ${id} en ${seen.get(id)} y ${label}.`);
+    }
+
+    seen.set(id, label);
+  }
+}
+
+function validateQuestionSet(label, questions, requestedCount) {
+  if (!Array.isArray(questions) || questions.length === 0) {
+    throw new Error(`Seed demo invalido: ${label} no tiene preguntas.`);
+  }
+
+  if (requestedCount && requestedCount > questions.length) {
+    throw new Error(
+      `Seed demo invalido: ${label} pide ${requestedCount} preguntas pero solo define ${questions.length}.`
+    );
+  }
+
+  questions.forEach((questionItem) => {
+    if (!questionItem.id || !questionItem.enunciado || !Array.isArray(questionItem.opciones)) {
+      throw new Error(`Seed demo invalido: pregunta incompleta en ${label}.`);
+    }
+
+    if (
+      !Number.isInteger(questionItem.respuesta_correcta) ||
+      questionItem.respuesta_correcta < 0 ||
+      questionItem.respuesta_correcta >= questionItem.opciones.length
+    ) {
+      throw new Error(`Seed demo invalido: respuesta correcta fuera de rango en ${label}.`);
+    }
+  });
+}
+
+function validateSeedData() {
+  const ids = users.map((user) => ({ id: user.id, label: `usuario ${user.email}` }));
+
+  for (const training of trainings) {
+    ids.push({ id: training.id, label: `capacitacion ${training.title}` });
+
+    if (!Array.isArray(training.modules) || training.modules.length === 0) {
+      throw new Error(`Seed demo invalido: ${training.title} no tiene modulos.`);
+    }
+
+    validateQuestionSet(
+      `certificacion ${training.certification.title}`,
+      training.certification.questions,
+      training.certification.questionCount
+    );
+    ids.push({
+      id: training.certification.id,
+      label: `certificacion ${training.certification.title}`,
+    });
+
+    for (const module of training.modules) {
+      ids.push({ id: module.id, label: `modulo ${module.title}` });
+
+      if (!Array.isArray(module.resources) || module.resources.length === 0) {
+        throw new Error(`Seed demo invalido: ${module.title} no tiene recursos.`);
+      }
+
+      validateQuestionSet(
+        `modulo ${module.title}`,
+        module.questions,
+        module.questionCount ?? module.questions.length
+      );
+
+      for (const resource of module.resources) {
+        ids.push({ id: resource.id, label: `recurso ${resource.title}` });
+
+        if (resource.type !== "archivo") {
+          throw new Error(
+            `Seed demo invalido: ${resource.title} usa tipo ${resource.type}. Los recursos demo deben poder marcarse como vistos sin depender de servicios externos.`
+          );
+        }
+
+        if (!resource.fileName || !resource.filePath || !resource.fileUrl || resource.extension !== "pdf") {
+          throw new Error(`Seed demo invalido: recurso de archivo incompleto en ${resource.title}.`);
+        }
+      }
+    }
+  }
+
+  assertUniqueIds(ids);
+}
+
+function validateKbDocs(docs) {
+  if (!Array.isArray(docs) || docs.length === 0) {
+    throw new Error("Seed demo invalido: el PDF no genero documentos KB indexables.");
+  }
+
+  for (const doc of docs) {
+    if (doc.metadata?.source !== PDF_FILE_NAME || doc.metadata?.storage_path !== kbStoragePath) {
+      throw new Error(
+        "Seed demo invalido: la KB demo solo puede indexar documentos asociados al PDF visible en archivos_fuente."
+      );
+    }
+  }
+}
+
 function buildSql(embeddedDocs) {
   const trainingIds = trainings.map((training) => sqlString(training.id)).join(",");
   const moduleIds = trainings
@@ -841,13 +920,10 @@ where user_id = ${userIdSql(user)};
   const resourceRows = trainings
     .flatMap((training) =>
       training.modules.flatMap((module) =>
-        module.resources.map((resource) => {
-          if (resource.type === "archivo") {
-            return `(${sqlString(resource.id)}::uuid, ${sqlString(module.id)}::uuid, 'archivo', ${sqlString(resource.title)}, ${resource.order}, null, ${sqlString(resource.fileUrl)}, ${sqlString(resource.filePath)}, ${sqlString(resource.fileName)}, ${sqlString(resource.extension)}, now())`;
-          }
-
-          return `(${sqlString(resource.id)}::uuid, ${sqlString(module.id)}::uuid, 'youtube', ${sqlString(resource.title)}, ${resource.order}, ${sqlString(resource.youtubeUrl)}, null, null, null, null, now())`;
-        })
+        module.resources.map(
+          (resource) =>
+            `(${sqlString(resource.id)}::uuid, ${sqlString(module.id)}::uuid, 'archivo', ${sqlString(resource.title)}, ${resource.order}, null, ${sqlString(resource.fileUrl)}, ${sqlString(resource.filePath)}, ${sqlString(resource.fileName)}, ${sqlString(resource.extension)}, now())`
+        )
       )
     )
     .join(",\n");
@@ -950,28 +1026,6 @@ where user_id = ${userIdSql(user)};
       attemptId: "30000000-0000-4000-8000-000000000001",
       reviewed: "now() - interval '6 days'",
       reason: null,
-    },
-    {
-      id: "31000000-0000-4000-8000-000000000002",
-      cert: trainings[1].certification,
-      training: trainings[1],
-      user: users[2],
-      status: "pending",
-      percentage: 82,
-      attemptId: null,
-      reviewed: "null",
-      reason: null,
-    },
-    {
-      id: "31000000-0000-4000-8000-000000000003",
-      cert: trainings[2].certification,
-      training: trainings[2],
-      user: users[3],
-      status: "rejected",
-      percentage: 58,
-      attemptId: null,
-      reviewed: "now() - interval '2 days'",
-      reason: "Debe completar la puesta en marcha supervisada antes de emitir el certificado.",
     },
   ]
     .map(
@@ -1219,11 +1273,23 @@ commit;
 }
 
 async function main() {
+  validateSeedData();
+
   if (!fs.existsSync(pdfPath)) {
     throw new Error(`No se encontro el PDF: ${pdfPath}`);
   }
 
   console.log(`PDF: ${pdfPath}`);
+  console.log("Extrayendo texto del PDF...");
+  const pages = await extractPdfPages(pdfPath);
+  const pdfChunks = chunkPdfPages(pages);
+  const docs = pdfChunks;
+  validateKbDocs(docs);
+
+  console.log(`Chunks KB: ${docs.length}`);
+  const embeddedDocs = await embedDocuments(docs);
+  const sql = buildSql(embeddedDocs);
+
   console.log("Subiendo PDF a Storage...");
   await run(supabaseBin, ["storage", "rm", `ss:///kb-files/${kbStoragePath}`, "--linked", "--experimental"], {
     allowFailure: true,
@@ -1257,26 +1323,6 @@ async function main() {
 
   console.log("Creando usuarios demo con Auth Admin temporal...");
   await provisionAuthUsersWithTempFunction();
-
-  console.log("Extrayendo texto del PDF...");
-  const pages = await extractPdfPages(pdfPath);
-  const pdfChunks = chunkPdfPages(pages);
-  const docs = [
-    ...pdfChunks,
-    ...curatedKbDocs.map((doc, index) => ({
-      text: doc.content,
-      metadata: {
-        seed: "demo_2026",
-        source: "demo_irridelta_operaciones",
-        title: doc.title,
-        chunk_index: pdfChunks.length + index,
-      },
-    })),
-  ];
-
-  console.log(`Chunks KB: ${docs.length}`);
-  const embeddedDocs = await embedDocuments(docs);
-  const sql = buildSql(embeddedDocs);
 
   console.log("Aplicando semilla demo en Supabase...");
   await runDbSql(sql);

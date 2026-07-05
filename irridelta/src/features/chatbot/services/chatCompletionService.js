@@ -1,8 +1,4 @@
-import {
-  LLM_MAX_TOKENS,
-  LLM_MODEL,
-  LLM_TEMPERATURE,
-} from "./chatbotConfig";
+import { supabase } from "../../../supabaseClient";
 import { getAssistantHttpErrorMessage } from "./chatbotErrors";
 import { EMPTY_STREAM_RESPONSE } from "./chatbotMessages";
 
@@ -33,21 +29,25 @@ export async function streamAssistantResponse({
 }) {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.access_token) {
+    throw new Error(getAssistantHttpErrorMessage(401));
+  }
 
   const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
     method: "POST",
     signal,
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${supabaseKey}`,
+      "Authorization": `Bearer ${session.access_token}`,
       "apikey": supabaseKey,
     },
     body: JSON.stringify({
-      model: LLM_MODEL,
       messages,
-      temperature: LLM_TEMPERATURE,
-      max_tokens: LLM_MAX_TOKENS,
-      stream: true,
     }),
   });
 
